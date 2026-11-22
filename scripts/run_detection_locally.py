@@ -501,6 +501,25 @@ def run_nb17(paths: dict, runtime: dict) -> dict:
     return result
 
 
+def run_nb17_ledger(paths: dict, runtime: dict) -> dict:
+    """Persist ledger rows/artifacts for every staged grid and direct AdaBoost fit."""
+    train, val, _, _, _ = prepare_tabular(paths)
+    X, y, Xv, yv = train["X"], train["y"], val["X"], val["y"]
+    lineage = params_hash(load_config(ROOT / "config.yaml"))
+    configs = ([{"learning_rate": lr, "n_estimators": 800} for lr in (0.03, 0.1, 0.3, 1.0)]
+               + [{"learning_rate": 1.0, "n_estimators": 50},
+                  {"learning_rate": 1.0, "n_estimators": 758}])
+    result = []
+    for params in configs:
+        fit = fit_classical(ROOT, 17, params, 42, X, y, Xv, yv,
+            score_kind="decision", sample_weight=True, lineage_hash=lineage,
+            device="cpu", thread_count=runtime["torch_threads"])
+        result.append({"params": params, "run_id": fit["run_id"], "f1": fit["f1"],
+                       "roc_auc": fit["roc_auc"], "seconds": fit["seconds"],
+                       "resumed": fit.get("resumed", False), "warnings": fit["warnings"]})
+    return {"notebook": 17, "ledgered_direct_and_grid_fits": result, "test_reads": 0}
+
+
 def run_nb20_mlp(paths: dict, runtime: dict) -> dict:
     import csv
     import joblib
@@ -695,7 +714,7 @@ def run_nb20_combination(paths: dict, runtime: dict) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--phase", choices=("preflight", "10", "11", "12", "13", "14", "15", "16", "17", "18", "20p", "20m", "20c"), default="preflight")
+    parser.add_argument("--phase", choices=("preflight", "10", "11", "12", "13", "14", "15", "16", "17", "17ledger", "18", "20p", "20m", "20c"), default="preflight")
     args = parser.parse_args()
     runtime = local_runtime()
     project = load_project_config(ROOT / "config.yaml")
@@ -712,6 +731,9 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.phase == "17":
         result = run_nb17(project["P"], runtime)
+        print(json.dumps(result, indent=2))
+    elif args.phase == "17ledger":
+        result = run_nb17_ledger(project["P"], runtime)
         print(json.dumps(result, indent=2))
     elif args.phase == "20m":
         result = run_nb20_mlp(project["P"], runtime)
