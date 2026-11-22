@@ -1,0 +1,57 @@
+frontend:
+  preset: project
+  sr: 16000
+  channel: 0
+  n_fft: 1024
+  win_length: 1024
+  hop: 256
+  window: hann
+  center: false
+  n_mels: 64
+  fmin: 50.0
+  fmax: 7500.0
+  mel_scale: htk
+  mel_norm: area
+  power: 2.0
+  amin: 1.0e-12
+  top_db: null
+  resample_quality: HQ
+  L: 0.5
+  mode: global_stats
+  measured_passband_hz: 7550.0
+  passband_status: measured
+  pcen_time_constant: 0.4
+  pcen_gain: 0.98
+  pcen_bias: 2.0
+  pcen_power: 0.5
+  pcen_eps: 1.0e-06
+  pcen_input_scale: 2147483648.0
+  gain_range_db:
+  - -12.0
+  - 12.0
+  near_silent_dbfs: -80.0
+  clipped_peak: 0.999
+  clipped_fraction: 0.01
+  manifest_seed: 42
+  decision_interval_s: 0.5
+  smoothing_windows: 3
+seed: 42
+paths:
+  local:
+    project_root: D:/Work/ML Course Project/Functional Project
+    raw_root: C:/Users/Nasrallah/Downloads/DroneAudioDataset-master
+  colab:
+    project_root: /content/drive/MyDrive/drone-ml-project
+    raw_root: /content/drive/MyDrive/drone-ml-project/data/raw/DroneAudioDataset-master
+cleaning:
+  near_silent_dbfs: -80.0
+  partial_zero_frac: 0.5
+  clipped_frac: 0.01
+  clipped_abs: 0.999
+  dc_abs: 0.01
+split:
+  manifest_hashes:
+    manifest_full: bd2d9059ceda181b0877d9fb371f1d00760d057e2546da79873187832a625142
+    train: 60b14ff205bdd4e950ae0642d5ae886c8b8c4c291cabfedc26ee936d9a3e1afc
+    val: c1c0170fddbd6dfa4d3095eab12abef6572ac45036278ba79cc4c71794dc23fc
+    test: 350356a0b89a84bf6cf77fc4a1ffa36dea662151fbd5d79e66989cdfeec14848
