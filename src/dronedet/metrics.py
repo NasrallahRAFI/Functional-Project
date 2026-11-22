@@ -31,15 +31,19 @@ def choose_f1_threshold(y: Iterable[int], scores: Iterable[float]) -> dict[str, 
     target, values = _binary(y, scores)
     if np.unique(target).size != 2:
         raise ValueError("threshold selection requires both classes")
-    best_f1, best_threshold = -1.0, -np.inf
-    for threshold in np.unique(values):
-        pred = values >= threshold
-        tp = int(np.count_nonzero((target == 1) & pred))
-        fp = int(np.count_nonzero((target == 0) & pred))
-        fn = int(np.count_nonzero((target == 1) & ~pred))
-        f1 = 2 * tp / (2 * tp + fp + fn) if 2 * tp + fp + fn else 0.0
-        if f1 > best_f1 or (f1 == best_f1 and threshold > best_threshold):
-            best_f1, best_threshold = float(f1), float(threshold)
+    order = np.argsort(-values, kind="mergesort")
+    sorted_scores, sorted_target = values[order], target[order]
+    ends = np.r_[np.flatnonzero(np.diff(sorted_scores)) + 1, len(values)] - 1
+    tp = np.cumsum(sorted_target, dtype=np.int64)[ends]
+    predicted_positive = ends + 1
+    fp = predicted_positive - tp
+    fn = int(np.count_nonzero(target == 1)) - tp
+    denominators = 2 * tp + fp + fn
+    f1s = np.divide(2 * tp, denominators, out=np.zeros(len(ends), dtype=float),
+                    where=denominators != 0)
+    # Scores are descending, so the first exact maximum is the larger threshold.
+    best = int(np.argmax(f1s))
+    best_f1, best_threshold = float(f1s[best]), float(sorted_scores[ends[best]])
     auc = float(roc_auc_score(target, values))
     return {"threshold": best_threshold, "f1": best_f1, "roc_auc": auc}
 
