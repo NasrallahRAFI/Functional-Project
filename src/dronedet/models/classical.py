@@ -33,10 +33,9 @@ def build_model(notebook: int, params: dict[str, Any] | None = None, *, seed: in
                                       **{"max_depth": None, "min_samples_leaf": 1,
                                          "criterion": "gini", **p})
     if notebook == 15:
-        return RandomForestClassifier(n_estimators=500, class_weight="balanced", n_jobs=-1,
-                                      random_state=seed,
+        return RandomForestClassifier(n_estimators=500, n_jobs=-1, random_state=seed,
                                       **{"max_features": "sqrt", "min_samples_leaf": 1,
-                                         "max_depth": None, **p})
+                                         "max_depth": None, "class_weight": "balanced", **p})
     if notebook == 16:
         tree = p.pop("estimator", None)
         if tree is None:
@@ -51,8 +50,13 @@ def build_model(notebook: int, params: dict[str, Any] | None = None, *, seed: in
                                   n_estimators=rounds, learning_rate=float(p.pop("learning_rate", 1.0)),
                                   random_state=42, **p)
     if notebook == 18:
+        p.pop("gamma_multiplier", None)
+        p.pop("gamma_scale", None)
         return SVC(class_weight="balanced", probability=False, cache_size=1000,
                    random_state=42, **{"kernel": "rbf", "C": 1.0, **p})
+    if notebook == 20:
+        return Perceptron(class_weight="balanced", penalty=None, max_iter=1000,
+                          tol=1e-3, eta0=1.0, shuffle=True, random_state=seed)
     raise ValueError(f"unsupported classical notebook: {notebook}")
 
 
@@ -75,12 +79,14 @@ def score_kind(notebook: int, *, kernel: str | None = None) -> str:
         return "probability"
     if notebook == 17:
         return "decision"
-    if notebook == 18:
+    if notebook in (18, 20):
         return "decision"
     raise ValueError(f"unsupported classical notebook: {notebook}")
 
 
 def parameter_complexity(estimator) -> int:
+    if hasattr(estimator, "_fit_X"):
+        return int(len(estimator._fit_X))
     if hasattr(estimator, "tree_"):
         return int(estimator.tree_.node_count)
     if hasattr(estimator, "estimators_"):
@@ -116,7 +122,9 @@ def classical_grids() -> dict[int, dict[str, list[dict[str, Any]]]]:
                       for d in (2, 3, 4, 6, 8, None) for m in (1, 5, 20)]},
         15: {"default": [{"max_features": "sqrt", "min_samples_leaf": 1,
                           "max_depth": None, "class_weight": "balanced"}],
-             "grid": ([{"max_features": v, "min_samples_leaf": 1, "max_depth": None,
+             "grid": ([{"max_features": "sqrt", "min_samples_leaf": 1,
+                        "max_depth": None, "class_weight": "balanced"}] +
+                      [{"max_features": v, "min_samples_leaf": 1, "max_depth": None,
                         "class_weight": "balanced"} for v in ("log2", 0.3)] +
                       [{"max_features": "sqrt", "min_samples_leaf": v, "max_depth": None,
                         "class_weight": "balanced"} for v in (3, 5)] +
@@ -124,9 +132,12 @@ def classical_grids() -> dict[int, dict[str, list[dict[str, Any]]]]:
                         "class_weight": "balanced"} for v in (12, 24)] +
                       [{"max_features": "sqrt", "min_samples_leaf": 1, "max_depth": None,
                         "class_weight": "balanced_subsample"}])},
+        16: {"default": [{"max_samples": 1.0, "tree_params": {}}],
+             "grid": [{"max_samples": v, "tree_params": {}} for v in (0.5, 0.8, 1.0)]},
         18: {"linear_default": [{"kernel": "linear", "C": 1.0}],
              "linear": [{"kernel": "linear", "C": c} for c in (0.01, 0.1, 1, 10, 100)],
              "rbf_default": [{"kernel": "rbf", "C": 1.0, "gamma": 1.0}],
              "rbf": [{"kernel": "rbf", "C": c, "gamma": g}
                      for c in (0.01, 0.1, 1, 10, 100) for g in (0.1, 0.3, 1, 3, 10)]},
+        20: {"default": [{}], "grid": [{}]},
     }

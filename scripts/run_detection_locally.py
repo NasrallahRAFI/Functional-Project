@@ -33,6 +33,7 @@ from dronedet.ledger import (package_versions, save_freeze_package, sha256_file,
 from dronedet.metrics import (choose_configuration, choose_f1_threshold,
                               group_bootstrap, metrics_at_threshold)  # noqa: E402
 from dronedet.models.classical import build_model, classical_grids, score_kind  # noqa: E402
+from dronedet.models.mlp import build_mlp, mlp_parameter_count, assert_default_parameter_count  # noqa: E402
 from dronedet.experiments import fit_classical  # noqa: E402
 from dronedet.splits import load_split  # noqa: E402
 
@@ -266,14 +267,29 @@ def run_classical_grid(notebook: int, paths: dict, runtime: dict) -> dict:
     X_val = X_val_scaled if scaled_models else val["X"]
     y_train, y_val = train["y"], val["y"]
     spec = classical_grids()[notebook]
+    if notebook == 16:
+        meta_path = ROOT / "results" / "models" / "14" / "metadata.json"
+        if not meta_path.is_file():
+            raise RuntimeError("NB16 requires the completed NB14 tree freeze")
+        tree_params = json.loads(meta_path.read_text(encoding="utf-8"))["selected_params"]
+        spec = {"default": [{"max_samples": 1.0, "tree_params": {}}],
+                "grid": ([{"max_samples": v, "tree_params": {}} for v in (0.5, 0.8, 1.0)] +
+                         [{"max_samples": v, "tree_params": tree_params} for v in (0.5, 0.8, 1.0)])}
     if notebook == 18:
+        gamma_scale = 1.0 / (X_train.shape[1] * float(np.var(X_train)))
+        rbf = [{**p, "gamma": float(p["gamma"]) * gamma_scale,
+                "gamma_multiplier": float(p["gamma"]), "gamma_scale": gamma_scale}
+               for p in spec["rbf"]]
+        rbf_default = [{**p, "gamma": float(p["gamma"]) * gamma_scale,
+                        "gamma_multiplier": float(p["gamma"]), "gamma_scale": gamma_scale}
+                       for p in spec["rbf_default"]]
         sections = (("linear", spec["linear"], spec["linear_default"]),
-                    ("rbf", spec["rbf"], spec["rbf_default"]))
+                    ("rbf", rbf, rbf_default))
     else:
         sections = ((str(notebook), spec["grid"], spec["default"]),)
     all_sections = {}
     for section, grid, defaults in sections:
-        seeds = (42, 43, 44) if notebook in (11, 15) else (42,)
+        seeds = (42, 43, 44) if notebook in (11, 15, 16, 20) else (42,)
         candidates = []
         for order, params in enumerate(grid):
             runs = [fit_classical(ROOT, notebook, params, seed, X_train, y_train,
@@ -296,7 +312,8 @@ def run_classical_grid(notebook: int, paths: dict, runtime: dict) -> dict:
                       for run in winning_candidate["runs"]}
         f1s = {int(run["run_id"].rsplit("seed", 1)[1]): run["f1"]
                for run in winning_candidate["runs"]}
-        section_name = f"{notebook}_{section}" if notebook == 18 else str(notebook)
+        section_name = (f"{notebook}_{section}" if notebook == 18 else
+                        "20_perceptron" if notebook == 20 else str(notebook))
         package = save_freeze_package(ROOT, section_name, estimators=estimators,
             scaler=scaler if scaled_models else None, thresholds=thresholds,
             validation_f1=f1s, lineage_hash=params_hash(load_config(ROOT / "config.yaml")),
@@ -331,13 +348,249 @@ def run_classical_grid(notebook: int, paths: dict, runtime: dict) -> dict:
             "warnings": [w for run in winning_candidate["runs"] for w in run["warnings"]],
             "test_reads": 0}
     result = {"notebook": notebook, "sections": all_sections, "test_reads": 0}
-    write_run_report(ROOT, str(notebook), result)
+    write_run_report(ROOT, "20_perceptron" if notebook == 20 else str(notebook), result)
+    return result
+
+
+def run_nb14(paths: dict, runtime: dict) -> dict:
+    from sklearn.tree import DecisionTreeClassifier
+    train, val, _, _, _ = prepare_tabular(paths)
+    X, y, Xv, yv = train["X"], train["y"], val["X"], val["y"]
+    lineage = params_hash(load_config(ROOT / "config.yaml"))
+    route_a_params = [{"max_depth": d, "min_samples_leaf": leaf, "criterion": "gini"}
+                      for d in (2, 3, 4, 6, 8, None) for leaf in (1, 5, 20)]
+    route_a = [fit_classical(ROOT, 14, p, 42, X, y, Xv, yv,
+        score_kind="probability", lineage_hash=lineage, thread_count=runtime["torch_threads"])
+        for p in route_a_params]
+    def best_tree(params, runs):
+        return max(zip(params, runs), key=lambda x: (x[1]["f1"], -x[1]["complexity"]))
+    a_params, a_run = best_tree(route_a_params, route_a)
+    entropy_params = {**a_params, "criterion": "entropy"}
+    entropy_run = fit_classical(ROOT, 14, entropy_params, 42, X, y, Xv, yv,
+        score_kind="probability", lineage_hash=lineage, thread_count=runtime["torch_threads"])
+    default_params = {"max_depth": None, "min_samples_leaf": 1, "criterion": "gini"}
+    default = next((r for p, r in zip(route_a_params, route_a) if p == default_params), None)
+    if default is None: raise RuntimeError("NB14 default missing from Route A")
+    path_model = DecisionTreeClassifier(class_weight="balanced", random_state=42)
+    path_model.fit(X, y)
+    alphas = np.asarray(path_model.cost_complexity_pruning_path(X, y).ccp_alphas)
+    alphas = np.unique(alphas[alphas > 0])
+    if len(alphas) > 1: alphas = alphas[:-1]
+    if len(alphas) > 20: alphas = np.geomspace(alphas.min(), alphas.max(), 20)
+    route_b_params = [{"max_depth": None, "min_samples_leaf": 1, "criterion": "gini", "ccp_alpha": float(a)} for a in alphas]
+    route_b = [fit_classical(ROOT, 14, p, 42, X, y, Xv, yv,
+        score_kind="probability", lineage_hash=lineage, thread_count=runtime["torch_threads"])
+        for p in route_b_params]
+    b_params, b_run = best_tree(route_b_params, route_b) if route_b else (None, None)
+    deterministic = True
+    default_info = {"params": default_params, "mean_f1": default["f1"], "sd_f1": 0.0,
+                    "complexity": default["complexity"]}
+    a_info = {"params": entropy_params, "mean_f1": entropy_run["f1"], "complexity": entropy_run["complexity"]}
+    b_info = ({"params": b_params, "mean_f1": b_run["f1"], "complexity": b_run["complexity"]}
+              if b_run else None)
+    a_pass = a_info["mean_f1"] - default_info["mean_f1"] >= 0.01
+    b_pass = b_info is not None and b_info["mean_f1"] - default_info["mean_f1"] >= 0.01
+    chosen = default_info
+    if a_pass: chosen = a_info
+    if b_pass and (not a_pass or b_info["mean_f1"] >= a_info["mean_f1"] + 0.01
+                   or (abs(b_info["mean_f1"] - a_info["mean_f1"]) < 0.01
+                       and b_info["complexity"] < a_info["complexity"])):
+        chosen = b_info
+    if chosen["params"] == default_params: chosen_run = default
+    elif chosen["params"] == entropy_params: chosen_run = entropy_run
+    else: chosen_run = next(r for p, r in zip(route_b_params, route_b) if p == chosen["params"])
+    model = chosen_run["estimator"]
+    threshold, f1 = chosen_run["threshold"], chosen_run["f1"]
+    pkg = save_freeze_package(ROOT, "14", estimators={42: model}, scaler=None,
+        thresholds={42: threshold}, validation_f1={42: f1}, lineage_hash=lineage,
+        tabular_hashes={"train": str(train["tabular_sha256"]), "val": str(val["tabular_sha256"])},
+        metadata={"selected_params": chosen["params"], "route_a_best": a_info,
+                  "route_b_best": b_info, "test_reads": 0})
+    met = metrics_at_threshold(yv, chosen_run["scores"], threshold)
+    card = {"model": "14_decision_tree", "representation": "84 raw tabular features",
+        "best_hyperparameters": chosen["params"], "val_metrics": met, "seeds": [42],
+        "train_time_s": chosen_run["seconds"], "strengths": [], "weaknesses": [],
+        "failure_cases_noted": [], "decision_log_ids": ["D057"], "threshold": threshold,
+        "threshold_rule": "validation F1; ties to larger threshold", "selection_metric": "validation F1",
+        "val_auc": met["roc_auc"], "n_parameters": int(model.tree_.node_count), "grid_searched": True,
+        "tie_with_default": chosen["params"] == default_params,
+        "front_end_hash": lineage}
+    card_path = write_verdict_card(ROOT, "14", card)
+    result = {"notebook": 14, "default_f1": default["f1"], "route_a_best": a_info,
+        "route_b_best": b_info, "selected": chosen, "selected_metrics": met,
+        "artifact": pkg["path"], "verdict_card": str(card_path.relative_to(ROOT)), "test_reads": 0}
+    write_run_report(ROOT, "14", result)
+    return result
+
+
+def run_nb17(paths: dict, runtime: dict) -> dict:
+    from sklearn.ensemble import AdaBoostClassifier
+    from sklearn.tree import DecisionTreeClassifier
+    from sklearn.utils.class_weight import compute_sample_weight
+    train, val, _, _, _ = prepare_tabular(paths)
+    X, y, Xv, yv = train["X"], train["y"], val["X"], val["y"]
+    lineage = params_hash(load_config(ROOT / "config.yaml"))
+    summary, best = [], None
+    staged_default_50 = None
+    sample_weight = compute_sample_weight("balanced", y)
+    for learning_rate in (0.03, 0.1, 0.3, 1.0):
+        model = AdaBoostClassifier(estimator=DecisionTreeClassifier(max_depth=1),
+            n_estimators=800, learning_rate=learning_rate, random_state=42)
+        start = time.perf_counter()
+        model.fit(X, y, sample_weight=sample_weight)
+        elapsed = time.perf_counter() - start
+        staged = []
+        for round_no, scores in enumerate(model.staged_decision_function(Xv), start=1):
+            if learning_rate == 1.0 and round_no == 50:
+                staged_default_50 = np.asarray(scores, dtype=np.float64).copy()
+            choice = choose_f1_threshold(yv, scores)
+            staged.append((choice["f1"], round_no, float(choice["threshold"]),
+                           float(choice["roc_auc"]), np.asarray(scores, dtype=np.float64)))
+        local = max(staged, key=lambda x: (x[0], -x[1]))
+        record = {"learning_rate": learning_rate, "rounds": 800,
+                  "best_f1": local[0], "best_round": local[1], "seconds": elapsed}
+        summary.append(record)
+        if best is None or (local[0], -local[1]) > (best["candidate"][0], -best["candidate"][1]):
+            best = {"params": {"learning_rate": learning_rate, "n_estimators": local[1]},
+                    "candidate": local, "model_800": model, "elapsed": elapsed}
+    default50_model = AdaBoostClassifier(estimator=DecisionTreeClassifier(max_depth=1),
+        n_estimators=50, learning_rate=1.0, random_state=42).fit(X, y, sample_weight=sample_weight)
+    direct50 = default50_model.decision_function(Xv)
+    if staged_default_50 is None: raise RuntimeError("NB17 staged default round 50 was not recorded")
+    staged50 = staged_default_50
+    parity_50 = float(np.max(np.abs(direct50 - staged50)))
+    if parity_50 > 1e-9: raise RuntimeError(f"NB17 direct/staged round-50 parity failed: {parity_50}")
+    default_f1_50 = choose_f1_threshold(yv, staged_default_50)["f1"]
+    if best["candidate"][0] - default_f1_50 < 0.01:
+        default_curve = next(s for lr, s in ((1.0, staged_default_50),))
+        best = {"params": {"learning_rate": 1.0, "n_estimators": 50},
+                "candidate": (default_f1_50, 50,
+                    choose_f1_threshold(yv, default_curve)["threshold"],
+                    choose_f1_threshold(yv, default_curve)["roc_auc"], default_curve),
+                "elapsed": next(r["seconds"] for r in summary if r["learning_rate"] == 1.0)}
+    best_round = best["candidate"][1]
+    frozen = AdaBoostClassifier(estimator=DecisionTreeClassifier(max_depth=1),
+        n_estimators=best_round, learning_rate=best["params"]["learning_rate"], random_state=42)
+    start = time.perf_counter(); frozen.fit(X, y, sample_weight=sample_weight)
+    scores = frozen.decision_function(Xv)
+    parity_chosen = float(np.max(np.abs(scores - best["candidate"][4])))
+    if parity_chosen > 1e-9: raise RuntimeError(f"NB17 selected staged/refit parity failed: {parity_chosen}")
+    selected = choose_f1_threshold(yv, scores)
+    pkg = save_freeze_package(ROOT, "17", estimators={42: frozen}, scaler=None,
+        thresholds={42: selected["threshold"]}, validation_f1={42: selected["f1"]},
+        lineage_hash=lineage, tabular_hashes={"train": str(train["tabular_sha256"]),
+        "val": str(val["tabular_sha256"])}, metadata={"selected_params": best["params"],
+        "staged_grid": summary, "parity_round_50_max_abs": parity_50,
+        "parity_selected_max_abs": parity_chosen, "test_reads": 0})
+    met = metrics_at_threshold(yv, scores, selected["threshold"])
+    card = {"model": "17_adaboost_stumps", "representation": "84 raw tabular features",
+        "best_hyperparameters": best["params"], "val_metrics": met, "seeds": [42],
+        "train_time_s": float(time.perf_counter() - start), "strengths": [], "weaknesses": [],
+        "failure_cases_noted": [], "decision_log_ids": ["D057"], "threshold": selected["threshold"],
+        "threshold_rule": "validation F1; ties to larger threshold", "selection_metric": "validation F1",
+        "val_auc": met["roc_auc"], "n_parameters": best_round, "grid_searched": True,
+        "tie_with_default": not (selected["f1"] - default_f1_50 >= 0.01),
+        "front_end_hash": lineage}
+    card_path = write_verdict_card(ROOT, "17", card)
+    result = {"notebook": 17, "selected": best["params"], "metrics": met,
+        "staged_grid": summary, "default_round_50_f1": default_f1_50,
+        "parity_round_50_max_abs": parity_50,
+        "parity_selected_max_abs": parity_chosen, "artifact": pkg["path"],
+        "verdict_card": str(card_path.relative_to(ROOT)), "test_reads": 0}
+    write_run_report(ROOT, "17", result)
+    return result
+
+
+def run_nb20_mlp(paths: dict, runtime: dict) -> dict:
+    import csv
+    import joblib
+    from dronedet.ledger import append_run
+    from dronedet.metrics import choose_configuration, group_bootstrap
+    from dronedet.training import train_torch_model
+    assert_default_parameter_count()
+    train, val, scaler, Xt, Xv = prepare_tabular(paths)
+    y, yv = train["y"], val["y"]
+    lineage = params_hash(load_config(ROOT / "config.yaml"))
+    specs = []
+    defaults = {"hidden_layers": 2, "width": 64, "dropout": 0.2,
+                "learning_rate": 1e-3, "weight_decay": 1e-2}
+    for key, values in (("hidden_layers", (1, 2)), ("width", (32, 64, 128)),
+                        ("dropout", (0.0, 0.2, 0.5)),
+                        ("learning_rate", (1e-3, 3e-3)),
+                        ("weight_decay", (1e-3, 1e-2, 1e-1))):
+        for value in values:
+            p = dict(defaults); p[key] = value
+            if p not in specs: specs.append(p)
+    if len(specs) != 9: raise AssertionError(f"expected 9 MLP configurations, got {len(specs)}")
+    candidates = []
+    for order, params in enumerate(specs):
+        runs = []
+        for seed in (42, 43, 44):
+            torch.manual_seed(seed)
+            model = build_mlp(hidden_layers=params["hidden_layers"], width=params["width"], dropout=params["dropout"])
+            count = mlp_parameter_count(hidden_layers=params["hidden_layers"], width=params["width"])
+            batch_fn = lambda idx, rng: Xt[idx]
+            fit = train_torch_model(model, batch_fn, Xv, y, yv, seed=seed, batch_size=128,
+                learning_rate=params["learning_rate"], weight_decay=params["weight_decay"],
+                expected_threads=runtime["torch_threads"], lineage_hash=lineage)
+            scores = np.asarray(fit["validation_logits"], dtype=np.float64)
+            selected = choose_f1_threshold(yv, scores)
+            config_id = hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()
+            run_id = f"{config_id}_seed{seed}"
+            model_dir = ROOT / "results" / "models" / "20_mlp"; model_dir.mkdir(parents=True, exist_ok=True)
+            model_path = model_dir / f"fit_{run_id}.pt"
+            if model_path.exists(): raise FileExistsError(model_path)
+            torch.save({"state_dict": fit["state_dict"], "params": params, "seed": seed,
+                        "lineage_hash": lineage, "best_epoch": fit["best_epoch"]}, model_path)
+            artifact_hash = sha256_file(model_path)
+            record = {"notebook": 20, "stage": "mlp", "configuration_id": config_id,
+                "seed": seed, "validation_f1": selected["f1"], "validation_roc_auc": selected["roc_auc"],
+                "threshold": selected["threshold"], "seconds": fit["training_seconds"],
+                "parameter_count": count, "lineage_hash": lineage, "device": "cpu",
+                "thread_count": runtime["torch_threads"], "bit_reproducible": True,
+                "warnings": json.dumps(fit["warnings"]), "code_commit": runtime["code_commit"],
+                "artefact_path": str(model_path.relative_to(ROOT)), "artefact_sha256": artifact_hash,
+                "run_id": run_id}
+            append_run(ROOT, "20_mlp", record, scores)
+            runs.append({**selected, "scores": scores, "seconds": fit["training_seconds"],
+                         "complexity": count, "seed": seed, "model": fit["model"],
+                         "best_epoch": fit["best_epoch"], "history": fit["history"]})
+        vals = [r["f1"] for r in runs]
+        candidates.append({"params": params, "runs": runs, "mean_f1": float(np.mean(vals)),
+            "sd_f1": float(np.std(vals, ddof=1)), "complexity": count, "grid_order": order})
+    default = next(c for c in candidates if c["params"] == defaults)
+    winner = choose_configuration(default, [c for c in candidates if c is not default])
+    selected = next(c for c in candidates if c["params"] == winner["params"])
+    est = {r["seed"]: r["model"] for r in selected["runs"]}
+    thresholds = {r["seed"]: r["threshold"] for r in selected["runs"]}
+    f1s = {r["seed"]: r["f1"] for r in selected["runs"]}
+    pkg = save_freeze_package(ROOT, "20_mlp", estimators=est, scaler=scaler,
+        thresholds=thresholds, validation_f1=f1s, lineage_hash=lineage,
+        tabular_hashes={"train": str(train["tabular_sha256"]), "val": str(val["tabular_sha256"])},
+        metadata={"selected_params": selected["params"], "candidate_means": [
+            {k:v for k,v in c.items() if k != "runs"} for c in candidates], "test_reads": 0})
+    best = max(selected["runs"], key=lambda r: (r["f1"], -r["seed"]))
+    bs = group_bootstrap(yv, best["scores"], val["group"], threshold=best["threshold"], draws=1000, seed=42)
+    met = metrics_at_threshold(yv, best["scores"], best["threshold"])
+    card = {"model": "20_mlp", "representation": "84 standardized tabular features",
+        "best_hyperparameters": selected["params"], "val_metrics": met, "seeds": [42,43,44],
+        "train_time_s": sum(r["seconds"] for r in selected["runs"]), "strengths": [], "weaknesses": [],
+        "failure_cases_noted": [], "decision_log_ids": ["D057"], "threshold": best["threshold"],
+        "threshold_rule": "validation F1; ties to larger threshold", "selection_metric": "validation F1",
+        "val_auc": met["roc_auc"], "n_parameters": int(selected["complexity"]), "grid_searched": True,
+        "tie_with_default": bool(winner.get("tie_with_default")), "front_end_hash": lineage}
+    card_path = write_verdict_card(ROOT, "20_mlp", card)
+    result = {"notebook": "20_mlp", "winner": selected["params"], "metrics": met,
+        "group_bootstrap": bs, "epochs_by_seed": {r["seed"]: r["best_epoch"] for r in selected["runs"]},
+        "candidate_summary": [{k:v for k,v in c.items() if k != "runs"} for c in candidates],
+        "artifact": pkg["path"], "verdict_card": str(card_path.relative_to(ROOT)), "test_reads": 0}
+    write_run_report(ROOT, "20_mlp", result)
     return result
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--phase", choices=("preflight", "10", "11", "12", "13", "15", "18"), default="preflight")
+    parser.add_argument("--phase", choices=("preflight", "10", "11", "12", "13", "14", "15", "16", "17", "18", "20p", "20m"), default="preflight")
     args = parser.parse_args()
     runtime = local_runtime()
     project = load_project_config(ROOT / "config.yaml")
@@ -345,6 +598,18 @@ def main() -> None:
         print(json.dumps(phase0_local(runtime), indent=2))
     elif args.phase == "10":
         result = run_nb10(project["P"], runtime)
+        print(json.dumps(result, indent=2))
+    elif args.phase == "14":
+        result = run_nb14(project["P"], runtime)
+        print(json.dumps(result, indent=2))
+    elif args.phase == "20p":
+        result = run_classical_grid(20, project["P"], runtime)
+        print(json.dumps(result, indent=2))
+    elif args.phase == "17":
+        result = run_nb17(project["P"], runtime)
+        print(json.dumps(result, indent=2))
+    elif args.phase == "20m":
+        result = run_nb20_mlp(project["P"], runtime)
         print(json.dumps(result, indent=2))
     else:
         result = run_classical_grid(int(args.phase), project["P"], runtime)
