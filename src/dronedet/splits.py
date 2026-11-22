@@ -14,6 +14,15 @@ MANIFEST_COLUMNS = ["clip_id", "label", "label_name", "drone_type", "family", "s
                     "kept", "exclusion_reason", "pinned", "split"]
 
 
+class TestAccessError(PermissionError):
+    """Raised when a test artifact is requested outside the final scoring pass."""
+
+
+def guard_test_access(name: str, *, allow_test: bool = False) -> None:
+    if str(name).strip().lower() == "test" and not allow_test:
+        raise TestAccessError("test data is locked until the final comparison pass")
+
+
 def assign_group(m: pd.DataFrame) -> pd.Series:
     """Derive the final group key, including the 13 approved B_S2_D1 blocks."""
     groups = m["group_raw"].copy()
@@ -111,5 +120,8 @@ def write_manifest(df: pd.DataFrame, path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def load_split(paths: dict, name: str) -> pd.DataFrame:
+def load_split(paths: dict, name: str, *, allow_test: bool = False) -> pd.DataFrame:
+    guard_test_access(name, allow_test=allow_test)
+    if name not in {"train", "val", "test"}:
+        raise ValueError(f"unknown split: {name}")
     return pd.read_csv(Path(paths["splits"]) / f"{name}.csv", keep_default_na=False)
