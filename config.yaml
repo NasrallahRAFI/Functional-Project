@@ -18,7 +18,7 @@ frontend:
   resample_quality: HQ
   L: 0.5
   mode: global_stats
-  measured_passband_hz: 7550.0
+  measured_passband_hz: 7540.278697934931
   passband_status: measured
   pcen_time_constant: 0.4
   pcen_gain: 0.98

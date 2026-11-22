@@ -262,6 +262,24 @@ def params_hash(config: FrontEndConfig) -> str:
     return config_hash(config)
 
 
+def cache_content_hash(config: FrontEndConfig) -> str:
+    """Hash only settings that change the stored full-clip mel-power cache.
+
+    Mode and PCEN settings are intentionally excluded: they transform cached
+    power after it has been read and therefore do not change cache contents.
+    Keep this list aligned with ``cache_split_power`` and its audio/front-end
+    helpers.
+    """
+    keys = (
+        "sr", "channel", "n_fft", "win_length", "hop", "window", "center",
+        "n_mels", "fmin", "fmax", "mel_scale", "mel_norm", "power", "L",
+        "resample_quality",
+    )
+    payload = {key: getattr(config, key) for key in keys}
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def ensure_not_raw(path: str | Path, config: dict[str, Any]) -> Path:
     """Create an output parent only after confirming the target is outside raw_root."""
     target = Path(path).resolve()
