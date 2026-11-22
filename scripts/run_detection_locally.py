@@ -588,9 +588,114 @@ def run_nb20_mlp(paths: dict, runtime: dict) -> dict:
     return result
 
 
+def run_nb20_combination(paths: dict, runtime: dict) -> dict:
+    """Apply the registered one-factor acceptance and combination rule C."""
+    from dronedet.ledger import append_run
+    from dronedet.metrics import group_bootstrap, replace_rule
+    from dronedet.training import train_torch_model
+    base_report = json.loads((ROOT / "results/tables/run_report_20_mlp.json").read_text(encoding="utf-8"))
+    candidates = base_report["candidate_summary"]
+    defaults = {"hidden_layers": 2, "width": 64, "dropout": 0.2,
+                "learning_rate": 1e-3, "weight_decay": 1e-2}
+    default = next(c for c in candidates if c["params"] == defaults)
+    factors = ("hidden_layers", "width", "dropout", "learning_rate", "weight_decay")
+    accepted = []
+    for factor in factors:
+        changed = [c for c in candidates if c["params"][factor] != defaults[factor]
+                   and replace_rule(default["mean_f1"], default["sd_f1"], c["mean_f1"])]
+        if changed:
+            accepted.append(max(changed, key=lambda c: (c["mean_f1"], -c["grid_order"])))
+    if len(accepted) < 2:
+        return {"status": "no_combination_required", "accepted_factors": [c["params"] for c in accepted]}
+    combo = dict(defaults)
+    for candidate in accepted:
+        factor = next(k for k in factors if candidate["params"][k] != defaults[k])
+        combo[factor] = candidate["params"][factor]
+    best_single = max(accepted, key=lambda c: (c["mean_f1"], -c["grid_order"]))
+    train, val, scaler, Xt, Xv = prepare_tabular(paths)
+    y, yv = train["y"], val["y"]
+    lineage = params_hash(load_config(ROOT / "config.yaml"))
+    runs = []
+    for seed in (42, 43, 44):
+        torch.manual_seed(seed)
+        model = build_mlp(hidden_layers=combo["hidden_layers"], width=combo["width"], dropout=combo["dropout"])
+        fit = train_torch_model(model, lambda idx, rng: Xt[idx], Xv, y, yv, seed=seed,
+            batch_size=128, learning_rate=combo["learning_rate"], weight_decay=combo["weight_decay"],
+            expected_threads=runtime["torch_threads"], lineage_hash=lineage)
+        scores = np.asarray(fit["validation_logits"], dtype=np.float64)
+        selected = choose_f1_threshold(yv, scores)
+        config_id = hashlib.sha256(json.dumps(combo, sort_keys=True).encode()).hexdigest()
+        run_id = f"{config_id}_seed{seed}"
+        model_dir = ROOT / "results/models/20_mlp"; model_dir.mkdir(parents=True, exist_ok=True)
+        model_path = model_dir / f"fit_{run_id}.pt"
+        if model_path.exists(): raise FileExistsError(model_path)
+        torch.save({"state_dict": fit["state_dict"], "params": combo, "seed": seed,
+                    "lineage_hash": lineage, "best_epoch": fit["best_epoch"]}, model_path)
+        append_run(ROOT, "20_mlp", {"notebook":20,"stage":"mlp_combination",
+            "configuration_id":config_id,"seed":seed,"validation_f1":selected["f1"],
+            "validation_roc_auc":selected["roc_auc"],"threshold":selected["threshold"],
+            "seconds":fit["training_seconds"],"parameter_count":mlp_parameter_count(
+                hidden_layers=combo["hidden_layers"],width=combo["width"]),
+            "lineage_hash":lineage,"device":"cpu","thread_count":runtime["torch_threads"],
+            "bit_reproducible":True,"warnings":json.dumps(fit["warnings"]),
+            "code_commit":runtime["code_commit"],"artefact_path":str(model_path.relative_to(ROOT)),
+            "artefact_sha256":sha256_file(model_path),"run_id":run_id}, scores)
+        runs.append({"seed":seed,"model":fit["model"],"scores":scores,**selected,
+                     "seconds":fit["training_seconds"],"best_epoch":fit["best_epoch"],
+                     "history":fit["history"]})
+    combo_mean = float(np.mean([r["f1"] for r in runs]))
+    combo_sd = float(np.std([r["f1"] for r in runs], ddof=1))
+    passes = (combo_mean - float(best_single["mean_f1"]) > float(best_single["sd_f1"])
+              and combo_mean - float(best_single["mean_f1"]) >= 0.01)
+    winner_name = "combination" if passes else "best_single"
+    winner_params = combo if passes else best_single["params"]
+    if passes:
+        winner_runs = runs
+        estimators={r["seed"]:r["model"] for r in runs}
+        thresholds={r["seed"]:r["threshold"] for r in runs}
+        f1_by_seed={r["seed"]:r["f1"] for r in runs}
+        output_label="20_mlp_combination"
+    else:
+        winner_runs=[]
+        # Existing completed package is the best single accepted candidate.
+        existing = json.loads((ROOT / "results/models/20_mlp/metadata.json").read_text(encoding="utf-8"))
+        if existing["selected_params"] != winner_params:
+            raise RuntimeError("best-single fallback differs from the already frozen MLP package")
+        return {"status":"combination_rejected", "accepted_factors":[c["params"] for c in accepted],
+            "combination_params":combo,"combination_mean_f1":combo_mean,"combination_sd_f1":combo_sd,
+            "best_single_params":winner_params,"best_single_mean_f1":best_single["mean_f1"],
+            "best_single_sd_f1":best_single["sd_f1"],"difference":combo_mean-best_single["mean_f1"],
+            "test_reads":0}
+    package=save_freeze_package(ROOT,output_label,estimators=estimators,scaler=scaler,
+        thresholds=thresholds,validation_f1=f1_by_seed,lineage_hash=lineage,
+        tabular_hashes={"train":str(train["tabular_sha256"]),"val":str(val["tabular_sha256"])},
+        metadata={"selected_params":winner_params,"accepted_factors":[c["params"] for c in accepted],
+                  "combination_mean_f1":combo_mean,"combination_sd_f1":combo_sd,"test_reads":0})
+    best=max(runs,key=lambda r:(r["f1"],-r["seed"]))
+    met=metrics_at_threshold(yv,best["scores"],best["threshold"])
+    bootstrap=group_bootstrap(yv,best["scores"],val["group"],threshold=best["threshold"],draws=1000,seed=42)
+    card={"model":"20_mlp_combination","representation":"84 standardized tabular features",
+        "best_hyperparameters":winner_params,"val_metrics":met,"seeds":[42,43,44],
+        "train_time_s":sum(r["seconds"] for r in runs),"strengths":[],"weaknesses":[],
+        "failure_cases_noted":[],"decision_log_ids":["D057"],"threshold":best["threshold"],
+        "threshold_rule":"validation F1; ties to larger threshold","selection_metric":"validation F1",
+        "val_auc":met["roc_auc"],"n_parameters":mlp_parameter_count(
+            hidden_layers=combo["hidden_layers"],width=combo["width"]),"grid_searched":True,
+        "tie_with_default":False,"front_end_hash":lineage}
+    card_path=write_verdict_card(ROOT,output_label,card)
+    result={"status":"combination_selected","accepted_factors":[c["params"] for c in accepted],
+        "combination_params":combo,"combination_mean_f1":combo_mean,"combination_sd_f1":combo_sd,
+        "best_single_params":best_single["params"],"best_single_mean_f1":best_single["mean_f1"],
+        "best_single_sd_f1":best_single["sd_f1"],"difference":combo_mean-best_single["mean_f1"],
+        "metrics":met,"group_bootstrap":bootstrap,"artifact":package["path"],
+        "verdict_card":str(card_path.relative_to(ROOT)),"test_reads":0}
+    write_run_report(ROOT,"20_mlp_combination",result)
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--phase", choices=("preflight", "10", "11", "12", "13", "14", "15", "16", "17", "18", "20p", "20m"), default="preflight")
+    parser.add_argument("--phase", choices=("preflight", "10", "11", "12", "13", "14", "15", "16", "17", "18", "20p", "20m", "20c"), default="preflight")
     args = parser.parse_args()
     runtime = local_runtime()
     project = load_project_config(ROOT / "config.yaml")
@@ -610,6 +715,9 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.phase == "20m":
         result = run_nb20_mlp(project["P"], runtime)
+        print(json.dumps(result, indent=2))
+    elif args.phase == "20c":
+        result = run_nb20_combination(project["P"], runtime)
         print(json.dumps(result, indent=2))
     else:
         result = run_classical_grid(int(args.phase), project["P"], runtime)
