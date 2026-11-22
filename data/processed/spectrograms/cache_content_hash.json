@@ -1,0 +1,31 @@
+{
+  "cache_content_hash": "6d435113ecb663cc08145c56b34da6def8fda2283acbd2855da02dacfe7360d0",
+  "params_hash": "97544883461de11a1ee51cc17d7028431d6d0ea8f175effc8e63bc18595f28fc",
+  "included_keys": [
+    "sr",
+    "channel",
+    "n_fft",
+    "win_length",
+    "hop",
+    "window",
+    "center",
+    "n_mels",
+    "fmin",
+    "fmax",
+    "mel_scale",
+    "mel_norm",
+    "power",
+    "L",
+    "resample_quality"
+  ],
+  "excluded_keys": [
+    "mode",
+    "pcen_time_constant",
+    "pcen_gain",
+    "pcen_bias",
+    "pcen_power",
+    "pcen_eps",
+    "pcen_input_scale"
+  ],
+  "algorithm": "SHA-256 of canonical JSON with sorted keys"
+}
