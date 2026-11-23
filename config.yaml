@@ -35,6 +35,14 @@ frontend:
   manifest_seed: 42
   decision_interval_s: 0.5
   smoothing_windows: 3
+cnn_frontend:
+  preset: project
+  overrides: {}
+  mode: global_stats
+  params_hash: 97544883461de11a1ee51cc17d7028431d6d0ea8f175effc8e63bc18595f28fc
+  lineage_hash: 327b5e0c54632f3c7e40533d2d0b521faa876cbaf58b8dd8c5bfa57fe9f6b8f0
+  statistics_sha256: 545aa9cfdded3ea9a8aa4fd2053e1b6d55c80329a4cdada1f246571cf1a2e5df
+  selecting_commit: a6655717bd40074da64c1236e57483ab2b8b6f24
 seed: 42
 paths:
   local:
