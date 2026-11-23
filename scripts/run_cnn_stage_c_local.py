@@ -150,6 +150,52 @@ def _passes(candidate: dict, base: dict) -> bool:
     return difference > float(base["sd_f1"]) and difference >= 0.01
 
 
+def _compose_accepted_changes(accepted: list[dict], variants: list[dict]) -> tuple[dict, float, float]:
+    """Combine accepted Stage C factor changes, including width x depth composition.
+
+    Width and depth both affect the channel tuple in ``DroneCNN``. They are
+    separate experimental factors, so their combination scales the selected
+    depth pattern by the selected width ratio instead of treating the two
+    channel tuples as incompatible overrides.
+    """
+    selected_specs = [next(spec for spec in variants
+                           if spec["name"] == candidate["name"])
+                      for candidate in accepted]
+    by_factor = {spec["factor"]: spec for spec in selected_specs}
+    merged_model: dict = {}
+    merged_lr, merged_wd = 1e-3, 1e-2
+
+    width_spec = by_factor.get("channels")
+    depth_spec = by_factor.get("depth")
+    for spec in selected_specs:
+        if "channels" not in spec.get("model", {}):
+            merged_model.update(spec.get("model", {}))
+        elif spec["factor"] not in {"channels", "depth"}:
+            raise RuntimeError(f"unexpected channel override in factor {spec['factor']}")
+        if "learning_rate" in spec:
+            merged_lr = float(spec["learning_rate"])
+        if "weight_decay" in spec:
+            merged_wd = float(spec["weight_decay"])
+
+    if width_spec is not None and depth_spec is not None:
+        width_scales = {"widths_8_16_32": 0.5, "widths_32_64_128": 2.0}
+        depth_patterns = {"depth_2": (16, 32),
+                          "depth_4": (16, 32, 64, 64)}
+        try:
+            scale = width_scales[width_spec["name"]]
+            pattern = depth_patterns[depth_spec["name"]]
+        except KeyError as exc:
+            raise RuntimeError(f"cannot compose width/depth factors for {exc.args[0]}") from exc
+        merged_model["channels"] = tuple(int(round(channel * scale))
+                                          for channel in pattern)
+    elif width_spec is not None:
+        merged_model["channels"] = tuple(width_spec["model"]["channels"])
+    elif depth_spec is not None:
+        merged_model["channels"] = tuple(depth_spec["model"]["channels"])
+
+    return merged_model, merged_lr, merged_wd
+
+
 def main() -> int:
     if os.cpu_count() != 4:
         raise RuntimeError(f"registered CNN runs expect four logical CPUs; found {os.cpu_count()}")
@@ -256,21 +302,8 @@ def main() -> int:
     if len(accepted_by_factor) == 1:
         winner = accepted_by_factor[0]
     elif len(accepted_by_factor) > 1:
-        merged_model: dict = {}
-        merged_lr, merged_wd = 1e-3, 1e-2
-        conflicts = []
-        for candidate in accepted_by_factor:
-            spec = next(v for v in VARIANTS if v["name"] == candidate["name"])
-            for key, value in spec.get("model", {}).items():
-                if key in merged_model and merged_model[key] != value:
-                    conflicts.append({"key": key, "values": [merged_model[key], value]})
-                merged_model[key] = value
-            if "learning_rate" in spec:
-                merged_lr = float(spec["learning_rate"])
-            if "weight_decay" in spec:
-                merged_wd = float(spec["weight_decay"])
-        if conflicts:
-            raise RuntimeError(f"accepted Stage C changes conflict: {conflicts}")
+        merged_model, merged_lr, merged_wd = _compose_accepted_changes(
+            accepted_by_factor, VARIANTS)
         combo_name = "combination_" + "_".join(x["name"] for x in accepted_by_factor)
         combo_rows = []
         for seed in SEEDS:
