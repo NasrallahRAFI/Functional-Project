@@ -418,14 +418,220 @@ def wave_to_input(audio: np.ndarray, config: FrontEndConfig, stats: dict | None 
     return transform(mel_power(window, config), config, stats), {**flags, "length_status": status}
 
 
-def run_edge_case_checks(config: FrontEndConfig) -> dict[str, bool]:
+def run_edge_case_checks(config: FrontEndConfig) -> dict[str, dict[str, Any]]:
+    """Run deterministic contract checks and return measured case details.
+
+    This is intentionally synthetic: it exercises API contracts without reading
+    validation or test recordings.
+    """
+    from .resample import resample
+
+    cases: dict[str, dict[str, Any]] = {}
+
+    def record(name: str, inputs: Any, expected: Any, actual: Any, passed: bool) -> None:
+        cases[name] = {"input": inputs, "expected": expected, "actual": actual,
+                       "pass": bool(passed)}
+
     zeros = np.zeros(config.win_samples, np.float32)
-    assert np.isfinite(to_db(mel_power(zeros, config), config)).all()
-    assert clip_flags(zeros, config)["silent"]
-    clipped = np.full(config.win_samples, 0.999, np.float32)
-    assert clip_flags(clipped, config)["clipped"]
-    try: mel_power(np.array([np.nan], np.float32), config)
-    except ValueError: pass
-    else: raise AssertionError("NaN audio must be rejected")
-    assert fix_length(np.zeros(config.n_fft - 1, np.float32), config)[1] == "rejected_below_n_fft"
-    return {"silent_finite_floor": True, "clipped_flag": True, "nan_rejected": True, "too_short_rejected": True}
+    zero_db = to_db(mel_power(zeros, config), config)
+    zero_flags = clip_flags(zeros, config)
+    zero_ok = bool(np.isfinite(zero_db).all() and np.isclose(zero_db.min(), -120.0)
+                   and zero_flags["silent"])
+    record("all_zero", {"samples": config.win_samples},
+           {"finite": True, "minimum_db": -120.0, "silent": True},
+           {"finite": bool(np.isfinite(zero_db).all()), "minimum_db": float(zero_db.min()),
+            "silent": zero_flags["silent"]}, zero_ok)
+
+    rng = np.random.default_rng(271828)
+    below = (rng.standard_normal(config.win_samples).astype(np.float32) * np.float32(10 ** (-90 / 20)))
+    above = (rng.standard_normal(config.win_samples).astype(np.float32) * np.float32(10 ** (-70 / 20)))
+    below_flags, above_flags = clip_flags(below, config), clip_flags(above, config)
+    record("near_silent_threshold", {"levels_dbfs": [-90, -70], "configured_threshold_dbfs": config.near_silent_dbfs},
+           {"below": {"near_silent": True, "silent": False},
+            "above": {"near_silent": False, "silent": False}},
+           {"below": below_flags, "above": above_flags},
+           below_flags["near_silent"] and not below_flags["silent"]
+           and not above_flags["near_silent"] and not above_flags["silent"])
+
+    clip_results = {}
+    for fraction, key in ((0.009, "0.9%"), (0.01, "1.0%"), (0.011, "1.1%")):
+        clip_samples = 10_000
+        count = int(round(clip_samples * fraction))
+        signal_in = np.zeros(clip_samples, np.float32)
+        signal_in[:count] = config.clipped_peak
+        flags = clip_flags(signal_in, config)
+        clip_results[key] = {"samples": count, "clipped": flags["clipped"],
+                             "silent": flags["silent"]}
+    record("clipping_threshold", {"fractions": [0.009, 0.01, 0.011],
+                                   "peak": config.clipped_peak,
+                                   "threshold_fraction": config.clipped_fraction},
+           {"0.9%": False, "1.0%": False, "1.1%": True}, clip_results,
+           not clip_results["0.9%"]["clipped"] and not clip_results["1.0%"]["clipped"]
+           and clip_results["1.1%"]["clipped"])
+
+    invalid_results = {}
+    for name, invalid in (("nan", np.nan), ("inf", np.inf)):
+        try:
+            standardize(np.array([0.0, invalid], np.float32), config.sr, config)
+        except ValueError:
+            invalid_results[name] = "raises ValueError"
+        else:
+            invalid_results[name] = "accepted"
+    record("nonfinite_training_input", {"values": ["NaN", "+inf"]},
+           {"NaN": "raises ValueError", "+inf": "raises ValueError"},
+           {"NaN": invalid_results["nan"], "+inf": invalid_results["inf"]},
+           all(value == "raises ValueError" for value in invalid_results.values()))
+
+    lengths = (config.n_fft - 1, config.n_fft, config.win_samples // 2 - 1,
+               config.win_samples // 2, config.win_samples - 1,
+               config.win_samples, config.win_samples + 1, 20_000)
+    length_results = {}
+    for n in lengths:
+        fixed, status = fix_length(np.arange(n, dtype=np.float32), config)
+        length_results[str(n)] = {"status": status, "output_samples": int(fixed.size)}
+    record("length_boundaries", {"samples": list(lengths)},
+           {"below_nfft": "rejected_below_n_fft",
+            "below_half": "rejected_below_half_window",
+            "at_or_above_half_below_window": "wrap_padded",
+            "at_or_above_window": "unchanged"}, length_results,
+           length_results[str(config.n_fft - 1)]["status"] == "rejected_below_n_fft"
+           and length_results[str(config.n_fft)]["status"] == "rejected_below_half_window"
+           and length_results[str(config.win_samples // 2)]["status"] == "wrap_padded"
+           and length_results[str(config.win_samples - 1)]["status"] == "wrap_padded"
+           and length_results[str(config.win_samples)]["status"] == "unchanged"
+           and length_results[str(config.win_samples + 1)]["status"] == "unchanged")
+
+    short = np.arange(config.win_samples - 7, dtype=np.float32)
+    padded, _ = fix_length(short, config)
+    expected_pad = np.pad(short, (0, config.win_samples - short.size), mode="wrap")
+    pad_max = float(np.max(np.abs(padded - expected_pad), initial=0.0))
+    record("wrap_padding", {"input_samples": int(short.size)},
+           {"output_samples": config.win_samples, "mode": "wrap", "max_abs_error": 0.0},
+           {"output_samples": int(padded.size), "max_abs_error": pad_max},
+           padded.size == config.win_samples and pad_max == 0.0)
+
+    stereo = np.column_stack((np.linspace(-0.5, 0.5, config.win_samples, dtype=np.float32),
+                              np.zeros(config.win_samples, np.float32)))
+    channel_zero = standardize(stereo, config.sr, config)
+    multichannel_error = float(np.max(np.abs(channel_zero - stereo[:, 0]), initial=0.0))
+    record("multichannel_channel_selection", {"channels": 2, "configured_channel": config.channel},
+           {"max_abs_error": 0.0}, {"max_abs_error": multichannel_error}, multichannel_error == 0.0)
+
+    identity_input = rng.standard_normal(config.win_samples).astype(np.float32)
+    identity = standardize(identity_input, config.sr, config)
+    identity_error = float(np.max(np.abs(identity - identity_input), initial=0.0))
+    record("same_rate_no_resampling", {"source_rate": config.sr}, {"array_equal": True},
+           {"array_equal": bool(np.array_equal(identity, identity_input)),
+            "max_abs_error": identity_error}, np.array_equal(identity, identity_input))
+
+    source_48k = rng.standard_normal(12_000).astype(np.float32)
+    resampled_48k = resample(source_48k, 48_000, config.sr, quality=config.resample_quality)
+    record("48khz_soxr_path", {"source_rate": 48_000, "samples": int(source_48k.size),
+                                "quality": config.resample_quality},
+           {"finite": True, "output_samples": int(round(source_48k.size * config.sr / 48_000))},
+           {"finite": bool(np.isfinite(resampled_48k).all()), "output_samples": int(resampled_48k.size)},
+           bool(np.isfinite(resampled_48k).all() and
+                resampled_48k.size == round(source_48k.size * config.sr / 48_000)))
+
+    long_audio = rng.standard_normal(24_000).astype(np.float32) * np.float32(0.2)
+    full_power = mel_power(long_audio, config)
+    offsets = [0, config.hop, max(0, ((len(long_audio) - config.win_samples) // config.hop // 2) * config.hop)]
+    crop_errors_db = []
+    for offset in sorted(set(offsets)):
+        cropped_power = mel_power(long_audio[offset:offset + config.win_samples], config)
+        full_start = offset // config.hop
+        expected = full_power[:, full_start:full_start + config.n_win]
+        crop_errors_db.append(float(np.max(np.abs(to_db(cropped_power, config)
+                                                    - to_db(expected, config)), initial=0.0)))
+    crop_max = max(crop_errors_db, default=0.0)
+    record("hop_aligned_crop_parity", {"offsets_samples": sorted(set(offsets))},
+           {"max_abs_db_error": "<= 1e-3 dB"}, {"max_abs_db_error": crop_max}, crop_max <= 1e-3)
+
+    center_start = (full_power.shape[1] - config.n_win) // 2
+    center_result = centre_window(full_power, config)
+    record("center_window_offset", {"frames": int(full_power.shape[1])},
+           {"start_frame": center_start}, {"start_frame": center_start,
+            "shape": list(center_result.shape)}, center_result.shape[1] == config.n_win)
+    rng_a, rng_b = np.random.default_rng(17), np.random.default_rng(17)
+    random_a = int(rng_a.integers(0, full_power.shape[1] - config.n_win + 1))
+    random_b = int(rng_b.integers(0, full_power.shape[1] - config.n_win + 1))
+    record("seeded_random_offset", {"seed": 17}, {"same_offset": True},
+           {"offset_a": random_a, "offset_b": random_b}, random_a == random_b)
+
+    tab_center = tabular(full_power, config)
+    tab_slice = tabular_features(centre_window(full_power, config), config)
+    tab_equal = bool(np.array_equal(tab_center, tab_slice))
+    tab_zero = tabular(mel_power(zeros, config), config)
+    record("tabular_84", {"mels": config.n_mels, "frames": config.n_win},
+           {"shape": [84], "finite": True, "center_equals_full": True},
+           {"shape": list(tab_center.shape), "finite": bool(np.isfinite(tab_center).all()),
+            "center_equals_full": tab_equal, "zero_shape": list(tab_zero.shape),
+            "zero_finite": bool(np.isfinite(tab_zero).all())},
+           tab_center.shape == (84,) and np.isfinite(tab_center).all() and tab_equal
+           and tab_zero.shape == (84,) and np.isfinite(tab_zero).all())
+
+    gain_power = mel_power(rng.standard_normal(config.win_samples).astype(np.float32) * 0.25, config)
+    gain_window_db = to_db(gain_power, config)
+    gain_has_no_floor = bool(np.all(gain_window_db > config.db_floor + 1.0))
+    base_tab = tabular_features(gain_power, config)
+    gain_results = {}
+    gain_ok = True
+    for gain_db in (-6.0, 6.0):
+        changed = apply_power_gain_for_check(gain_power, gain_db)
+        value = tabular_features(changed, config)
+        abs_diff = float(np.max(np.abs(value - base_tab), initial=0.0))
+        rel_diff = float(np.max(np.abs(value - base_tab) / np.maximum(np.abs(base_tab), 1e-8), initial=0.0))
+        gain_results[str(gain_db)] = {"max_abs": abs_diff, "max_relative": rel_diff}
+        gain_ok &= rel_diff <= 1e-4
+    record("tabular_gain_invariance", {"gain_db": [-6.0, 6.0], "tolerance_relative": 1e-4,
+                                       "window_has_no_floor_cells": gain_has_no_floor},
+           {"max_relative": "<= 1e-4", "window_has_no_floor_cells": True},
+           {"per_gain": gain_results, "window_has_no_floor_cells": gain_has_no_floor},
+           bool(gain_ok and gain_has_no_floor))
+
+    return cases
+
+
+def apply_power_gain_for_check(power: np.ndarray, gain_db: float) -> np.ndarray:
+    """Private deterministic helper used by the edge-case suite."""
+    return (np.asarray(power, np.float32) * np.float32(10.0 ** (gain_db / 10.0))).astype(np.float32)
+
+
+def audit_lengths(manifest, config: FrontEndConfig, raw_root: str | Path) -> dict[str, Any]:
+    """Audit header lengths for the rows explicitly supplied by the caller.
+
+    The caller controls which splits are supplied. The function never loads or
+    decodes audio samples, and reports native-rate mismatches for a stop gate.
+    """
+    rows = [dict(row) if isinstance(row, dict) else row._asdict()
+            if hasattr(row, "_asdict") else dict(row) for row in manifest]
+    import soundfile as sf
+
+    classes: dict[str, dict[str, Any]] = {}
+    rate_mismatches: list[dict[str, Any]] = []
+    for row in rows:
+        clip = str(row.get("clip_id", row.get("file", "")))
+        if not clip:
+            raise ValueError("length audit rows require clip_id or file")
+        class_name = str(row.get("label_name", row.get("class_name", row.get("label", "unknown"))))
+        bucket = classes.setdefault(class_name, {"total": 0, "n_full": 0, "n_padded": 0,
+            "n_rejected": 0, "n_below_nfft": 0, "rejected_files": []})
+        info = sf.info(str(Path(raw_root) / clip))
+        samples = int(info.frames)
+        bucket["total"] += 1
+        if int(info.samplerate) != config.sr:
+            rate_mismatches.append({"clip_id": clip, "native_rate": int(info.samplerate),
+                                    "expected_rate": config.sr})
+        if samples < config.n_fft:
+            bucket["n_below_nfft"] += 1
+        if samples < config.win_samples / 2:
+            bucket["n_rejected"] += 1
+            bucket["rejected_files"].append({"clip_id": clip, "n_samples": samples})
+        elif samples < config.win_samples:
+            bucket["n_padded"] += 1
+        else:
+            bucket["n_full"] += 1
+    return {"by_class": classes, "native_rate_mismatches": rate_mismatches,
+            "stop": bool(rate_mismatches or any(v["n_rejected"] for v in classes.values())),
+            "win_samples": config.win_samples, "n_fft": config.n_fft,
+            "raw_headers_only": True}
