@@ -16,7 +16,9 @@ import pandas as pd
 import torch
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from dronedet.config import cache_content_hash, config_hash, load_config, params_hash
 from dronedet.features import (centre_window, fix_length, get_window, load_audio,
@@ -69,6 +71,9 @@ def _build_split(split: str, manifest: pd.DataFrame, config, raw_binary: Path,
         record = json.loads(record_path.read_text(encoding="utf-8"))
         if record.get("cache_content_hash") != cache_hash or record.get(f"{split}_manifest_sha256") != manifest_sha:
             raise RuntimeError(f"variant cache provenance mismatch for {split}: {cache_hash}")
+        expected_sha = record.get(f"{split}_array_sha256")
+        if not expected_sha or sha256_file(cache_path) != expected_sha:
+            raise RuntimeError(f"variant cache file hash mismatch for {split}: {cache_path}")
         index = pd.read_csv(index_path, keep_default_na=False)
         cache = np.load(cache_path, mmap_mode="r", allow_pickle=False)
         if list(cache.shape) != record.get(f"{split}_array_shape") or str(cache.dtype) != record.get(f"{split}_array_dtype"):
