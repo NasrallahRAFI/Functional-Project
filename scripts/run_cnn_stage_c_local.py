@@ -42,6 +42,10 @@ VARIANTS = [
     {"name": "pool_2x1", "factor": "pooling", "model": {"pool": (2, 1)}},
     {"name": "flatten_head", "factor": "head", "model": {"head": "flatten"}},
 ]
+SKIPPED_VARIANTS = [
+    "dropout_0", "dropout_0_5", "learning_rate_3e_4",
+    "learning_rate_3e_3", "weight_decay_1e_3", "weight_decay_1e_1",
+]
 
 
 def _fit_seed(name: str, seed: int, model_args: dict, learning_rate: float,
@@ -321,6 +325,12 @@ def main() -> int:
         winner = combo if combo["passes_registered_rule"] else best_single
 
     report = {"stage": "C", "status": "PASS", "test_reads": 0,
+              "scope_amendment": {
+                  "decision": "user decision, 2026-11-23",
+                  "reason": "retain the six completed variants and finish flatten_head; skip variants not yet started",
+                  "skipped_variants": SKIPPED_VARIANTS,
+                  "skipped_before_start": True,
+                  "selection_eligible_variants": [spec["name"] for spec in VARIANTS]},
               "frontend_params_hash": params_hash(config),
               "statistics_lineage_hash": lineage_hash,
               "stats_eligible_train_clips": eligible_count, "excluded_train_clips": 88,
