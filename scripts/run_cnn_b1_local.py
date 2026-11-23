@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import torch
 from sklearn.metrics import f1_score
+import yaml
 
 from dronedet.config import config_hash, load_config, params_hash
 from dronedet.features import (centre_window, fix_length, get_window, load_audio,
@@ -283,7 +284,8 @@ def main() -> int:
         train_cache[:, int(row.start_frame):int(row.start_frame)+int(row.n_frames)], config)
         for row in eligible.itertuples(index=False)]).astype(np.float32)
     # Use the actual extracted dataset root corresponding to the locally configured raw root.
-    configured_raw = Path(r"C:\Users\Nasrallah\Downloads\DroneAudioDataset-master")
+    project_yaml = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
+    configured_raw = Path(project_yaml["paths"]["local"]["raw_root"]).resolve()
     val_powers, y_val = _validation_windows(config, val_index, val_cache, val_manifest,
                                              configured_raw)
     y_train = train_manifest.label.to_numpy(dtype=np.float32)
