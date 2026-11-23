@@ -170,6 +170,12 @@ class FrontEndConfig:
             "margin_bins": lowest_half_width / bin_spacing,
         }
 
+    def validate(self) -> dict[str, float | int]:
+        """Validate the runnable front end; logstft remains a deferred mode."""
+        if self.mode == "logstft":
+            raise ValueError("logstft is deferred (FE4.2), needs its own 513-bin cache")
+        return self.validate_filterbank()
+
     def validate_cache_write(self, *, logged_override: str | None = None) -> None:
         if self.passband_status == "measured":
             return
@@ -251,7 +257,7 @@ def load_project_config(path: str | Path) -> dict[str, Any]:
 def validate_frontend(config: FrontEndConfig, passband_limit_hz: float | None = None) -> dict[str, float | int]:
     if passband_limit_hz is not None and config.fmax > passband_limit_hz:
         raise ValueError("fmax exceeds the measured resampler passband")
-    details = config.validate_filterbank()
+    details = config.validate()
     return {"min_nonzero_bins": details["minimum_nonzero_bins"],
             "lowest_filter_margin": round(float(details["margin_bins"]), 3),
             "n_win": config.n_win, "win_samples": config.win_samples}
@@ -297,7 +303,7 @@ def config_hash(config: FrontEndConfig, stats: dict[str, Any] | None = None) -> 
     if stats is not None:
         for key in ("mean", "std"):
             if key in stats:
-                digest.update(np.asarray(stats[key], dtype=np.float32).tobytes())
+                digest.update(np.asarray(stats[key], dtype="<f4").tobytes())
     return digest.hexdigest()
 
 
