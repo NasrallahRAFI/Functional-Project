@@ -299,7 +299,20 @@ def ensure_not_raw(path: str | Path, config: dict[str, Any]) -> Path:
 def config_hash(config: FrontEndConfig, stats: dict[str, Any] | None = None) -> str:
     payload = asdict(config)
     payload.update(n_win=config.n_win, win_samples=config.win_samples, F_MAX=config.fmax, mode=config.mode)
-    digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+
+    def json_value(value: Any) -> Any:
+        if isinstance(value, np.generic):
+            return value.item()
+        if isinstance(value, tuple):
+            return [json_value(item) for item in value]
+        if isinstance(value, list):
+            return [json_value(item) for item in value]
+        if isinstance(value, dict):
+            return {str(key): json_value(item) for key, item in value.items()}
+        return value
+
+    digest = hashlib.sha256(json.dumps(json_value(payload), sort_keys=True,
+                                      separators=(",", ":")).encode("utf-8"))
     if stats is not None:
         for key in ("mean", "std"):
             if key in stats:

@@ -67,6 +67,15 @@ class FrontendHashContractTests(unittest.TestCase):
                          json.dumps(dict(reversed(list(payload.items()))), sort_keys=True,
                                     separators=(",", ":")))
 
+    def test_numpy_scalars_match_python_scalars(self):
+        altered = copy.copy(self.config)
+        for name in ("sr", "n_fft", "hop", "n_mels", "manifest_seed"):
+            object.__setattr__(altered, name, np.int64(getattr(self.config, name)))
+        for name in ("fmin", "fmax", "power", "pcen_gain", "pcen_input_scale"):
+            object.__setattr__(altered, name, np.float64(getattr(self.config, name)))
+        object.__setattr__(altered, "gain_range_db", tuple(np.float64(x) for x in self.config.gain_range_db))
+        self.assertEqual(config_hash(self.config), config_hash(altered))
+
 
 if __name__ == "__main__":
     unittest.main()
