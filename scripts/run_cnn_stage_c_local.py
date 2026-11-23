@@ -162,6 +162,12 @@ def main() -> int:
     b2 = json.loads((ROOT / "results/tables/run_report_30_local_b2.json").read_text())
     if b2.get("status") != "PASS" or b2.get("selection", {}).get("accepted"):
         raise RuntimeError("Stage C requires completed B2 with no accepted front-end variant")
+    b3_path = ROOT / "results/tables/run_report_30_local_b3.json"
+    if not b3_path.is_file():
+        raise FileNotFoundError("Stage C requires the completed local B3 control report")
+    b3 = json.loads(b3_path.read_text(encoding="utf-8"))
+    if b3.get("status") != "PASS" or b3.get("test_reads") != 0:
+        raise RuntimeError("Stage C requires a passing B3 control with zero test reads")
     frozen_path = ROOT / "results/tables/cnn_frontend_frozen.json"
     if not frozen_path.is_file():
         raise FileNotFoundError("Stage C requires results/tables/cnn_frontend_frozen.json")
