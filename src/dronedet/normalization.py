@@ -72,7 +72,20 @@ class Normalizer:
         if not values: raise ValueError("no eligible training clips for normalization")
         if config.mode == "global_stats":
             joined = np.concatenate(values, axis=1)
-            mean, std = joined.mean(axis=1), joined.std(axis=1)
+            # Floor-clamped dB cells carry the mel-normalization-dependent
+            # amin offset into otherwise per-band-invariant statistics. Keep
+            # the train-clip eligibility rule, and additionally omit cells at
+            # the configured power_to_db floor from each band's moments.
+            floor_db = 10.0 * float(np.log10(config.amin))
+            floor_epsilon_db = 1e-6
+            mean = np.empty(config.n_mels, dtype=np.float64)
+            std = np.empty(config.n_mels, dtype=np.float64)
+            for band in range(config.n_mels):
+                cells = joined[band, joined[band] > floor_db + floor_epsilon_db]
+                if cells.size == 0:
+                    raise ValueError(f"mel band {band} has no non-floor training cells")
+                mean[band] = cells.mean(dtype=np.float64)
+                std[band] = cells.std(dtype=np.float64)
         else:
             joined = np.concatenate([v.ravel() for v in values])
             mean, std = float(joined.mean()), float(joined.std())
