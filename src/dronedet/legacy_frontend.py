@@ -143,7 +143,7 @@ class FrontEndConfig:
             htk=self.mel_scale == "htk",
         )
         spacing = self.sample_rate / self.n_fft
-        half_width = float((edges[2] - edges[0]) / 2)
+        half_width = float(edges[1] - edges[0])
         if half_width < spacing:
             raise ValueError("lowest mel filter half-width is below one FFT bin")
         return {"minimum_nonzero_bins": int(counts.min()), "lowest_half_width_hz": half_width,
@@ -230,10 +230,13 @@ class FrontEnd:
             x = x[start:start + cfg.win_samples]
         power = self.power(x)
         if cfg.mode == "pcen":
-            from .legacy_normalization import pcen
-            result, _ = pcen(np.sqrt(power) * cfg.pcen_input_scale,
-                             s=1.0 - np.exp(-cfg.hop / (cfg.sample_rate * cfg.pcen_time_constant)),
-                             alpha=cfg.pcen_gain, delta=cfg.pcen_bias, r=cfg.pcen_power, eps=cfg.pcen_eps)
+            magnitude = np.sqrt(power) * np.float32(cfg.pcen_input_scale)
+            smoother = 1.0 - np.exp(-cfg.hop / (cfg.sample_rate * cfg.pcen_time_constant))
+            zi = ((1.0 - smoother) * magnitude.mean(axis=-1, keepdims=True)).astype(np.float32)
+            result = librosa.pcen(magnitude, sr=cfg.sample_rate, hop_length=cfg.hop,
+                                  time_constant=cfg.pcen_time_constant, gain=cfg.pcen_gain,
+                                  bias=cfg.pcen_bias, power=cfg.pcen_power, eps=cfg.pcen_eps,
+                                  b=smoother, zi=zi, axis=-1)
             if stats is None:
                 raise ValueError("PCEN scalar training statistics are required")
             result = (result - float(stats["mean"])) / float(stats["std"])

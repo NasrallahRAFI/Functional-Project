@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 import numpy as np
-import librosa
 import warnings
 
 warnings.warn("dronedet.legacy_normalization is deprecated; use dronedet.features", DeprecationWarning, stacklevel=2)
@@ -182,29 +181,3 @@ def spec_augment(
             start = int(rng.integers(0, n_frames - width + 1))
             spectrogram[:, start:start + width] = 0.0
     return result
-
-
-def pcen(
-    mel_power: np.ndarray,
-    s: float = 0.025,
-    alpha: float = 0.98,
-    delta: float = 2.0,
-    r: float = 0.5,
-    eps: float = 1e-6,
-    state: np.ndarray | None = None,
-    init: str = "window_mean",
-) -> tuple[np.ndarray, np.ndarray]:
-    energy = np.asarray(mel_power, dtype=np.float32)
-    if energy.ndim != 2 or not 0 < s <= 1 or eps <= 0 or delta < 0 or r <= 0 or init not in {"window_mean", "first_frame"}:
-        raise ValueError("invalid PCEN input or parameters")
-    if not np.all(np.isfinite(energy)) or np.any(energy < 0):
-        raise ValueError("mel power must be finite and nonnegative")
-    previous = (energy.mean(axis=1) if init == "window_mean" else energy[:, 0]).astype(np.float32) if state is None and energy.shape[1] else (np.zeros(energy.shape[0],np.float32) if state is None else np.asarray(state,dtype=np.float32).copy())
-    if previous.shape != (energy.shape[0],):
-        raise ValueError("PCEN state shape does not match mel bins")
-    if energy.shape[1] == 0:
-        return np.empty_like(energy), previous
-    zi = ((1.0 - s) * previous[:, None]).astype(np.float32)
-    result, zf = librosa.pcen(energy, sr=16_000, hop_length=256, gain=alpha, bias=delta,
-        power=r, eps=eps, b=s, zi=zi, return_zf=True, axis=-1)
-    return np.asarray(result,np.float32), np.asarray(zf[:,0],np.float32)

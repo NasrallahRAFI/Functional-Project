@@ -12,6 +12,7 @@ import numpy as np
 import soundfile as sf
 
 from .config import FrontEndConfig, cache_content_hash
+from .cache_metadata import verify_array_metadata, verify_cache_sidecar
 from .resample import resample
 from .splits import guard_test_access
 
@@ -230,8 +231,17 @@ def load_tabular(paths: dict, name: str, *, allow_test: bool = False) -> dict[st
     if name not in {"train", "val", "test"}:
         raise ValueError(f"unknown split: {name}")
     archive_path = Path(paths["tab"]) / f"{name}.npz"
+    root = Path(paths["root"])
+    from .config import load_config, params_hash
+    config = load_config(root / "config.yaml")
+    train_manifest_path = Path(paths["splits"]) / "train.csv"
+    train_manifest_sha = hashlib.sha256(train_manifest_path.read_bytes()).hexdigest()
+    current_hash = params_hash(config)
+    sidecar = verify_cache_sidecar(archive_path, frontend_params_hash=current_hash,
+                                   train_manifest_sha256=train_manifest_sha)
     with np.load(archive_path, allow_pickle=False) as archive:
         data = {key: archive[key] for key in archive.files}
+    verify_array_metadata(sidecar, shape=data["X"].shape, dtype=data["X"].dtype)
     manifest_path = Path(paths["splits"]) / f"{name}.csv"
     index_path = Path(paths["spec"]) / f"index_{name}.csv"
     import pandas as pd
@@ -269,9 +279,6 @@ def load_tabular(paths: dict, name: str, *, allow_test: bool = False) -> dict[st
             excluded_record = int(stats["clips_excluded"])
         if int(data["stats_exclude"].sum()) != excluded_record:
             raise ValueError("train stats_exclude does not match norm_stats_global.npz")
-    root = Path(paths["root"])
-    from .config import load_config, params_hash
-    current_hash = params_hash(load_config(root / "config.yaml"))
     frontend_record = json.loads((Path(paths["spec"]) / "frontend_hash.json").read_text(encoding="utf-8"))
     if frontend_record.get("params_hash") != current_hash:
         raise ValueError(f"{name}: front-end lineage hash mismatch")
@@ -312,11 +319,16 @@ def load_power_cache(paths: dict, name: str, *, allow_test: bool = False,
     guard_test_access(name, allow_test=allow_test)
     if name not in {"train", "val", "test"}:
         raise ValueError(f"unknown split: {name}")
-    cache = np.load(Path(paths["spec"]) / f"mel_power_{name}.npy",
+    cache_path = Path(paths["spec"]) / f"mel_power_{name}.npy"
+    from .config import load_config, params_hash
+    config = load_config(Path(paths["root"]) / "config.yaml")
+    train_manifest_sha = hashlib.sha256((Path(paths["splits"]) / "train.csv").read_bytes()).hexdigest()
+    sidecar = verify_cache_sidecar(cache_path, frontend_params_hash=params_hash(config),
+                                   train_manifest_sha256=train_manifest_sha)
+    cache = np.load(cache_path,
                     mmap_mode=mmap_mode, allow_pickle=False)
     record_path = Path(paths["spec"]) / "cache_content_hash.json"
-    from .config import cache_content_hash, load_config
-    config = load_config(Path(paths["root"]) / "config.yaml")
+    from .config import cache_content_hash
     if record_path.is_file():
         record = json.loads(record_path.read_text(encoding="utf-8"))
         actual = cache_content_hash(config)
@@ -324,6 +336,7 @@ def load_power_cache(paths: dict, name: str, *, allow_test: bool = False,
             raise ValueError(f"{name}: cache content hash mismatch")
     if cache.ndim != 2 or cache.shape[0] != config.n_mels or cache.dtype != np.float32:
         raise ValueError(f"{name}: invalid mel-power cache shape or dtype")
+    verify_array_metadata(sidecar, shape=cache.shape, dtype=cache.dtype)
     return cache
 
 

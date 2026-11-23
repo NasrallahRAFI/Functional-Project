@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import librosa
 
 from .legacy_frontend import FrontEnd
 
@@ -30,9 +31,14 @@ def save_spectrogram(
         matrix = frontend.linear_log_stft(x)
         y_label = "Frequency bin"
     elif representation == "pcen":
-        from .legacy_normalization import pcen
-
-        matrix, _ = pcen(frontend.power(x))
+        cfg = frontend.config
+        magnitude = np.sqrt(frontend.power(x)) * np.float32(cfg.pcen_input_scale)
+        smoother = 1.0 - np.exp(-cfg.hop / (cfg.sample_rate * cfg.pcen_time_constant))
+        zi = ((1.0 - smoother) * magnitude.mean(axis=-1, keepdims=True)).astype(np.float32)
+        matrix = librosa.pcen(magnitude, sr=cfg.sample_rate, hop_length=cfg.hop,
+                              time_constant=cfg.pcen_time_constant, gain=cfg.pcen_gain,
+                              bias=cfg.pcen_bias, power=cfg.pcen_power, eps=cfg.pcen_eps,
+                              b=smoother, zi=zi, axis=-1)
         y_label = "Mel bin"
     else:
         raise ValueError("representation must be log_mel, linear_log_stft, or pcen")
