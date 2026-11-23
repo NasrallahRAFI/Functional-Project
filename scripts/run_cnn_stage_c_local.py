@@ -31,6 +31,8 @@ from scripts.run_cnn_b1_local import SEEDS, _batch_transform, _load_a0_state
 ROOT = Path.cwd().resolve()
 EXPECTED_FRONTEND_HASH = "97544883461de11a1ee51cc17d7028431d6d0ea8f175effc8e63bc18595f28fc"
 EXPECTED_STATS_HASH = "327b5e0c54632f3c7e40533d2d0b521faa876cbaf58b8dd8c5bfa57fe9f6b8f0"
+# Reduced Stage C scope: retain the six completed variants and flatten_head;
+# omit the six not-yet-started dropout and optimizer variants per user decision.
 VARIANTS = [
     {"name": "widths_8_16_32", "factor": "channels", "model": {"channels": (8, 16, 32)}},
     {"name": "widths_32_64_128", "factor": "channels", "model": {"channels": (32, 64, 128)}},
@@ -39,12 +41,6 @@ VARIANTS = [
     {"name": "kernel_5", "factor": "first_kernel", "model": {"kernel_size": 5}},
     {"name": "pool_2x1", "factor": "pooling", "model": {"pool": (2, 1)}},
     {"name": "flatten_head", "factor": "head", "model": {"head": "flatten"}},
-    {"name": "dropout_0", "factor": "dropout", "model": {"dropout": 0.0}},
-    {"name": "dropout_0_5", "factor": "dropout", "model": {"dropout": 0.5}},
-    {"name": "learning_rate_3e_4", "factor": "learning_rate", "learning_rate": 3e-4},
-    {"name": "learning_rate_3e_3", "factor": "learning_rate", "learning_rate": 3e-3},
-    {"name": "weight_decay_1e_3", "factor": "weight_decay", "weight_decay": 1e-3},
-    {"name": "weight_decay_1e_1", "factor": "weight_decay", "weight_decay": 1e-1},
 ]
 
 
