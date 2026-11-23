@@ -246,19 +246,26 @@ def run_all_frontend_checks() -> dict[str, Any]:
         raise RuntimeError(f"record consistency check failed: {consistency['mismatches']}")
 
     commit, dirty = _git_state()
+    tag_commit = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "-q", "--verify",
+                                 "refs/tags/frontend-core-frozen^{commit}"],
+                                capture_output=True, text=True)
+    tag_state = {"present": tag_commit.returncode == 0,
+                 "commit": tag_commit.stdout.strip() if tag_commit.returncode == 0 else None}
+    tag_state["points_to_current_commit"] = bool(tag_state["present"] and tag_state["commit"] == commit)
+    g12_status = "PASS" if tag_state["points_to_current_commit"] else "PENDING_GIT_CLOSEOUT_AND_TAG"
     gate_table = {
         "G1/W7": "PASS", "G2": "PASS", "G3": checks["G3_length_audit"]["status"],
         "G4": checks["G4_edge_cases"]["status"], "G5": "PASS", "G6": "PASS", "G7": "PASS",
         "G8": "PASS", "G9": "PASS", "G10": "PASS", "G11": "PASS",
-        "G12": "PENDING_GIT_CLOSEOUT_AND_TAG", "G13": "PASS", "G14": "PASS"}
+        "G12": g12_status, "G13": "PASS", "G14": "PASS"}
     return {"generated_utc": datetime.now(timezone.utc).isoformat(),
             "git_commit": commit, "git_dirty": dirty,
             "config_hash": current_hash, "frontend_params_hash": parameters_hash,
             "fmax": config.fmax, "measured_passband_hz": config.measured_passband_hz,
             "library_versions": _versions(), "platform": platform.platform(),
-            "gate_table": gate_table, "checks": checks,
+            "gate_table": gate_table, "freeze_tag": tag_state, "checks": checks,
             "superseded_records": prior.get("superseded_records", []),
-            "status": "PASS_PENDING_G12"}
+            "status": "PASS" if g12_status == "PASS" else "PASS_PENDING_G12"}
 
 
 def main() -> None:
