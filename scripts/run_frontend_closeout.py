@@ -174,15 +174,22 @@ def run_all_frontend_checks() -> dict[str, Any]:
         "train_validation_loader_smoke": smoke, "test_array_payload_read": False}
 
     prior = json.loads((paths["interim"] / "frontend_checks.json").read_text(encoding="utf-8"))
-    checks["G2_masked_statistics"] = prior["g2_floor_cell_masked"]
-    checks["G5_normalizer_contracts"] = prior["g5_fe4_contracts"]
+    prior_checks = prior.get("checks", {})
+    g2_prior = prior.get("g2_floor_cell_masked", prior_checks.get("G2_masked_statistics"))
+    g5_prior = prior.get("g5_fe4_contracts", prior_checks.get("G5_normalizer_contracts"))
+    if not g2_prior or not g5_prior:
+        raise RuntimeError("W9 requires prior closed G2 and G5 evidence")
+    checks["G2_masked_statistics"] = g2_prior
+    checks["G5_normalizer_contracts"] = g5_prior
     if checks["G2_masked_statistics"].get("status") != "PASS" or checks["G5_normalizer_contracts"].get("status") != "PASS":
         raise RuntimeError("recorded G2/G5 outcomes are not passing")
 
     pcen_check = _pcen_match_check(config)
-    checks["G6_pcen"] = {**prior["g6_pcen"], "matched_comparison": pcen_check,
-                         "q6_scaling": prior["q6_pcen_scaling"],
-                         "helper_callsite_audit": prior["pcen_helper_callsite_audit"]}
+    g6_prior = prior.get("g6_pcen", prior_checks.get("G6_pcen", {}))
+    checks["G6_pcen"] = {**g6_prior, "matched_comparison": pcen_check,
+                         "q6_scaling": prior.get("q6_pcen_scaling", g6_prior.get("q6_scaling")),
+                         "helper_callsite_audit": prior.get("pcen_helper_callsite_audit",
+                             g6_prior.get("helper_callsite_audit"))}
     if pcen_check["status"] != "PASS":
         raise RuntimeError("matched PCEN formula check failed")
 
@@ -203,7 +210,7 @@ def run_all_frontend_checks() -> dict[str, Any]:
     checks["G8_bundle_tamper"] = run_bundle_rejection_checks(paths["golden"] / "frontend_bundle", config)
     if checks["G8_bundle_tamper"].get("status") != "PASS":
         raise RuntimeError("G8 bundle checks failed")
-    checks["G9_hash_contracts"] = prior["g9_hash_contracts"]
+    checks["G9_hash_contracts"] = prior.get("g9_hash_contracts", prior_checks.get("G9_hash_contracts"))
 
     edge = run_edge_case_checks(config)
     checks["G4_edge_cases"] = {"status": "PASS" if all(v.get("pass") for v in edge.values()) else "FAIL",
@@ -223,7 +230,8 @@ def run_all_frontend_checks() -> dict[str, Any]:
     if checks["G3_length_audit"]["status"] != "PASS":
         raise RuntimeError("G3 train/validation length audit reported a stop condition")
 
-    checks["G13_spec_corrections"] = prior["g13_spec_corrections"]
+    checks["G13_spec_corrections"] = prior.get("g13_spec_corrections",
+                                                prior_checks.get("G13_spec_corrections"))
     checks["G14_streaming_parity"] = check_stream_parity(config)
     if checks["G14_streaming_parity"].get("status") != "PASS":
         raise RuntimeError("G14 T1-T3 parity failed")
