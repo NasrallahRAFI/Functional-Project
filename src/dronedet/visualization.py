@@ -33,7 +33,8 @@ def save_spectrogram(
     elif representation == "pcen":
         cfg = frontend.config
         magnitude = np.sqrt(frontend.power(x)) * np.float32(cfg.pcen_input_scale)
-        smoother = 1.0 - np.exp(-cfg.hop / (cfg.sample_rate * cfg.pcen_time_constant))
+        time_frames = cfg.pcen_time_constant * cfg.sample_rate / cfg.hop
+        smoother = (np.sqrt(1.0 + 4.0 * time_frames**2) - 1.0) / (2.0 * time_frames**2)
         zi = ((1.0 - smoother) * magnitude.mean(axis=-1, keepdims=True)).astype(np.float32)
         matrix = librosa.pcen(magnitude, sr=cfg.sample_rate, hop_length=cfg.hop,
                               time_constant=cfg.pcen_time_constant, gain=cfg.pcen_gain,

@@ -18,13 +18,14 @@ def pcen_transform(power: np.ndarray, config: FrontEndConfig) -> np.ndarray:
     if x.ndim != 2 or not np.all(np.isfinite(x)) or np.any(x < 0):
         raise ValueError("PCEN expects finite nonnegative (mel, frames) power")
     magnitude = np.sqrt(x) * np.float32(config.pcen_input_scale)
-    b = float(1.0 - np.exp(-config.hop / (config.sr * config.pcen_time_constant)))
+    time_frames = config.pcen_time_constant * config.sr / config.hop
+    b = float((np.sqrt(1.0 + 4.0 * time_frames**2) - 1.0) / (2.0 * time_frames**2))
     # librosa's lfilter state has the input dimensions with a singleton along time.
     zi = ((1.0 - b) * magnitude.mean(axis=-1, keepdims=True)).astype(np.float32)
     result = librosa.pcen(magnitude, sr=config.sr, hop_length=config.hop,
         time_constant=config.pcen_time_constant, gain=config.pcen_gain,
         bias=config.pcen_bias, power=config.pcen_power, eps=config.pcen_eps,
-        zi=zi, axis=-1)
+        b=b, zi=zi, axis=-1)
     return np.asarray(result, dtype=np.float32)
 
 
