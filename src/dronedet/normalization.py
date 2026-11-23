@@ -106,7 +106,8 @@ class Normalizer:
 
 
 def apply_gain(power: np.ndarray, rng: np.random.Generator, config: FrontEndConfig, *, training: bool) -> np.ndarray:
-    if not training: raise ValueError("gain augmentation is available only in training mode")
+    if not training:
+        return np.asarray(power, dtype=np.float32)
     lo, hi = config.gain_range_db
     gain = float(rng.uniform(lo, hi))
     return (np.asarray(power, dtype=np.float32) * np.float32(10 ** (gain / 10))).astype(np.float32)
