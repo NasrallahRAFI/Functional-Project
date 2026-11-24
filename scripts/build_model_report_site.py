@@ -178,19 +178,162 @@ def family_finalists(data: dict) -> list[tuple[str, dict, bool]]:
 
 
 def comparison_rows(data: dict) -> str:
-    rows = []
-    low, high = 0.45, 1.0
-    for rank, (family, m, control) in enumerate(family_finalists(data), 1):
-        left = 100 * (m["f1_low"] - low) / (high - low)
-        width = 100 * (m["f1_high"] - m["f1_low"]) / (high - low)
-        val = 100 * (m["validation_f1"] - low) / (high - low)
-        test = 100 * (m["test_f1"] - low) / (high - low)
-        kind = "reference" if control else "family finalist"
-        rows.append(f'''<article class="family-compare-row" data-compare-row data-validation="{m['validation_f1']:.8f}" data-test="{m['test_f1']:.8f}">
-<div class="compare-name"><span class="compare-rank">{rank:02d}</span><div><a href="{model_slug(m['id'])}">{esc(m['name'])}</a><small>{esc(family)} · {kind}</small><a class="compare-detail-link" href="{model_slug(m['id'])}">Open model page <span aria-hidden="true">↗</span></a></div></div>
-<div class="compare-visual" role="img" aria-label="Validation F1 {m['validation_f1']:.4f}; test F1 {m['test_f1']:.4f}, 95 percent group interval {m['f1_low']:.3f} to {m['f1_high']:.3f}"><i class="compare-mark m50"></i><i class="compare-mark m65"></i><i class="compare-mark m80"></i><i class="compare-mark m95"></i><i class="validation-tick" style="--point:{val:.2f}%"></i><i class="test-interval" style="--left:{left:.2f}%;--width:{width:.2f}%"></i><i class="test-point" style="--point:{test:.2f}%"></i></div>
-<div class="compare-values"><span>VAL <b>{m['validation_f1']:.4f}</b></span><span>TEST <b>{m['test_f1']:.4f}</b><small>{m['f1_low']:.3f}–{m['f1_high']:.3f}</small></span></div></article>''')
-    return "".join(rows)
+    finalists = family_finalists(data)
+    ordered = sorted(finalists, key=lambda row: row[1]["validation_f1"], reverse=True)
+    chart_alt = "; ".join(
+        f"{m['name']}: validation {m['validation_f1']:.4f}, test {m['test_f1']:.4f}, 95% group CI {m['f1_low']:.3f} to {m['f1_high']:.3f}"
+        for _, m, _ in ordered
+    )
+    detail_rows = "".join(
+        f'''<tr><th scope="row"><a href="{model_slug(m['id'])}">{esc(m['name'])}</a><small>{esc(family)}{' · reference' if control else ' · family finalist'}</small></th><td class="num">{m['validation_f1']:.4f}</td><td class="num"><b>{m['test_f1']:.4f}</b></td><td class="num">{m['f1_low']:.3f}–{m['f1_high']:.3f}</td></tr>'''
+        for family, m, control in ordered
+    )
+    return f'''<figure class="comparison-figure"><div class="comparison-image-scroll"><img id="family-comparison-chart" class="comparison-chart-image" src="assets/charts/comparison-validation-light.svg" alt="{esc(chart_alt)}" data-light-validation-src="assets/charts/comparison-validation-light.svg" data-light-test-src="assets/charts/comparison-test-light.svg" data-dark-validation-src="assets/charts/comparison-validation-dark.svg" data-dark-test-src="assets/charts/comparison-test-dark.svg"></div><figcaption>Validation-selected family finalists. Hollow teal circles show validation F1; coral points show test F1 with 95% group bootstrap intervals.</figcaption></figure><details class="comparison-data"><summary>View exact values and open each model record</summary><div class="table-scroll"><table class="data-table"><thead><tr><th>Model and family</th><th>Validation F1</th><th>Test F1</th><th>95% group CI</th></tr></thead><tbody>{detail_rows}</tbody></table></div></details>'''
+
+
+def generate_chart_assets(data: dict, assets: Path) -> None:
+    """Render evidence charts as offline SVG images using Matplotlib."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LinearSegmentedColormap, Normalize
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Rectangle
+    import json as json_module
+    import math
+    import re
+
+    chart_dir = assets / "charts"
+    chart_dir.mkdir(parents=True, exist_ok=True)
+    themes = {
+        "light": {"bg": "#edf2ee", "paper": "#f9fbf7", "ink": "#142527", "muted": "#526769", "line": "#cbd6d1", "teal": "#0c6671", "coral": "#c45139", "lime": "#c5ec70", "amber": "#b87a21", "heat_low": "#e8f0ec", "heat_high": "#0c6671"},
+        "dark": {"bg": "#0d171a", "paper": "#152326", "ink": "#edf5ee", "muted": "#aec1bb", "line": "#34484a", "teal": "#8dd9dd", "coral": "#f08970", "lime": "#c5ec70", "amber": "#efc16e", "heat_low": "#263b3d", "heat_high": "#8dd9dd"},
+    }
+
+    def finish(fig, name: str, theme: str) -> None:
+        path = chart_dir / f"{name}-{theme}.svg"
+        fig.savefig(path, format="svg", bbox_inches="tight", facecolor=themes[theme]["paper"], metadata={"Title": name.replace("-", " ").title()})
+        svg = path.read_text(encoding="utf-8")
+        path.write_text("\n".join(line.rstrip() for line in svg.splitlines()) + "\n", encoding="utf-8")
+        plt.close(fig)
+
+    finalists = family_finalists(data)
+    for theme, color in themes.items():
+        for sort_key in ("validation", "test"):
+            key = f"{sort_key}_f1"
+            rows = sorted(finalists, key=lambda row: row[1][key], reverse=True)
+            names = [f"{m['name']}\n{family}{' · reference' if control else ' · family finalist'}" for family, m, control in rows]
+            y = list(range(len(rows)))
+            fig, ax = plt.subplots(figsize=(14.5, 7.2))
+            fig.patch.set_facecolor(color["paper"])
+            ax.set_facecolor(color["paper"])
+            ax.set_xlim(.50, 1.75)
+            ax.set_ylim(-.7, len(rows)-.3)
+            ax.invert_yaxis()
+            ax.set_yticks(y, names)
+            ax.set_xticks([.5, .6, .7, .8, .9, 1.0], ["0.50", "0.60", "0.70", "0.80", "0.90", "1.00"])
+            ax.tick_params(axis="y", labelsize=9, colors=color["ink"], length=0, pad=12)
+            ax.tick_params(axis="x", labelsize=9, colors=color["muted"], length=0, pad=8)
+            ax.grid(axis="x", color=color["line"], linewidth=.8)
+            ax.set_axisbelow(True)
+            for spine in ax.spines.values(): spine.set_visible(False)
+            for yi, (_, m, _) in enumerate(rows):
+                ax.plot([m["validation_f1"], m["test_f1"]], [yi, yi], color=color["line"], linewidth=1.4, zorder=1)
+                ax.errorbar(m["test_f1"], yi, xerr=[[m["test_f1"]-m["f1_low"]], [m["f1_high"]-m["test_f1"]]], fmt="o", markersize=7, color=color["coral"], ecolor=color["coral"], elinewidth=1.8, capsize=4, capthick=1.5, zorder=3)
+                ax.scatter(m["validation_f1"], yi, s=54, facecolors=color["paper"], edgecolors=color["teal"], linewidths=2, zorder=4)
+                ax.text(1.055, yi, f"{m['validation_f1']:.4f}", va="center", ha="left", color=color["teal"], fontsize=9, family="DejaVu Sans Mono")
+                ax.text(1.185, yi, f"{m['test_f1']:.4f}", va="center", ha="left", color=color["coral"], fontsize=9, family="DejaVu Sans Mono")
+                ax.text(1.34, yi, f"{m['f1_low']:.3f}–{m['f1_high']:.3f}", va="center", ha="left", color=color["ink"], fontsize=9, family="DejaVu Sans Mono")
+            ax.text(1.055, -.48, "VALIDATION", ha="left", va="bottom", color=color["muted"], fontsize=7.5, family="DejaVu Sans Mono")
+            ax.text(1.185, -.48, "TEST", ha="left", va="bottom", color=color["muted"], fontsize=7.5, family="DejaVu Sans Mono")
+            ax.text(1.34, -.48, "95% GROUP CI", ha="left", va="bottom", color=color["muted"], fontsize=7.5, family="DejaVu Sans Mono")
+            ax.set_xlabel("F1 score · common scale", color=color["muted"], fontsize=9, labelpad=11)
+            handles=[Line2D([0],[0],marker='o',markersize=6,markerfacecolor=color['paper'],markeredgewidth=1.8,markeredgecolor=color['teal'],linestyle='None',label='Validation F1'),Line2D([0],[0],marker='o',markersize=6,color=color['coral'],linestyle='-',label='Test F1 · 95% group CI')]
+            ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(.5, 1.105), ncol=2, frameon=False, labelcolor=color["muted"], fontsize=8)
+            fig.subplots_adjust(left=.285, right=.985, top=.89, bottom=.09)
+            finish(fig, f"comparison-{sort_key}", theme)
+
+        for m in data["models"]:
+            variants = list(m["variants"])
+            if len(variants) < 2:
+                continue
+            parsed = []
+            for v in variants:
+                item=dict(v)
+                try: item["config"]=json_module.loads(v.get("name", ""))
+                except (ValueError, TypeError): item["config"]=None
+                parsed.append(item)
+            scores=[float(v["validation_f1"]) for v in parsed]
+            winner=max(scores)
+            cmap=LinearSegmentedColormap.from_list("report_heat",[color["heat_low"],color["teal"]])
+            fig=None
+            if m["id"] in {"18_svm_rbf", "13_knn"}:
+                rbf=m["id"]=="18_svm_rbf"
+                xkeys=([.1,.3,1,3,10] if rbf else ["uniform · L1","uniform · L2","distance · L1","distance · L2"])
+                ykeys=sorted({float(v["config"]["C"]) for v in parsed if v["config"] and "C" in v["config"]},reverse=True) if rbf else sorted({int(v["config"]["k"]) for v in parsed if v["config"] and "k" in v["config"]})
+                fig,ax=plt.subplots(figsize=(10.5,5.8 if rbf else 6.3));fig.patch.set_facecolor(color["paper"]);ax.set_facecolor(color["paper"])
+                grouped={}
+                for v in parsed:
+                    c=v.get("config") or {}
+                    x=float(c.get("gamma_multiplier")) if rbf else f"{c.get('weights')} · L{c.get('p')}"
+                    yy=float(c.get("C")) if rbf else int(c.get("k"))
+                    grouped.setdefault((x,yy),[]).append(float(v["validation_f1"]))
+                norm=Normalize(min(scores),max(scores))
+                for i,yy in enumerate(ykeys):
+                    for j,xx in enumerate(xkeys):
+                        key=(xx,yy);vals=grouped.get(key)
+                        if not vals: continue
+                        value=sum(vals)/len(vals); rect=Rectangle((j-.48,i-.42),.96,.84,facecolor=cmap(norm(value)),edgecolor=color["paper"],linewidth=2)
+                        if any(v==winner for v in vals): rect.set_edgecolor(color["ink"]);rect.set_linewidth(2.2)
+                        ax.add_patch(rect);ax.text(j,i,f"{value:.3f}"+(f"\nn={len(vals)}" if len(vals)>1 else ""),ha="center",va="center",fontsize=8,color=color["ink"])
+                ax.set_xlim(-.5,len(xkeys)-.5);ax.set_ylim(len(ykeys)-.5,-.5);ax.set_xticks(range(len(xkeys)),[f"{x:g}×" for x in xkeys] if rbf else [x.replace(" · "," / ") for x in xkeys]);ax.set_yticks(range(len(ykeys)),[f"{y:g}" for y in ykeys]);ax.tick_params(colors=color["muted"],labelsize=8,length=0,pad=8)
+                for spine in ax.spines.values():spine.set_visible(False)
+                ax.set_xlabel("Gamma multiplier" if rbf else "Weighting · Minkowski p",color=color["muted"],fontsize=9,labelpad=10);ax.set_ylabel("C" if rbf else "Neighbours (k)",color=color["muted"],fontsize=9,labelpad=10)
+                ax.set_title("RBF SVM · validation F1 across C × gamma" if rbf else "k-NN · validation F1 across neighbour and distance settings",color=color["ink"],fontsize=12,pad=16)
+                sm=plt.cm.ScalarMappable(cmap=cmap,norm=norm);sm.set_array([]);fig.colorbar(sm,ax=ax,fraction=.035,pad=.025,label="Validation F1");fig.subplots_adjust(left=.13,right=.9,top=.88,bottom=.16)
+            elif m["id"] in {"12_logistic_regression", "18_svm_linear"}:
+                groups={}
+                for v in parsed:
+                    c=v.get("config") or {};C=float(c.get("C")) if c.get("C") is not None else None
+                    if C is not None: groups.setdefault(str(c.get("penalty","linear kernel")),{}).setdefault(C,[]).append(float(v["validation_f1"]))
+                fig,ax=plt.subplots(figsize=(10.5,5.4));fig.patch.set_facecolor(color["paper"]);ax.set_facecolor(color["paper"])
+                colors=[color["teal"],color["coral"],color["amber"]]
+                for i,(name,series) in enumerate(groups.items()):
+                    xs=sorted(series);ys=[sum(series[x])/len(series[x]) for x in xs];ax.plot(xs,ys,marker="o",markersize=6,linewidth=1.8,color=colors[i%len(colors)],label=name)
+                    for x,yval in zip(xs,ys):
+                        if yval==winner: ax.scatter([x],[yval],s=115,facecolors="none",edgecolors=color["ink"],linewidths=1.2,zorder=4)
+                ax.set_xscale("log");ax.set_ylim(.5,1);ax.set_yticks([.5,.6,.7,.8,.9,1]);ax.grid(axis="y",color=color["line"],linewidth=.8);ax.grid(axis="x",color=color["line"],linewidth=.6,linestyle=":");ax.set_xlabel("C · logarithmic scale",color=color["muted"],fontsize=9);ax.set_ylabel("Validation F1",color=color["muted"],fontsize=9);ax.set_title("Regularization response · C by penalty" if m["id"]=="12_logistic_regression" else "Linear SVM · regularization response",color=color["ink"],fontsize=12,pad=14);ax.tick_params(colors=color["muted"],labelsize=8);ax.legend(frameon=False,labelcolor=color["muted"],fontsize=8)
+                for spine in ax.spines.values():spine.set_visible(False)
+                fig.subplots_adjust(left=.1,right=.97,top=.86,bottom=.15)
+            elif m["id"]=="17_adaboost":
+                fig,ax=plt.subplots(figsize=(10.5,5.4));fig.patch.set_facecolor(color["paper"]);ax.set_facecolor(color["paper"])
+                for v in parsed:
+                    match=re.search(r"lr=([\d.]+)",str(v.get("name","")));round_match=re.search(r"round\s+(\d+)",str(v.get("name","")))
+                    if not match:continue
+                    lr=float(match.group(1));score=float(v["validation_f1"]);is_best=score==winner
+                    ax.scatter(lr,score,s=95 if is_best else 58,color=color["lime"] if is_best else color["teal"],edgecolor=color["ink"] if is_best else color["paper"],linewidth=1.2,zorder=3)
+                    ax.annotate(f"round {round_match.group(1) if round_match else '—'}",(lr,score),xytext=(0,10),textcoords="offset points",ha="center",fontsize=7,color=color["muted"])
+                ax.set_xscale("log");ax.set_xlim(.025,1.2);ax.set_ylim(.5,1);ax.set_xticks([.03,.1,.3,1],["0.03","0.10","0.30","1.00"]);ax.set_yticks([.5,.6,.7,.8,.9,1]);ax.grid(color=color["line"],linewidth=.75);ax.set_xlabel("Learning rate · logarithmic scale",color=color["muted"],fontsize=9);ax.set_ylabel("Validation F1",color=color["muted"],fontsize=9);ax.set_title("AdaBoost · best staged result by learning rate",color=color["ink"],fontsize=12,pad=14);ax.tick_params(colors=color["muted"],labelsize=8)
+                for spine in ax.spines.values():spine.set_visible(False)
+                fig.subplots_adjust(left=.1,right=.97,top=.86,bottom=.15)
+            else:
+                rows=sorted(parsed,key=lambda v:float(v["validation_f1"]));labels=[]
+                for v in rows:
+                    config=v.get("config")
+                    if config:
+                        all_keys=list(config);vary=[k for k in all_keys if len({json_module.dumps(z.get("config",{}).get(k),sort_keys=True) for z in parsed if z.get("config")})>1]
+                        parts=[f"{k}={config[k]}" for k in vary[:3]]
+                        label=" · ".join(parts) or ", ".join(f"{k}={val}" for k,val in list(config.items())[:2])
+                    else: label=str(v.get("name") or v.get("id") or "recorded setting")
+                    labels.append(label if len(label)<=49 else label[:46]+"…")
+                fig_height=max(4.8,.33*len(rows)+1.25);fig,ax=plt.subplots(figsize=(12.5,fig_height));fig.patch.set_facecolor(color["paper"]);ax.set_facecolor(color["paper"]);ys=list(range(len(rows)))
+                for yi,v in zip(ys,rows):
+                    score=float(v["validation_f1"]);sd=v.get("sd_f1");seed_n=int(v.get("seeds") or 1);err=float(sd or 0) if seed_n>1 else 0;is_best=score==winner
+                    ax.errorbar(score,yi,xerr=err,fmt="o",markersize=7 if is_best else 5,color=color["lime"] if is_best else color["teal"],ecolor=color["teal"],elinewidth=1.3,capsize=3 if err else 0,markeredgecolor=color["ink"] if is_best else color["paper"],markeredgewidth=1.1,zorder=3)
+                ax.set_xlim(.5,1);ax.set_ylim(-.7,len(rows)-.3);ax.set_yticks(ys,labels);ax.set_xticks([.5,.6,.7,.8,.9,1],["0.50","0.60","0.70","0.80","0.90","1.00"]);ax.grid(axis="x",color=color["line"],linewidth=.8);ax.tick_params(colors=color["muted"],labelsize=7.5,length=0,pad=7);ax.set_xlabel("Validation F1 · settings ranked low to high",color=color["muted"],fontsize=8,labelpad=9);ax.set_title(f"{len(rows)} recorded candidates · seed SD where available",color=color["ink"],fontsize=11,pad=12)
+                for spine in ax.spines.values():spine.set_visible(False)
+                fig.subplots_adjust(left=.40,right=.98,top=.94,bottom=.07)
+            finish(fig,f"candidate-{m['id']}",theme)
 
 
 def model_index_rows(data: dict) -> str:
@@ -232,8 +375,8 @@ def model_detail_pages(data: dict) -> dict[str, str]:
 <div class="detail-breadcrumb"><a href="models.html">Model comparison</a><span> / </span><span>{esc(m['family'])}</span><span class="detail-position">MODEL {index + 1:02d} / {len(models):02d}</span></div>
 <div class="detail-title-row"><div><p class="eyebrow">{esc(m['family'])} · frozen designated fit · seed {m['seed']}</p><h1>{esc(m['name'])}</h1><p class="detail-summary">{esc(m['description'])}</p></div><aside class="detail-final-config"><span>Recorded search scope</span><b>{esc(m['search'])}</b><small>Threshold frozen from validation · <code>{m['threshold']:.6g}</code></small></aside></div>
 <div class="detail-metrics"><div><span>Validation F1</span><b>{m['validation_f1']:.4f}</b></div><div class="metric-emphasis"><span>Test F1</span><b>{m['test_f1']:.4f}</b><small>95% group CI {m['f1_low']:.3f}–{m['f1_high']:.3f}</small></div><div><span>ROC AUC</span><b>{m['auc']:.4f}</b></div><div><span>Precision / recall</span><b>{m['precision']:.3f} / {m['recall']:.3f}</b></div><div><span>False-alarm rate</span><b>{m['far']:.3%}</b></div></div></section>
-<section class="detail-section candidate-section"><div class="detail-section-heading"><div><p class="eyebrow">Validation search · {len(variants)} recorded candidates</p><h2>How the winner emerged.</h2></div><p>Each mark is one logged setting, ranked by validation F1. The held-out test was not used to choose this setting.</p></div>
-<div class="candidate-chart-shell"><div class="candidate-chart-axis"><span>Validation F1</span><span>.50</span><span>.65</span><span>.80</span><span>.95</span></div><div class="candidate-chart-scroll"><svg class="candidate-chart" id="candidate-chart" aria-label="Validation F1 for all recorded candidate settings"></svg></div></div>
+<section class="detail-section candidate-section"><div class="detail-section-heading"><div><p class="eyebrow">Validation search · {len(variants)} recorded candidates</p><h2>How the winner emerged.</h2></div><p>Chart form follows the recorded search: parameter maps for complete grids, response curves for ordered sweeps, and ranked dot plots when settings vary across several dimensions. The held-out test did not choose these settings.</p></div>
+{f'''<div class="candidate-chart-shell"><div class="candidate-chart-heading"><span>Candidate settings · validation only</span><span>Winner marked in lime · seed SD shown where recorded</span></div><div class="candidate-chart-scroll"><img id="candidate-chart-image" class="candidate-chart-image" src="assets/charts/candidate-{esc(m['id'])}-light.svg" data-light-src="assets/charts/candidate-{esc(m['id'])}-light.svg" data-dark-src="assets/charts/candidate-{esc(m['id'])}-dark.svg" alt="Recorded validation F1 candidates for {esc(m['name'])}; winner highlighted; seed spread shown where available."></div></div>''' if len(variants)>1 else f'''<div class="candidate-chart-shell"><div class="candidate-chart-heading"><span>One recorded configuration · no parameter grid</span></div><div class="candidate-single-summary"><strong>{float(variants[0]['validation_f1']):.4f}</strong><span>Validation F1</span><small>{int(variants[0].get('seeds') or 1)} seed(s) in the recorded run summary · one configuration in ledger</small></div></div>'''}
 <div class="candidate-table-wrap"><table class="data-table candidate-table"><thead><tr><th>Rank</th><th>Recorded setting</th><th>Mean validation F1</th><th>Seed SD</th><th>Seeds</th></tr></thead><tbody>{''.join(variant_rows)}</tbody></table></div></section>
 <section class="detail-section score-behavior" id="score-behavior"><div class="detail-section-heading"><div><p class="eyebrow">Frozen test scores · {data['test']['clips']:,} clips</p><h2>Score behavior.</h2></div><p>The curve is derived from the saved score vector. The confusion matrix starts at the validation-frozen threshold.</p></div>
 <div class="detail-curves"><article class="detail-plot"><div><span>TEST RANKING</span><h3>ROC curve</h3></div><svg id="detail-roc" role="img" aria-label="Receiver operating characteristic curve for {esc(m['name'])}"></svg></article><article class="detail-plot"><div><span>POSITIVE CLASS</span><h3>Precision–recall</h3></div><svg id="detail-pr" role="img" aria-label="Precision recall curve for {esc(m['name'])}"></svg></article></div>
@@ -296,7 +439,7 @@ def render_pages(data: dict) -> dict[str, str]:
 <section class="page-section note-strip"><p><b>Read the result with its limits.</b> Validation was reused for selection; only two drone models appear in the positive set, and some negative clips may be artefact-confounded.</p><a href="methodology.html#limits">Full limitations →</a></section>'''
 
     model_html = f'''<section class="subpage-head model-compare-head"><div><p class="eyebrow">Model comparison · 11 search families</p><h1>Compare the<br><em>leading settings.</em></h1><p class="dek">One validation-selected finalist from each search family, scored with the same locked test. The clean CNN control is shown as a separate reference.</p></div><aside class="head-note"><span>Highest locked test F1</span><b>{max(data['models'], key=lambda m: m['test_f1'])['test_f1']:.4f}</b><small>CNN · Stage C depth_4 · seed 44</small></aside></section>
-<section class="family-comparison"><div class="detail-section-heading"><div><p class="eyebrow">Family finalists · shared F1 scale</p><h2>Validation choice beside test result.</h2></div><div><div class="compare-legend"><span><i></i> Validation F1</span><span><i></i> Test F1</span><span><i class="legend-whisker"></i> 95% group CI</span></div><div class="compare-sort" aria-label="Sort family finalists"><button type="button" class="selected" data-compare-sort="validation">Validation</button><button type="button" data-compare-sort="test">Test</button></div></div></div><p class="compare-instruction">Open any model’s detail page from its row for the full tuning history, curves, threshold analysis, and diagnostics.</p><div class="compare-axis"><span>Family and selected model</span><div><i>.50</i><i>.65</i><i>.80</i><i>.95</i></div><span>Validation / test</span></div><div id="family-comparison-rows">{comparison_rows(data)}</div><p class="compare-caption">Family finalist means highest validation F1 among the recorded options in that family. CNN clean control is separated from the Stage C tuned CNN. Test intervals use paired group bootstrap resampling.</p></section>
+<section class="family-comparison"><div class="detail-section-heading"><div><p class="eyebrow">Family finalists · common F1 scale</p><h2>Validation choice beside test result.</h2></div><div><div class="compare-legend"><span><i class="legend-validation"></i> Validation F1</span><span><i class="legend-test"></i> Test F1 with group interval</span></div><div class="compare-sort" aria-label="Sort family finalists"><button type="button" class="selected" aria-pressed="true" data-compare-sort="validation">Validation rank</button><button type="button" aria-pressed="false" data-compare-sort="test">Test rank</button></div></div></div><p class="compare-instruction">The chart uses one F1 scale for every family. Open a model record from the Model Pages ribbon or from the value table below.</p><div id="family-comparison-rows">{comparison_rows(data)}</div><p class="compare-caption">Family finalist means the highest validation F1 among recorded settings in that family. The clean CNN control is shown separately as a reference. Test intervals use paired group bootstrap resampling.</p></section>
 <section class="page-section model-index-detail"><div class="section-heading"><div><p class="eyebrow">All frozen model records · 14 pages</p><h2>Open a model in detail.</h2></div><p>Each page includes its full tuning ledger, threshold behavior, test curves, score distribution, paired comparisons, and compute footprint.</p></div><div class="model-index-list">{model_index_rows(data)}</div></section>
 <section class="page-section compare-note"><b>How to read this comparison</b><p>Validation identifies the family finalist. The test F1 and interval describe performance only after selection was frozen. A higher point estimate does not establish a difference when the paired interval crosses zero.</p><a href="methodology.html">Read the paired comparison method →</a></section>'''
 
@@ -389,12 +532,19 @@ CSS += r'''
 @media(max-width:720px){.model-ribbon-shell{gap:0;padding:0 12px}.model-ribbon-title{display:none}.model-ribbon{width:100%}.model-tab{min-height:44px;padding:0 11px;font-size:9px}.model-ribbon-cue{font-size:7px}}
 '''
 
+CSS += r'''
+.comparison-figure{margin:18px 0 0}.comparison-image-scroll{overflow:auto;overscroll-behavior:contain;border:1px solid var(--line);background:var(--paper);scrollbar-color:var(--line) transparent}.comparison-chart-image{display:block;width:100%;min-width:1020px;height:auto}.comparison-figure figcaption{margin-top:9px;color:var(--muted);font-size:10px}.comparison-data{margin-top:18px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.comparison-data summary{cursor:pointer;padding:12px 0;color:var(--teal);font-size:11px}.comparison-data table{min-width:680px}.comparison-data td,.comparison-data th{font-variant-numeric:tabular-nums}.comparison-data th small{display:block;color:var(--muted);font-size:9px;font-weight:400;margin-top:3px}.comparison-data th a{color:var(--ink);text-decoration-color:var(--line);text-underline-offset:3px}.comparison-data th a:hover{color:var(--teal)}.compare-legend .legend-validation{background:var(--paper);border:2px solid var(--teal)}.compare-legend .legend-test{background:var(--coral)}.candidate-chart-shell{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:15px 0 12px}.candidate-chart-heading{display:flex;justify-content:space-between;gap:18px;padding:0 2px 12px;color:var(--muted);font:9px ui-monospace,Consolas,monospace}.candidate-chart-heading span:first-child{color:var(--ink);font-weight:600}.candidate-chart-scroll{max-height:720px;overflow:auto;overscroll-behavior:contain;scrollbar-color:var(--line) transparent}.candidate-chart-image{display:block;width:100%;min-width:820px;height:auto}.candidate-single-summary{min-height:104px;display:flex;align-items:baseline;gap:14px;border-top:1px solid var(--line);padding:22px 4px}.candidate-single-summary strong{color:var(--teal);font-size:42px;letter-spacing:-.05em;font-variant-numeric:tabular-nums}.candidate-single-summary span{font-size:12px}.candidate-single-summary small{margin-left:auto;color:var(--muted);font:10px ui-monospace,Consolas,monospace}.candidate-table-wrap{margin-top:22px}.candidate-table{min-width:760px}.candidate-table td code,.candidate-table th code{font-size:9px;white-space:normal;overflow-wrap:anywhere}.candidate-table td:first-child{color:var(--muted);font-family:ui-monospace,Consolas,monospace}.candidate-table th code{font-weight:500}
+@media(max-width:720px){.family-comparison .detail-section-heading{display:grid;gap:10px}.compare-sort{justify-content:flex-start}.comparison-chart-image{min-width:980px}.candidate-chart-heading{display:grid;gap:5px}.candidate-chart-scroll{max-height:620px}.candidate-chart-image{min-width:820px}.candidate-single-summary{flex-wrap:wrap}.candidate-single-summary small{width:100%;margin-left:0}}
+'''
+
+
 JS = r'''(()=>{
 const D=window.REPORT_DATA;if(!D)return;
 const $=s=>document.querySelector(s), all=s=>[...document.querySelectorAll(s)], esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), fmt=(x,n=3)=>Number(x).toFixed(n), pct=x=>(100*x).toFixed(1)+'%', byId=Object.fromEntries(D.models.map(m=>[m.id,m]));
 // Theme persists locally; if storage is unavailable, the current page still works.
 try{const prior=localStorage.getItem('model-report-theme');if(prior)document.documentElement.dataset.theme=prior}catch{}
-const theme=$('#theme-toggle');if(theme)theme.onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('model-report-theme',next)}catch{}};
+function syncChartImages(){const mode=document.documentElement.dataset.theme==='dark'?'dark':'light';all('[data-light-src][data-dark-src]').forEach(img=>{img.src=img.getAttribute(`data-${mode}-src`)});const comparison=$('#family-comparison-chart');if(comparison){const sort=comparison.dataset.sort||'validation';comparison.src=comparison.getAttribute(`data-${mode}-${sort}-src`)}}
+syncChartImages();const theme=$('#theme-toggle');if(theme)theme.onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('model-report-theme',next)}catch{}syncChartImages()};
 if('IntersectionObserver'in window){const io=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in-view');io.unobserve(e.target)}}),{threshold:.12});all('.enter').forEach(e=>io.observe(e))}else all('.enter').forEach(e=>e.classList.add('in-view'));
 // Reorder the comparison by one of the two explicitly reported F1 values.
 const sortButtons=all('[data-sort-mode]');sortButtons.forEach(b=>b.onclick=()=>{sortButtons.forEach(x=>x.classList.toggle('selected',x===b));const mode=b.dataset.sortMode,tbody=$('.leaderboard tbody');if(!tbody)return;const rows=all('.leaderboard tbody tr').sort((a,z)=>Number(byId[z.dataset.model][mode==='test'?'test_f1':'validation_f1'])-Number(byId[a.dataset.model][mode==='test'?'test_f1':'validation_f1']));rows.forEach((r,i)=>{r.querySelector('.rank').textContent=String(i+1).padStart(2,'0');tbody.appendChild(r)})});
@@ -415,12 +565,22 @@ const types=JSON.parse($('#type-data')?.textContent||'[]'),familiesData=JSON.par
 // Cost chart marks training time on log-x; marker area reflects estimator-specific complexity.
 function complexity(){const svg=$('#complexity-plot');if(!svg)return;const w=Math.max(320,svg.clientWidth||900),h=330,L=55,R=w-28,T=24,B=h-46,pts=D.models.filter(m=>m.train_seconds&&m.params_count),xs=pts.map(m=>Math.log10(m.train_seconds+.02)),xmin=Math.min(...xs),xmax=Math.max(...xs);svg.setAttribute('viewBox',`0 0 ${w} ${h}`);let s=`<line class="plot-axis" x1="${L}" y1="${B}" x2="${R}" y2="${B}"/><line class="plot-axis" x1="${L}" y1="${T}" x2="${L}" y2="${B}"/>`;for(let i=0;i<5;i++){const y=T+(B-T)*i/4,v=1-i/4;s+=`<line class="plot-axis" x1="${L}" y1="${y}" x2="${R}" y2="${y}"/><text class="plot-label" x="${L-8}" y="${y+3}" text-anchor="end">${(.65+.32*v).toFixed(2)}</text>`}pts.forEach(m=>{const x=L+(Math.log10(m.train_seconds+.02)-xmin)/(xmax-xmin)*(R-L),y=B-(m.test_f1-.65)/.32*(B-T),rad=Math.max(5,Math.min(14,4+Math.sqrt(m.params_count||1)/85));s+=`<circle class="plot-dot" cx="${x}" cy="${y}" r="${rad}"><title>${esc(m.name)} · F1 ${m.test_f1.toFixed(3)} · ${m.train_seconds.toFixed(2)} seconds · ${m.params_count} ${esc(m.complexity)}</title></circle><text class="plot-label" x="${x+rad+2}" y="${y-5}">${esc(m.name)}</text>`});s+=`<text class="plot-label" x="${(L+R)/2}" y="${h-8}" text-anchor="middle">Training time in seconds · log scale</text><text class="plot-label" x="13" y="${(T+B)/2}" transform="rotate(-90 13 ${(T+B)/2})" text-anchor="middle">Test F1</text>`;svg.innerHTML=s}complexity();
 // Sort the family comparison by validation selection or locked-test F1.
-const compareButtons=all('[data-compare-sort]');compareButtons.forEach(b=>b.onclick=()=>{compareButtons.forEach(x=>x.classList.toggle('selected',x===b));const host=$('#family-comparison-rows');if(!host)return;all('[data-compare-row]').sort((a,z)=>Number(z.dataset[b.dataset.compareSort])-Number(a.dataset[b.dataset.compareSort])).forEach((x,i)=>{x.querySelector('.compare-rank').textContent=String(i+1).padStart(2,'0');host.appendChild(x)})});
+const compareButtons=all('[data-compare-sort]');compareButtons.forEach(b=>b.onclick=()=>{compareButtons.forEach(x=>{x.classList.toggle('selected',x===b);x.setAttribute('aria-pressed',String(x===b))});const chart=$('#family-comparison-chart');if(chart){chart.dataset.sort=b.dataset.compareSort;syncChartImages()}});
 // A focused model page derives detailed curves and threshold behavior from only its saved score vector.
-const detailRoot=$('[data-detail-model]');function drawCandidateChart(root){const id=root.dataset.detailModel,m=byId[id],svg=$('#candidate-chart');if(!svg)return;const variants=[...m.variants].sort((a,b)=>b.validation_f1-a.validation_f1),w=Math.max(720,variants.length*22),h=280,L=42,R=w-12,T=16,B=h-36,lo=.5,hi=1,xStep=(R-L)/variants.length,y=v=>B-(v-lo)/(hi-lo)*(B-T);svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.style.width=`${w}px`;let s='';for(let v=.5;v<=1.001;v+=.1){const yy=y(v);s+=`<line class="chart-grid" x1="${L}" y1="${yy}" x2="${R}" y2="${yy}"/><text x="${L-7}" y="${yy+3}" text-anchor="end">${v.toFixed(1)}</text>`}variants.forEach((v,i)=>{const bw=Math.max(3,xStep*.62),xx=L+i*xStep+(xStep-bw)/2,yy=y(v.validation_f1),name=esc(v.name||v.id||'Recorded setting'),seeds=v.seeds||1,sd=v.sd_f1==null?'':' · SD '+Number(v.sd_f1).toFixed(4);s+=`<rect class="candidate-bar ${i===0?'best':''}" x="${xx}" y="${yy}" width="${bw}" height="${B-yy}"><title>Rank ${i+1} · ${name} · validation F1 ${Number(v.validation_f1).toFixed(4)} · ${seeds} seeds${sd}</title></rect><text x="${xx+bw/2}" y="${B+15}" text-anchor="middle">${i+1}</text>`});svg.innerHTML=s}
+const detailRoot=$('[data-detail-model]');
 function detailPlot(svg,points,key){if(!svg)return;const w=Math.max(320,svg.clientWidth||700),h=svg.clientHeight||290,L=44,R=w-14,T=14,B=h-38,pw=R-L,ph=B-T;svg.setAttribute('viewBox',`0 0 ${w} ${h}`);let s='';for(let i=0;i<=4;i++){const v=i/4,x=L+pw*v,y=B-ph*v;s+=`<line class="axis-line" x1="${x}" y1="${T}" x2="${x}" y2="${B}"/><line class="axis-line" x1="${L}" y1="${y}" x2="${R}" y2="${y}"/><text class="axis-text" x="${x}" y="${B+15}" text-anchor="middle">${v.toFixed(1)}</text><text class="axis-text" x="${L-7}" y="${y+3}" text-anchor="end">${v.toFixed(1)}</text>`}if(key==='roc')s+=`<line class="axis-diagonal" x1="${L}" y1="${B}" x2="${R}" y2="${T}"/>`;const path=points.map((p,i)=>`${i?'L':'M'}${L+p[0]*pw},${B-p[1]*ph}`).join(' ');s+=`<path class="detail-curve" d="${path}"/>`;s+=`<text class="axis-text" x="${(L+R)/2}" y="${h-2}" text-anchor="middle">${key==='roc'?'False-positive rate':'Recall'}</text><text class="axis-text" x="10" y="${(T+B)/2}" transform="rotate(-90 10 ${(T+B)/2})" text-anchor="middle">${key==='roc'?'True-positive rate':'Precision'}</text>`;svg.innerHTML=s}
-function initDetail(){if(!detailRoot)return;const id=detailRoot.dataset.detailModel,m=byId[id],vals=D.scores[id],labels=D.labels,range=$('#detail-threshold'),out=$('#detail-threshold-value');drawCandidateChart(detailRoot);const order=vals.map((score,i)=>[score,Boolean(labels[i])]).sort((a,b)=>b[0]-a[0]);let tp=0,fp=0,roc=[[0,0]],pr=[[0,1]],positives=labels.filter(Boolean).length,negatives=labels.length-positives;for(const item of order){if(item[1])tp++;else fp++;const recall=tp/(positives||1),precision=tp/(tp+fp||1);roc.push([fp/(negatives||1),recall]);pr.push([recall,precision])}roc.push([1,1]);detailPlot($('#detail-roc'),roc,'roc');detailPlot($('#detail-pr'),pr,'pr');const lo=Math.min(...vals),hi=Math.max(...vals);range.value=Math.max(0,Math.min(1000,Math.round(1000*(m.threshold-lo)/(hi-lo))));function update(){const threshold=lo+(hi-lo)*Number(range.value)/1000;out.value=threshold.toFixed(4);out.textContent=threshold.toFixed(4);let tn=0,falsePos=0,falseNeg=0,truePos=0;for(let i=0;i<vals.length;i++){const pred=vals[i]>=threshold;if(pred&&labels[i])truePos++;else if(pred)falsePos++;else if(labels[i])falseNeg++;else tn++}const precision=truePos/(truePos+falsePos||1),recall=truePos/(truePos+falseNeg||1),f1=2*precision*recall/(precision+recall||1),far=falsePos/(falsePos+tn||1);$('#detail-live-metrics').innerHTML=[['Precision',precision],['Recall',recall],['F1',f1],['False alarm',far]].map(x=>`<span>${x[0]}<b>${fmt(x[1],3)}</b></span>`).join('');$('#detail-confusion').innerHTML=[[tn,'True negative',''],[falsePos,'False positive','fp'],[falseNeg,'False negative','fn'],[truePos,'True positive','']].map(x=>`<div class="${x[2]}"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}range.oninput=update;update();const n=40,negative=Array(n).fill(0),positive=Array(n).fill(0);vals.forEach((v,i)=>{const bin=Math.min(n-1,Math.floor((v-lo)/(hi-lo)*n));(labels[i]?positive:negative)[bin]++});const mx=Math.max(...negative,...positive);$('#detail-histogram').innerHTML=negative.map((v,i)=>`<span class="histogram-col"><i class="negative" style="--neg:${v/mx*100}%"></i><i class="positive" style="--pos:${positive[i]/mx*100}%"></i></span>`).join('')};initDetail();window.addEventListener('resize',()=>{if(detailRoot){const id=detailRoot.dataset.detailModel,vals=D.scores[id],labels=D.labels,order=vals.map((score,i)=>[score,Boolean(labels[i])]).sort((a,b)=>b[0]-a[0]);let tp=0,fp=0,roc=[[0,0]],pr=[[0,1]],positives=labels.filter(Boolean).length,negatives=labels.length-positives;for(const item of order){if(item[1])tp++;else fp++;roc.push([fp/(negatives||1),tp/(positives||1)]);pr.push([tp/(positives||1),tp/(tp+fp||1)])}roc.push([1,1]);detailPlot($('#detail-roc'),roc,'roc');detailPlot($('#detail-pr'),pr,'pr')}});
+function initDetail(){if(!detailRoot)return;const id=detailRoot.dataset.detailModel,m=byId[id],vals=D.scores[id],labels=D.labels,range=$('#detail-threshold'),out=$('#detail-threshold-value');const order=vals.map((score,i)=>[score,Boolean(labels[i])]).sort((a,b)=>b[0]-a[0]);let tp=0,fp=0,roc=[[0,0]],pr=[[0,1]],positives=labels.filter(Boolean).length,negatives=labels.length-positives;for(const item of order){if(item[1])tp++;else fp++;const recall=tp/(positives||1),precision=tp/(tp+fp||1);roc.push([fp/(negatives||1),recall]);pr.push([recall,precision])}roc.push([1,1]);detailPlot($('#detail-roc'),roc,'roc');detailPlot($('#detail-pr'),pr,'pr');const lo=Math.min(...vals),hi=Math.max(...vals);range.value=Math.max(0,Math.min(1000,Math.round(1000*(m.threshold-lo)/(hi-lo))));function update(){const threshold=lo+(hi-lo)*Number(range.value)/1000;out.value=threshold.toFixed(4);out.textContent=threshold.toFixed(4);let tn=0,falsePos=0,falseNeg=0,truePos=0;for(let i=0;i<vals.length;i++){const pred=vals[i]>=threshold;if(pred&&labels[i])truePos++;else if(pred)falsePos++;else if(labels[i])falseNeg++;else tn++}const precision=truePos/(truePos+falsePos||1),recall=truePos/(truePos+falseNeg||1),f1=2*precision*recall/(precision+recall||1),far=falsePos/(falsePos+tn||1);$('#detail-live-metrics').innerHTML=[['Precision',precision],['Recall',recall],['F1',f1],['False alarm',far]].map(x=>`<span>${x[0]}<b>${fmt(x[1],3)}</b></span>`).join('');$('#detail-confusion').innerHTML=[[tn,'True negative',''],[falsePos,'False positive','fp'],[falseNeg,'False negative','fn'],[truePos,'True positive','']].map(x=>`<div class="${x[2]}"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}range.oninput=update;update();const n=40,negative=Array(n).fill(0),positive=Array(n).fill(0);vals.forEach((v,i)=>{const bin=Math.min(n-1,Math.floor((v-lo)/(hi-lo)*n));(labels[i]?positive:negative)[bin]++});const mx=Math.max(...negative,...positive);$('#detail-histogram').innerHTML=negative.map((v,i)=>`<span class="histogram-col"><i class="negative" style="--neg:${v/mx*100}%"></i><i class="positive" style="--pos:${positive[i]/mx*100}%"></i></span>`).join('')};initDetail();window.addEventListener('resize',()=>{if(detailRoot){const id=detailRoot.dataset.detailModel,vals=D.scores[id],labels=D.labels,order=vals.map((score,i)=>[score,Boolean(labels[i])]).sort((a,b)=>b[0]-a[0]);let tp=0,fp=0,roc=[[0,0]],pr=[[0,1]],positives=labels.filter(Boolean).length,negatives=labels.length-positives;for(const item of order){if(item[1])tp++;else fp++;roc.push([fp/(negatives||1),tp/(positives||1)]);pr.push([tp/(positives||1),tp/(tp+fp||1)])}roc.push([1,1]);detailPlot($('#detail-roc'),roc,'roc');detailPlot($('#detail-pr'),pr,'pr')}});
 })();'''
+
+
+CSS += r'''
+@media(max-width:720px){.subpage-head,.model-compare-head,.detail-title-row{grid-template-columns:minmax(0,1fr);min-width:0;width:100%}.model-compare-head>div,.model-compare-head>aside,.detail-title-row>div,.detail-title-row>aside{width:100%;max-width:100%;min-width:0}.model-compare-head .dek,.detail-summary{width:100%;max-width:none;font-size:14px;white-space:normal;overflow-wrap:anywhere}.head-note{grid-template-columns:minmax(0,1fr);width:100%;max-width:100%;min-width:0;gap:8px}.head-note b{font-size:clamp(28px,10vw,39px);min-width:0}.detail-title-row h1{max-width:100%;font-size:clamp(44px,13vw,54px);overflow-wrap:anywhere;letter-spacing:-.05em}.detail-section-heading h2{max-width:100%;font-size:clamp(23px,7vw,28px);white-space:normal;overflow-wrap:anywhere}}
+'''
+
+
+CSS += r'''
+@media(max-width:720px){.model-compare-head .dek,.detail-summary{max-width:calc(100vw - 30px);width:100%}.detail-section-heading h2{display:block;width:100%;min-width:0}}
+'''
 
 
 def main() -> None:
@@ -435,6 +595,7 @@ def main() -> None:
     assets.mkdir(parents=True, exist_ok=True)
     from build_model_comparison_dashboard import build_data
     data = build_data(root)
+    generate_chart_assets(data, assets)
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False).replace("</", "<\\/")
     (assets / "report-data.js").write_text("window.REPORT_DATA=" + payload + ";", encoding="utf-8")
     (assets / "report.css").write_text(CSS, encoding="utf-8")
