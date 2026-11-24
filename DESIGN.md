@@ -6,7 +6,7 @@ This visual world belongs to the offline drone audio research report. It treats 
 
 - Brand surface, in the studio lane required for this project: premium and specific, never a generic SaaS or corporate template.
 - Readers are the project owner and technical reviewers comparing frozen model results.
-- The report is a locally navigable set of five HTML pages. It uses only same-folder assets: no remote assets, fonts, scripts, or data requests.
+- The report has five shared sections and one dedicated detail page for each of the 14 frozen model entries. Local navigation and same-folder assets keep it offline; no remote fonts, scripts, or data requests are used.
 
 ## Visual language
 
@@ -17,8 +17,8 @@ This visual world belongs to the offline drone audio research report. It treats 
 
 ## Interaction and motion
 
-- The family chips filter the model groups; detail disclosures reveal each run ledger summary; the leaderboard sorts by designated-seed validation or locked-test F1.
-- The threshold control recalculates the frozen score vector's confusion matrix and operating metrics. CNN stage tabs expose the selection path. Shared navigation connects the five focused report pages.
+- The model comparison ranks validation-selected finalists by validation or locked-test F1, then links to one detailed page per frozen model.
+- Detail pages show candidate ledgers, ROC and precision-recall curves, a live threshold view of the frozen score vector, score distributions, paired intervals, and fit footprint. CNN stage tabs expose the selection path.
 - Motion is limited to a single reveal treatment and chart growth. Use the custom exponential ease-out, and remove movement under `prefers-reduced-motion` while keeping content and state available.
 
 ## Accessibility and responsive behavior

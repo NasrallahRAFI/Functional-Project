@@ -12,7 +12,7 @@ Assumption from the supplied brief: the primary reader is the project owner or r
 
 ## Product Purpose
 
-This is an offline research report for the drone audio classification project. It brings the frozen model results, tuning history, comparison evidence, and reproducibility details into five focused, locally navigable pages.
+This is an offline research report for the drone audio classification project. It brings the frozen model results, tuning history, comparison evidence, and reproducibility details into five shared sections plus one dedicated page for each of the 14 frozen model entries.
 
 ## Positioning
 
