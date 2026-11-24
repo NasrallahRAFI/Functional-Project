@@ -405,6 +405,44 @@ def generate_analysis_charts(data: dict, assets: Path) -> None:
             fig,ax=plt.subplots(figsize=(9,3.6));fig.patch.set_facecolor(c["paper"]);ax.set_facecolor(c["paper"]);bins=np.linspace(float(scores.min()),float(scores.max()),41);ax.hist(scores[~labels],bins=bins,color=c["blue"],alpha=.86,label="Non-drone");ax.hist(scores[labels],bins=bins,color=c["coral"],alpha=.82,label="Drone");ax.axvline(float(m["threshold"]),color=c["lime"],lw=1.5,ls="--",label="Frozen threshold");ax.set_xlabel("Saved test score",color=c["muted"]);ax.set_ylabel("Clip count",color=c["muted"]);ax.tick_params(colors=c["muted"],labelsize=8);ax.legend(frameon=False,labelcolor=c["ink"],fontsize=8);ax.grid(axis="y",color=c["line"],lw=.6);[sp.set_color(c["line"]) for sp in ax.spines.values()];save(fig,f"score-distribution-{mid}",theme)
 
 
+def generate_class_projection(root: Path, assets: Path) -> None:
+    """Plot held-out classes in a two-component PCA map fitted on train only."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
+
+    feature_dir=root/"data"/"processed"/"features_tabular"
+    with np.load(feature_dir/"train.npz",allow_pickle=False) as train, np.load(feature_dir/"test.npz",allow_pickle=False) as test:
+        if not np.array_equal(train["feature_names"],test["feature_names"]):
+            raise ValueError("Training and test feature catalogs differ; cannot generate class projection")
+        x_train=np.asarray(train["X"],dtype=np.float64)
+        x_test=np.asarray(test["X"],dtype=np.float64)
+        y_test=np.asarray(test["y"],dtype=np.int8)
+    scaler=StandardScaler().fit(x_train)
+    projection=PCA(n_components=2,svd_solver="full").fit(scaler.transform(x_train))
+    points=projection.transform(scaler.transform(x_test))
+    colors={"light":{"paper":"#f9fbf7","ink":"#142527","muted":"#526769","line":"#cbd6d1","drone":"#c45139","other":"#4d8197"},"dark":{"paper":"#152326","ink":"#edf5ee","muted":"#aec1bb","line":"#34484a","drone":"#f08970","other":"#82b8d0"}}
+    n_drone=int((y_test==1).sum());n_other=int((y_test==0).sum())
+    for theme,c in colors.items():
+        fig,ax=plt.subplots(figsize=(10.5,6.1));fig.patch.set_facecolor(c["paper"]);ax.set_facecolor(c["paper"])
+        ax.scatter(points[y_test==0,0],points[y_test==0,1],s=15,color=c["other"],alpha=.31,linewidths=0,rasterized=True,label=f"Non-drone · {n_other:,}",zorder=2)
+        ax.scatter(points[y_test==1,0],points[y_test==1,1],s=22,color=c["drone"],alpha=.76,linewidths=0,rasterized=True,label=f"Drone · {n_drone:,}",zorder=3)
+        ax.set_xlabel(f"Principal component 1 · {projection.explained_variance_ratio_[0]:.1%} of train variance",color=c["muted"])
+        ax.set_ylabel(f"Principal component 2 · {projection.explained_variance_ratio_[1]:.1%} of train variance",color=c["muted"])
+        ax.set_title("Held-out clips · 84-feature PCA projection",loc="left",color=c["ink"],fontsize=13,pad=14)
+        ax.tick_params(colors=c["muted"],labelsize=8);ax.grid(color=c["line"],lw=.65,alpha=.8)
+        for spine in ax.spines.values():spine.set_color(c["line"])
+        ax.legend(loc="best",frameon=False,labelcolor=c["ink"],fontsize=9,markerscale=1.2)
+        fig.tight_layout(pad=1.5)
+        path=assets/"charts"/f"class-projection-{theme}.svg"
+        fig.savefig(path,format="svg",bbox_inches="tight",facecolor=c["paper"])
+        svg=path.read_text(encoding="utf-8");path.write_text("\n".join(line.rstrip() for line in svg.splitlines())+"\n",encoding="utf-8")
+        plt.close(fig)
+
+
 def model_index_rows(data: dict) -> str:
     rows = []
     for family in data["cards"]:
@@ -499,6 +537,7 @@ def render_pages(data: dict) -> dict[str, str]:
 <section class="stat-ribbon" aria-label="Report summary"><div><b>14</b><span>frozen models</span></div><div><b>28</b><span>test-scored fits</span></div><div><b>1,506</b><span>held-out clips</span></div><div><b>247</b><span>test groups</span></div><div class="winner-stat"><b>{top['test_f1']:.4f}</b><span>highest test F1</span></div></section>
 <section class="feature-band"><div class="feature-copy"><p class="eyebrow">Current leader</p><h2>Depth made the difference.</h2><p>The tuned CNN leads test F1 at <strong>0.9314</strong>. Its paired group interval is above both the RBF SVM and random forest comparisons. The clean CNN control remains statistically unresolved against it.</p><a href="cnn.html" class="text-arrow">Open the CNN study <span>→</span></a></div>
 <div class="feature-metric"><span class="metric-label">CNN · seed 44</span><div class="metric-big">0.9314</div><div class="metric-interval">95% group interval<br><b>0.8477 — 0.9783</b></div><div class="metric-mini-bars"><i style="--v:93.14%"></i><i style="--v:86.63%"></i><i style="--v:83.23%"></i><i style="--v:83.82%"></i></div><div class="mini-key"><span>CNN</span><span>RBF SVM</span><span>Forest</span><span>MLP</span></div></div></section>
+<section class="page-section class-map"><div class="section-heading"><div><p class="eyebrow">Held-out class map · {scores['clips']:,} test clips</p><h2>Drone and non-drone in two dimensions.</h2></div><p>Each point is a test clip projected from the 84 audio features. PCA scaling and axes were fitted on training features only; this is a descriptive map, not a classifier boundary.</p></div><figure class="report-chart-frame"><div class="report-chart-scroll"><img class="report-chart-image" src="assets/charts/class-projection-light.svg" data-light-src="assets/charts/class-projection-light.svg" data-dark-src="assets/charts/class-projection-dark.svg" alt="Two-dimensional PCA scatter plot of all held-out test clips. Blue dots are non-drone and coral dots are drone. The PCA transform was fitted on training features only."></div><figcaption>Held-out test set: {scores['negative']:,} non-drone and {scores['positive']:,} drone clips. Point overlap is expected; the first two components do not capture all 84 feature dimensions.</figcaption></figure></section>
 <section class="page-section protocol-preview"><div class="section-heading"><div><p class="eyebrow">Evaluation contract</p><h2>Four steps, in order.</h2></div><a href="methodology.html" class="text-arrow">Full method and hashes <span>→</span></a></div>
 <div class="protocol-path"><div><span>Training</span><b>7,607</b><small>fit candidates</small></div><i class="path-link"></i><div><span>Validation</span><b>1,510</b><small>select & tune</small></div><i class="path-link"></i><div><span>Freeze</span><b>SHA-256</b><small>verify artifacts</small></div><i class="path-link"></i><div><span>Test once</span><b>1,506</b><small>247 grouped sources</small></div></div></section>
 <section class="page-section route-grid"><div class="section-heading"><div><p class="eyebrow">Navigate the record</p><h2>Choose a closer view.</h2></div></div><a href="models.html" class="route-row"><span class="route-index">A</span><div><h3>The model lab</h3><p>All fourteen final fits, search ranges, thresholds, and per-variant validation scores.</p></div><span class="route-arrow">↗</span></a>
@@ -666,6 +705,7 @@ def main() -> None:
     data = build_data(root)
     generate_chart_assets(data, assets)
     generate_analysis_charts(data, assets)
+    generate_class_projection(root, assets)
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False).replace("</", "<\\/")
     (assets / "report-data.js").write_text("window.REPORT_DATA=" + payload + ";", encoding="utf-8")
     (assets / "report.css").write_text(CSS, encoding="utf-8")
