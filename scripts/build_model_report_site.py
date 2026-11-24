@@ -21,7 +21,7 @@ def esc(value) -> str:
     return html.escape(str(value), quote=True)
 
 
-def frame(title: str, current: str, content: str, description: str) -> str:
+def frame(title: str, current: str, content: str, description: str, secondary_nav: str = "") -> str:
     nav = "".join(
         f'<a href="{href}" class="{"active" if key == current else ""}" '
         f'{"aria-current=page" if key == current else ""}>{label}</a>'
@@ -35,6 +35,7 @@ def frame(title: str, current: str, content: str, description: str) -> str:
 <script src="assets/report.js" defer></script></head><body data-page="{current}">
 <header class="masthead"><a class="wordmark" href="index.html" aria-label="Model report overview"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M3 18h5l3-9 5 17 4-12 3 5h8"/><circle cx="29" cy="19" r="2"/></svg><span>Drone audio<br><b>model record</b></span></a>
 <nav class="primary-nav" aria-label="Report pages">{nav}</nav><div class="head-actions"><span class="offline-mark"><i></i> Offline report</span><button class="theme-button" id="theme-toggle" type="button" aria-label="Switch colour theme">◐</button></div></header>
+{secondary_nav}
 <main id="main">{content}</main><footer class="site-footer"><span>Frozen comparison · drone audio classification</span><span>Generated from saved results · no refit or new inference</span><a href="index.html">Back to overview ↑</a></footer>
 </body></html>'''
 
@@ -135,6 +136,34 @@ def model_slug(model_id: str) -> str:
     return f"model-{model_id}.html"
 
 
+def model_ribbon(data: dict, active_model: str | None = None) -> str:
+    short_names = {
+        "10_linear_regression": "Linear",
+        "11_sgd_regressor": "SGD",
+        "12_logistic_regression": "Logistic",
+        "13_knn": "k-NN",
+        "14_decision_tree": "Tree",
+        "15_random_forest": "Forest",
+        "16_bagging": "Bagging",
+        "17_adaboost": "AdaBoost",
+        "18_svm_linear": "SVM linear",
+        "18_svm_rbf": "SVM RBF",
+        "20_perceptron": "Perceptron",
+        "20_mlp": "MLP",
+        "30_cnn": "CNN tuned",
+        "30_cnn_control": "CNN control",
+    }
+    comparison_class = "active" if active_model is None else ""
+    comparison_current = "aria-current=page" if active_model is None else ""
+    links = [f'<a class="model-tab comparison-tab {comparison_class}" href="models.html" {comparison_current}>Comparison</a>']
+    links.extend(
+        f'<a class="model-tab {"active" if m["id"] == active_model else ""}" href="{model_slug(m["id"])}" '
+        f'title="{esc(m["name"])}" {"aria-current=page" if m["id"] == active_model else ""}>{esc(short_names[m["id"]])}</a>'
+        for m in data["models"]
+    )
+    return '<div class="model-ribbon-shell"><span class="model-ribbon-title">MODEL PAGES</span><nav class="model-ribbon" aria-label="Model Lab pages">' + "".join(links) + '<span class="model-ribbon-cue" aria-hidden="true">Scroll for more →</span></nav></div>'
+
+
 def family_finalists(data: dict) -> list[tuple[str, dict, bool]]:
     """Choose one validation-selected finalist per search family, plus the clean CNN control."""
     by_id = {m["id"]: m for m in data["models"]}
@@ -212,7 +241,7 @@ def model_detail_pages(data: dict) -> dict[str, str]:
 <section class="detail-section paired-detail"><div class="detail-section-heading"><div><p class="eyebrow">Matched group comparisons</p><h2>Against the other finalists.</h2></div><p>Intervals crossing zero do not establish a difference or equivalence. Positive values favor this model.</p></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Compared model</th><th>Difference direction</th><th>95% paired CI</th><th>Read</th></tr></thead><tbody>{''.join(pair_rows) if pair_rows else '<tr><td colspan="4">No paired interval recorded for this model.</td></tr>'}</tbody></table></div></section>
 <section class="detail-section model-footprint"><div class="detail-section-heading"><div><p class="eyebrow">Compute and lineage</p><h2>Fit footprint.</h2></div>{f'<a href="cnn.html" class="text-arrow">Open the CNN stage record →</a>' if is_cnn else ''}</div><div class="footprint-grid"><div><span>Complexity</span><b>{complexity}</b></div><div><span>Training time</span><b>{train_time}</b></div><div><span>Final seed</span><b>{m['seed']}</b></div><div><span>Frozen threshold</span><b>{m['threshold']:.6g}</b></div><div><span>Test confusion at frozen threshold</span><b>TN {m['tn']} · FP {m['fp']} · FN {m['fn']} · TP {m['tp']}</b></div></div></section>
 <nav class="detail-next-prev" aria-label="Other model pages"><a href="{model_slug(prev['id'])}">← Previous <b>{esc(prev['name'])}</b></a><a href="models.html">All model comparisons ↑</a><a href="{model_slug(nxt['id'])}">Next <b>{esc(nxt['name'])} →</b></a></nav>'''
-        pages[model_slug(m["id"])] = frame(m["name"], "models", body, f"Detailed tuning and test analysis for {m['name']}.")
+        pages[model_slug(m["id"])] = frame(m["name"], "models", body, f"Detailed tuning and test analysis for {m['name']}.", model_ribbon(data, m["id"]))
     return pages
 
 
@@ -307,7 +336,7 @@ def render_pages(data: dict) -> dict[str, str]:
 
     pages = {
         "index.html": frame("Overview", "overview", overview, "Executive summary and navigation for the frozen drone audio model comparison."),
-        "models.html": frame("Model lab", "models", model_html, "All tuned model families, run-ledger variants, frozen thresholds, and test comparisons."),
+        "models.html": frame("Model lab", "models", model_html, "All tuned model families, run-ledger variants, frozen thresholds, and test comparisons.", model_ribbon(data)),
         "cnn.html": frame("CNN study", "cnn", cnn_html, "CNN tuning stages, architecture selection, and final seed results."),
         "diagnostics.html": frame("Diagnostics", "diagnostics", diag_html, "ROC, precision-recall, threshold, score distributions, operating points, and subgroup recall."),
         "methodology.html": frame("Methodology", "methodology", methodology, "Paired group comparisons, reproducibility hashes, methodology, and limitations."),
@@ -353,6 +382,11 @@ CSS += r'''
 CSS += r'''
 .compare-instruction{margin:0 0 14px;padding:10px 13px;border-left:2px solid var(--teal);background:color-mix(in srgb,var(--teal) 7%,var(--paper));color:var(--ink);font-size:11px}.compare-detail-link{display:inline-flex;align-items:center;gap:8px;min-height:36px;margin-top:7px;padding:6px 10px;border:1px solid color-mix(in srgb,var(--teal) 45%,var(--line));color:var(--teal);font:600 9px ui-monospace,Consolas,monospace;text-decoration:none;transition:background .18s var(--ease),color .18s var(--ease)}.compare-detail-link:hover{background:var(--teal);color:var(--paper)}.compare-detail-link span{font-size:12px}.compare-name>div{display:grid;justify-items:start}
 @media(max-width:720px){.compare-detail-link{min-height:38px;margin-top:6px;padding:7px 9px;font-size:8px}.compare-name>div{max-width:100%}.compare-name small{font-size:7px}}
+'''
+
+CSS += r'''
+.model-ribbon-shell{display:flex;align-items:center;gap:16px;padding:0 clamp(18px,4vw,70px);border-bottom:1px solid var(--line);background:var(--paper)}.model-ribbon-title{flex:none;color:var(--muted);font:9px ui-monospace,Consolas,monospace;letter-spacing:.1em}.model-ribbon{display:flex;align-items:stretch;gap:3px;min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin;scrollbar-color:var(--line) transparent}.model-tab{display:flex;flex:none;align-items:center;min-height:46px;padding:0 12px;border-bottom:2px solid transparent;text-decoration:none;color:var(--muted);font-size:10px;white-space:nowrap;transition:color .18s var(--ease),background .18s var(--ease),border-color .18s var(--ease)}.model-tab:hover{color:var(--ink);background:color-mix(in srgb,var(--teal) 7%,var(--paper))}.model-tab.active{color:var(--ink);border-bottom-color:var(--teal);background:color-mix(in srgb,var(--teal) 8%,var(--paper))}.comparison-tab{font-weight:650}.model-ribbon-cue{display:flex;align-items:center;position:sticky;right:0;flex:none;padding:0 8px;background:linear-gradient(90deg,transparent,var(--paper) 22%);color:var(--muted);font:8px ui-monospace,Consolas,monospace;pointer-events:none}
+@media(max-width:720px){.model-ribbon-shell{gap:0;padding:0 12px}.model-ribbon-title{display:none}.model-ribbon{width:100%}.model-tab{min-height:44px;padding:0 11px;font-size:9px}.model-ribbon-cue{font-size:7px}}
 '''
 
 JS = r'''(()=>{

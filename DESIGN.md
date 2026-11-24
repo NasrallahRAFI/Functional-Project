@@ -18,6 +18,7 @@ This visual world belongs to the offline drone audio research report. It treats 
 ## Interaction and motion
 
 - The model comparison ranks validation-selected finalists by validation or locked-test F1, then links to one detailed page per frozen model.
+- The Model Lab adds a second horizontal ribbon directly below the report navigation. It links to the comparison and all 14 model detail pages, with the active page marked.
 - Detail pages show candidate ledgers, ROC and precision-recall curves, a live threshold view of the frozen score vector, score distributions, paired intervals, and fit footprint. CNN stage tabs expose the selection path.
 - Motion is limited to a single reveal treatment and chart growth. Use the custom exponential ease-out, and remove movement under `prefers-reduced-motion` while keeping content and state available.
 
