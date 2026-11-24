@@ -12,7 +12,7 @@ Assumption from the supplied brief: the primary reader is the project owner or r
 
 ## Product Purpose
 
-This is an offline research report for the drone audio classification project. It brings the frozen model results, tuning history, comparison evidence, and reproducibility details into one navigable page.
+This is an offline research report for the drone audio classification project. It brings the frozen model results, tuning history, comparison evidence, and reproducibility details into five focused, locally navigable pages.
 
 ## Positioning
 
@@ -20,13 +20,13 @@ The report exposes the full model selection trail and the locked test protocol, 
 
 ## Operating Context
 
-The page is generated locally from the project's CSV and JSON results. It must work without a network connection and remain usable when shared as a single HTML file.
+The pages are generated locally from the project's CSV and JSON results. The report must work without a network connection when the complete output folder is opened or shared.
 
 ## Capabilities and Constraints
 
 - No model is refit to build or view this report.
 - Final test scores are read from the locked score file and use validation-frozen thresholds.
-- The page covers 14 frozen model fits across 11 model families and includes tuning variants where a run ledger exists.
+- The report covers 14 frozen model fits across 11 model families and includes tuning variants where a run ledger exists.
 - Any conclusions are limited by validation reuse, the available drone types, and possible artefact confounding.
 
 ## Brand Commitments

@@ -368,18 +368,9 @@ function init(){makeNums();protocol();makeFilters();renderFamilies();$('#leader-
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1], help="Project root")
-    parser.add_argument("--output", type=Path, default=None, help="HTML output (default: results/model_comparison_dashboard.html)")
-    args = parser.parse_args()
-    root = args.root.resolve()
-    output = (args.output or root / "results" / "model_comparison_dashboard.html").resolve()
-    data = build_data(root)
-    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False).replace("</", "<\\/")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(HTML.replace("__DATA__", payload), encoding="utf-8")
-    print(f"Wrote {output} ({output.stat().st_size:,} bytes)")
-    print(f"Derived paired intervals for {len(data['paired'])} model comparisons; no model fit or inference run.")
+    # Preserve the original build command as a compatibility entry point.
+    from build_model_report_site import main as build_site
+    build_site()
 
 
 if __name__ == "__main__":
