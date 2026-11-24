@@ -405,7 +405,7 @@ def generate_analysis_charts(data: dict, assets: Path) -> None:
             fig,ax=plt.subplots(figsize=(9,3.6));fig.patch.set_facecolor(c["paper"]);ax.set_facecolor(c["paper"]);bins=np.linspace(float(scores.min()),float(scores.max()),41);ax.hist(scores[~labels],bins=bins,color=c["blue"],alpha=.86,label="Non-drone");ax.hist(scores[labels],bins=bins,color=c["coral"],alpha=.82,label="Drone");ax.axvline(float(m["threshold"]),color=c["lime"],lw=1.5,ls="--",label="Frozen threshold");ax.set_xlabel("Saved test score",color=c["muted"]);ax.set_ylabel("Clip count",color=c["muted"]);ax.tick_params(colors=c["muted"],labelsize=8);ax.legend(frameon=False,labelcolor=c["ink"],fontsize=8);ax.grid(axis="y",color=c["line"],lw=.6);[sp.set_color(c["line"]) for sp in ax.spines.values()];save(fig,f"score-distribution-{mid}",theme)
 
 
-def generate_class_projection(root: Path, assets: Path) -> None:
+def generate_class_projection(data: dict, root: Path, assets: Path) -> None:
     """Plot held-out classes in a two-component PCA map fitted on train only."""
     import matplotlib
     matplotlib.use("Agg")
@@ -424,7 +424,7 @@ def generate_class_projection(root: Path, assets: Path) -> None:
     scaler=StandardScaler().fit(x_train)
     projection=PCA(n_components=2,svd_solver="full").fit(scaler.transform(x_train))
     points=projection.transform(scaler.transform(x_test))
-    colors={"light":{"paper":"#f9fbf7","ink":"#142527","muted":"#526769","line":"#cbd6d1","drone":"#c45139","other":"#4d8197"},"dark":{"paper":"#152326","ink":"#edf5ee","muted":"#aec1bb","line":"#34484a","drone":"#f08970","other":"#82b8d0"}}
+    colors={"light":{"paper":"#f9fbf7","ink":"#142527","muted":"#526769","line":"#cbd6d1","drone":"#c45139","other":"#4d8197","false_positive":"#b87a21","missed":"#8056a5"},"dark":{"paper":"#152326","ink":"#edf5ee","muted":"#aec1bb","line":"#34484a","drone":"#f08970","other":"#82b8d0","false_positive":"#efc16e","missed":"#c19afa"}}
     n_drone=int((y_test==1).sum());n_other=int((y_test==0).sum())
     for theme,c in colors.items():
         fig,ax=plt.subplots(figsize=(10.5,6.1));fig.patch.set_facecolor(c["paper"]);ax.set_facecolor(c["paper"])
@@ -441,6 +441,30 @@ def generate_class_projection(root: Path, assets: Path) -> None:
         fig.savefig(path,format="svg",bbox_inches="tight",facecolor=c["paper"])
         svg=path.read_text(encoding="utf-8");path.write_text("\n".join(line.rstrip() for line in svg.splitlines())+"\n",encoding="utf-8")
         plt.close(fig)
+
+    # Reuse the exact same training-fitted PCA coordinates on every model page.
+    # Each color/marker pair reflects that model's saved test score at its
+    # validation-frozen threshold, so no estimator is refitted here.
+    for model in data["models"]:
+        predicted=np.asarray(data["scores"][model["id"]],dtype=float)>=float(model["threshold"])
+        masks={"tn":(y_test==0)&(~predicted),"tp":(y_test==1)&predicted,"fp":(y_test==0)&predicted,"fn":(y_test==1)&(~predicted)}
+        for theme,c in colors.items():
+            fig,ax=plt.subplots(figsize=(10.5,6.1));fig.patch.set_facecolor(c["paper"]);ax.set_facecolor(c["paper"])
+            specs=[("tn","o",c["other"],.26,16,"True non-drone"),("fp","x",c["false_positive"],.95,44,"False drone alarm"),("fn","D",c["missed"],.95,34,"Missed drone"),("tp","o",c["drone"],.78,22,"Correctly detected drone")]
+            for key,marker,color,alpha,size,label in specs:
+                mask=masks[key]
+                ax.scatter(points[mask,0],points[mask,1],s=size,color=color,alpha=alpha,linewidths=1.1 if marker in {"x","D"} else 0,marker=marker,rasterized=True,label=f"{label} · {int(mask.sum()):,}",zorder=2 if key=="tn" else 3)
+            ax.set_xlabel(f"Principal component 1 · {projection.explained_variance_ratio_[0]:.1%} of train variance",color=c["muted"])
+            ax.set_ylabel(f"Principal component 2 · {projection.explained_variance_ratio_[1]:.1%} of train variance",color=c["muted"])
+            ax.set_title(f"{model['name']} · frozen test classifications",loc="left",color=c["ink"],fontsize=13,pad=14)
+            ax.tick_params(colors=c["muted"],labelsize=8);ax.grid(color=c["line"],lw=.65,alpha=.8)
+            for spine in ax.spines.values():spine.set_color(c["line"])
+            ax.legend(loc="best",frameon=False,labelcolor=c["ink"],fontsize=8,markerscale=1.1)
+            fig.tight_layout(pad=1.5)
+            path=assets/"charts"/f"classification-map-{model['id']}-{theme}.svg"
+            fig.savefig(path,format="svg",bbox_inches="tight",facecolor=c["paper"])
+            svg=path.read_text(encoding="utf-8");path.write_text("\n".join(line.rstrip() for line in svg.splitlines())+"\n",encoding="utf-8")
+            plt.close(fig)
 
 
 def model_index_rows(data: dict) -> str:
@@ -488,6 +512,7 @@ def model_detail_pages(data: dict) -> dict[str, str]:
 <section class="detail-section score-behavior" id="score-behavior"><div class="detail-section-heading"><div><p class="eyebrow">Frozen test scores · {data['test']['clips']:,} clips</p><h2>Score behavior.</h2></div><p>The curve is derived from the saved score vector. The confusion matrix starts at the validation-frozen threshold.</p></div>
 <div class="detail-curves"><figure class="detail-plot report-chart-frame"><figcaption><span>FROZEN TEST SCORES</span><h3>ROC and precision–recall</h3></figcaption><div class="report-chart-scroll"><img class="report-chart-image" src="assets/charts/score-curves-{esc(m['id'])}-light.svg" data-light-src="assets/charts/score-curves-{esc(m['id'])}-light.svg" data-dark-src="assets/charts/score-curves-{esc(m['id'])}-dark.svg" alt="ROC and precision-recall curves for {esc(m['name'])}, derived from its designated saved test scores."></div></figure></div>
 <div class="detail-score-grid"><article class="detail-plot threshold-detail"><div><span>DECISION BEHAVIOR</span><h3>Move the threshold</h3><p>This reclassifies only the anonymous saved test scores.</p></div><label for="detail-threshold">Threshold <output id="detail-threshold-value">{m['threshold']:.6g}</output></label><input id="detail-threshold" type="range" min="0" max="1000" value="500"><div class="detail-live-metrics" id="detail-live-metrics"></div><div class="detail-confusion" id="detail-confusion"></div></article><article class="detail-plot"><div><span>CLASS SEPARATION</span><h3>Test score distribution</h3><p>Blue: non-drone · coral: drone</p></div><div class="report-chart-scroll"><img class="report-chart-image" src="assets/charts/score-distribution-{esc(m['id'])}-light.svg" data-light-src="assets/charts/score-distribution-{esc(m['id'])}-light.svg" data-dark-src="assets/charts/score-distribution-{esc(m['id'])}-dark.svg" alt="Saved test score distribution by class for {esc(m['name'])}; the validation-frozen threshold is marked with a dashed line."></div></article></div></section>
+<section class="detail-section classification-map-section"><div class="detail-section-heading"><div><p class="eyebrow">Frozen test classification · threshold {m['threshold']:.4f}</p><h2>What this model called each clip.</h2></div><p>Colors and symbols combine the known test label with this model’s saved prediction. The operating threshold was selected on validation.</p></div><figure class="report-chart-frame"><div class="report-chart-scroll"><img class="report-chart-image" src="assets/charts/classification-map-{esc(m['id'])}-light.svg" data-light-src="assets/charts/classification-map-{esc(m['id'])}-light.svg" data-dark-src="assets/charts/classification-map-{esc(m['id'])}-dark.svg" alt="PCA scatter of held-out test clips classified by {esc(m['name'])}. Correct non-drone and drone predictions, false alarms, and missed drone clips use separate colors and markers."></div><figcaption>Each point is one held-out test clip at the model’s frozen threshold. The PCA axes and coordinates match the Overview class map.</figcaption></figure></section>
 <section class="detail-section paired-detail"><div class="detail-section-heading"><div><p class="eyebrow">Matched group comparisons</p><h2>Against the other finalists.</h2></div><p>Intervals crossing zero do not establish a difference or equivalence. Positive values favor this model.</p></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Compared model</th><th>Difference direction</th><th>95% paired CI</th><th>Read</th></tr></thead><tbody>{''.join(pair_rows) if pair_rows else '<tr><td colspan="4">No paired interval recorded for this model.</td></tr>'}</tbody></table></div></section>
 <section class="detail-section model-footprint"><div class="detail-section-heading"><div><p class="eyebrow">Compute and lineage</p><h2>Fit footprint.</h2></div>{f'<a href="cnn.html" class="text-arrow">Open the CNN stage record →</a>' if is_cnn else ''}</div><div class="footprint-grid"><div><span>Complexity</span><b>{complexity}</b></div><div><span>Training time</span><b>{train_time}</b></div><div><span>Final seed</span><b>{m['seed']}</b></div><div><span>Frozen threshold</span><b>{m['threshold']:.6g}</b></div><div><span>Test confusion at frozen threshold</span><b>TN {m['tn']} · FP {m['fp']} · FN {m['fn']} · TP {m['tp']}</b></div></div></section>
 <nav class="detail-next-prev" aria-label="Other model pages"><a href="{model_slug(prev['id'])}">← Previous <b>{esc(prev['name'])}</b></a><a href="models.html">All model comparisons ↑</a><a href="{model_slug(nxt['id'])}">Next <b>{esc(nxt['name'])} →</b></a></nav>'''
@@ -705,7 +730,7 @@ def main() -> None:
     data = build_data(root)
     generate_chart_assets(data, assets)
     generate_analysis_charts(data, assets)
-    generate_class_projection(root, assets)
+    generate_class_projection(data, root, assets)
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False).replace("</", "<\\/")
     (assets / "report-data.js").write_text("window.REPORT_DATA=" + payload + ";", encoding="utf-8")
     (assets / "report.css").write_text(CSS, encoding="utf-8")
