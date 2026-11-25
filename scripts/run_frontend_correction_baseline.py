@@ -208,17 +208,22 @@ def main() -> None:
         else:
             probes["nan_golden"] = {"accepted": True}
         audio = rng.normal(0, .1, config.win_samples * 2).astype(np.float32)
-        array, index = cache_split_power([("synthetic", audio)], split="train",
-                                         output_dir=temporary, config=config)
-        tab = cache_split_tabular([("synthetic", mel_power(audio, config))], split="train",
-                                  output_dir=temporary, config=config)
-        with np.load(tab, allow_pickle=False) as archive:
-            keys = archive.files
-        probes["writer_contract"] = {"power_filename": array.name,
-                                      "power_shape": list(np.load(array).shape),
-                                      "index_filename": index.name, "tabular_filename": tab.name,
-                                      "tabular_keys": keys,
-                                      "has_power_sidecar": Path(str(array) + ".meta.json").exists()}
+        try:
+            array, index = cache_split_power([("synthetic", audio)], split="train",
+                                             output_dir=temporary, config=config)
+            tab = cache_split_tabular([("synthetic", mel_power(audio, config))], split="train",
+                                      output_dir=temporary, config=config)
+        except ValueError as exc:
+            probes["writer_contract"] = {"legacy_call_rejected": True, "error": str(exc),
+                "note": "canonical writer/loader round trips are checked by the correction suite"}
+        else:
+            with np.load(tab, allow_pickle=False) as archive:
+                keys = archive.files
+            probes["writer_contract"] = {"power_filename": array.name,
+                                          "power_shape": list(np.load(array).shape),
+                                          "index_filename": index.name, "tabular_filename": tab.name,
+                                          "tabular_keys": keys,
+                                          "has_power_sidecar": Path(str(array) + ".meta.json").exists()}
     report = {"stage": "W0_BASELINE", "generated_utc": datetime.now(timezone.utc).isoformat(),
               "python": sys.version, "platform": platform.platform(), "packages": packages,
               "branch": git("branch", "--show-current"), "commit": git("rev-parse", "HEAD"),

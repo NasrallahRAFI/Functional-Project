@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -187,35 +186,81 @@ def feature_names() -> list[str]:
     return names
 
 
-def build_split_cache(df, fe, root):
-    """Return concatenated mel powers, clip index, and 84-column feature matrix."""
+def _assemble_power_clips(manifest, power_clips, config: FrontEndConfig, *, logged_override=None):
+    """One assembly/catalog implementation for file and in-memory producers."""
     import pandas as pd
-    rows, powers, vectors = [], [], []
-    cursor = 0
-    for r in df.itertuples():
-        path = Path(root) / "Binary_Drone_Audio" / r.clip_id
-        audio, sr = load_audio(path, fe)
-        audio = standardize(audio, sr, fe)
-        fixed, status = fix_length(audio, fe)
-        if not fixed.size:
-            raise ValueError(f"{r.clip_id}: {status}")
-        power = mel_power(fixed, fe)
+
+    config.validate_cache_write(logged_override=logged_override)
+    if config.n_mels < 20:
+        raise ValueError("84-column tabular extraction requires at least 20 mel bands")
+    rows, powers, vectors, cursor = [], [], [], 0
+    records = manifest.to_dict("records")
+    iterator = iter(power_clips)
+    for row in records:
+        try:
+            clip_id, power, status = next(iterator)
+        except StopIteration as exc:
+            raise ValueError("fewer power clips than manifest rows") from exc
+        if str(clip_id) != str(row["clip_id"]):
+            raise ValueError("power clips must follow manifest order")
+        power = np.asarray(power, dtype=np.float32)
+        if power.ndim != 2 or power.shape[0] != config.n_mels or power.shape[1] < config.n_win:
+            raise ValueError(f"{clip_id}: invalid power dimensions")
+        if not np.isfinite(power).all() or np.any(power < 0):
+            raise ValueError(f"{clip_id}: power must be finite and nonnegative")
         frames = power.shape[1]
-        win_start = (frames - fe.n_win) // 2
-        window_power = power[:, win_start:win_start + fe.n_win]
-        crop_zero = bool(np.all(window_power == 0.0))
-        silent = bool(r.all_zero)
-        near = bool(r.near_silent)
-        rows.append({"clip_id": r.clip_id, "start_frame": cursor, "n_frames": frames,
-                     "win_start_frame": win_start, "silent": silent, "near_silent": near,
-                     "crop_all_zero": crop_zero,
-                     "stats_exclude": stats_exclude(silent, near, crop_zero),
-                     "stats_eligible": not stats_exclude(silent, near, crop_zero),
-                     "length_status": status})
-        vectors.append(tabular(window_power, fe))
+        offset = (frames - config.n_win) // 2
+        crop_zero = bool(np.all(power[:, offset:offset + config.n_win] == 0))
+        silent = bool(row.get("silent", row.get("all_zero", False)))
+        near = bool(row["near_silent"])
+        excluded = stats_exclude(silent, near, crop_zero)
+        rows.append({"clip_id": str(clip_id), "start_frame": cursor, "n_frames": frames,
+                     "win_start_frame": offset, "silent": silent, "near_silent": near,
+                     "crop_all_zero": crop_zero, "stats_exclude": excluded,
+                     "stats_eligible": not excluded, "length_status": status})
         powers.append(power)
+        vectors.append(tabular(power, config))
         cursor += frames
+    try:
+        next(iterator)
+    except StopIteration:
+        pass
+    else:
+        raise ValueError("more power clips than manifest rows")
+    if not rows:
+        raise ValueError("cache manifest must not be empty")
     return np.concatenate(powers, axis=1), pd.DataFrame(rows), np.vstack(vectors)
+
+
+def build_split_cache(df, fe: FrontEndConfig, root: str | Path, *, allow_test: bool = False):
+    """Build canonical powers/index/features in memory using explicit split rows."""
+    if "split" not in df or df["split"].nunique() != 1:
+        raise ValueError("cache manifest must name exactly one split")
+    split = str(df["split"].iloc[0])
+    guard_test_access(split, allow_test=allow_test)
+    if split not in {"train", "val", "test"}:
+        raise ValueError("unsupported cache-building split")
+    root = Path(root) / "Binary_Drone_Audio"
+
+    def clips():
+        for row in df.itertuples():
+            power, flags = file_to_power(root / row.clip_id, fe)
+            yield row.clip_id, power, flags["length_status"]
+
+    return _assemble_power_clips(df, clips(), fe)
+
+
+def write_split_cache(manifest, config: FrontEndConfig, raw_root: str | Path, paths: dict, *,
+                       split: str, allow_test: bool = False):
+    """Build and transactionally publish one complete canonical split cache."""
+    from .cache_metadata import publish_split_cache
+
+    guard_test_access(split, allow_test=allow_test)
+    if "split" not in manifest or not manifest["split"].eq(split).all():
+        raise ValueError("cache manifest must match the requested split")
+    arrays = build_split_cache(manifest, config, raw_root, allow_test=allow_test)
+    return publish_split_cache(*arrays, manifest, split=split, paths=paths, config=config,
+                                allow_test=allow_test)
 
 
 def fit_cached_normalizer(cache: np.ndarray, index, manifest_rows, config: FrontEndConfig):
@@ -260,118 +305,152 @@ def global_stats(cache: np.ndarray, index, config, *, manifest_rows=None):
     return normalizer.mean, normalizer.std, normalizer.fit_record["frame_count"]
 
 
+def _cache_context(paths: dict, name: str, config: FrontEndConfig, *, kind: str):
+    """Validate provenance/index without opening an audio or array payload."""
+    import pandas as pd
+    from .cache_metadata import file_sha256, validate_manifest_index, verify_transaction
+    from .config import params_hash
+
+    manifest_path = Path(paths["splits"]) / f"{name}.csv"
+    train_path = Path(paths["splits"]) / "train.csv"
+    index_path = Path(paths["spec"]) / f"index_{name}.csv"
+    cache_path = (Path(paths["spec"]) / f"mel_power_{name}.npy" if kind == "power"
+                  else Path(paths["tab"]) / f"{name}.npz")
+    metadata = verify_cache_sidecar(cache_path, frontend_params_hash=params_hash(config),
+                                    train_manifest_sha256=file_sha256(train_path))
+    manifest_digest = file_sha256(manifest_path)
+    if metadata.get("split_manifest_sha256") != manifest_digest:
+        raise ValueError(f"{name}: cache split-manifest hash mismatch")
+    legacy = {}
+    if metadata.get("schema_version") == 2:
+        verify_transaction(cache_path, metadata, spec_dir=Path(paths["spec"]), split=name)
+        if metadata.get("power_content_hash") != cache_content_hash(config):
+            raise ValueError(f"{name}: cache content hash mismatch")
+    else:
+        record_path = Path(paths["spec"]) / "frontend_hash.json"
+        if not record_path.is_file():
+            raise ValueError("legacy cache requires its original artifact lineage record")
+        legacy = json.loads(record_path.read_text(encoding="utf-8"))
+        if legacy.get("params_hash") != params_hash(config):
+            raise ValueError(f"{name}: legacy frontend lineage mismatch")
+    artifact_records = legacy.get("artifacts", {})
+    index_key = f"data/processed/spectrograms/index_{name}.csv"
+    expected_index = metadata.get("index_sha256") or artifact_records.get(index_key, {}).get("sha256")
+    if not expected_index or expected_index != file_sha256(index_path):
+        raise ValueError(f"{name}: cache index checksum mismatch")
+    artifact_key = (f"data/processed/spectrograms/mel_power_{name}.npy" if kind == "power"
+                    else f"data/processed/features_tabular/{name}.npz")
+    expected_array = metadata.get("artifact_sha256") or artifact_records.get(artifact_key, {}).get("sha256")
+    if not expected_array:
+        raise ValueError(f"{name}: cache array checksum is missing")
+    if legacy and any(artifact_records.get(key, {}).get("config_hash") != params_hash(config)
+                      for key in (index_key, artifact_key)):
+        raise ValueError(f"{name}: legacy artifact lineage mismatch")
+    metadata = {**metadata, "verified_manifest_sha256": manifest_digest,
+                "expected_artifact_sha256": expected_array}
+    manifest = pd.read_csv(manifest_path, keep_default_na=False)
+    index = pd.read_csv(index_path, keep_default_na=False)
+    shape = metadata.get("power_shape")
+    if shape is None:
+        if kind == "power":
+            shape = metadata.get("array_shape")
+        else:
+            power_metadata = json.loads(Path(str(Path(paths["spec"]) / f"mel_power_{name}.npy") + ".meta.json").read_text(encoding="utf-8"))
+            shape = power_metadata.get("array_shape")
+    if not isinstance(shape, list) or len(shape) != 2 or any(type(x) is not int or x < 1 for x in shape):
+        raise ValueError("cache power dimensions are missing or invalid")
+    validate_manifest_index(manifest, index, tuple(shape), config, split=name)
+    frozen_path = Path(paths["splits"]) / "FROZEN.txt"
+    if frozen_path.is_file():
+        frozen = dict(line.split(": ", 1) for line in frozen_path.read_text(encoding="utf-8").splitlines() if ": " in line)
+        if frozen.get(name) != manifest_digest:
+            raise ValueError(f"{name}: frozen manifest hash mismatch")
+    return cache_path, metadata, manifest, index
+
+
 def load_tabular(paths: dict, name: str, *, allow_test: bool = False) -> dict[str, np.ndarray]:
-    """Load and reconcile a frozen tabular split; test requires explicit authorization."""
+    """Load a reconciled, checksummed 84-column cache after the split guard."""
+    from .cache_metadata import file_sha256
+    from .config import load_config, params_hash
+
     guard_test_access(name, allow_test=allow_test)
     if name not in {"train", "val", "test"}:
         raise ValueError(f"unknown split: {name}")
-    archive_path = Path(paths["tab"]) / f"{name}.npz"
-    root = Path(paths["root"])
-    from .config import load_config, params_hash
-    config = load_config(root / "config.yaml")
-    train_manifest_path = Path(paths["splits"]) / "train.csv"
-    train_manifest_sha = hashlib.sha256(train_manifest_path.read_bytes()).hexdigest()
-    current_hash = params_hash(config)
-    sidecar = verify_cache_sidecar(archive_path, frontend_params_hash=current_hash,
-                                   train_manifest_sha256=train_manifest_sha)
+    config = load_config(Path(paths["root"]) / "config.yaml")
+    archive_path, sidecar, manifest, index = _cache_context(paths, name, config, kind="tabular")
+    digest = file_sha256(archive_path)
+    if digest != sidecar["expected_artifact_sha256"]:
+        raise ValueError(f"{name}: tabular cache checksum mismatch")
     with np.load(archive_path, allow_pickle=False) as archive:
         data = {key: archive[key] for key in archive.files}
+    required = {"X", "y", "clip_id", "feature_names", "silent", "near_silent", "crop_all_zero",
+                "partial_zero", "clipped_flag", "dc_flag"}
+    if not required.issubset(data):
+        raise ValueError("tabular archive lacks canonical fields")
     verify_array_metadata(sidecar, shape=data["X"].shape, dtype=data["X"].dtype)
-    manifest_path = Path(paths["splits"]) / f"{name}.csv"
-    index_path = Path(paths["spec"]) / f"index_{name}.csv"
-    import pandas as pd
-    manifest = pd.read_csv(manifest_path, keep_default_na=False)
-    index = pd.read_csv(index_path, keep_default_na=False)
-    ids = data["clip_id"]
-    if not (len(ids) == len(manifest) == len(index)):
-        raise ValueError(f"{name}: manifest, index and tabular row counts differ")
-    if not (np.array_equal(ids, manifest.clip_id.to_numpy()) and
-            np.array_equal(ids, index.clip_id.to_numpy())):
-        raise ValueError(f"{name}: manifest, index and tabular row order differ")
-    expected_names = np.asarray(feature_names())
-    if not np.array_equal(data["feature_names"], expected_names):
-        raise ValueError("tabular feature names differ from the canonical 84-feature catalog")
-    if data["X"].shape != (len(ids), 84) or not np.isfinite(data["X"]).all():
-        raise ValueError(f"{name}: tabular matrix has an invalid shape or non-finite values")
+    if not np.array_equal(data["clip_id"], manifest.clip_id.to_numpy()):
+        raise ValueError(f"{name}: manifest and tabular clip order differ")
+    if not np.array_equal(data["feature_names"], np.asarray(feature_names())):
+        raise ValueError("tabular feature names differ from the canonical catalog")
+    if data["X"].shape != (len(manifest), 84) or not np.isfinite(data["X"]).all():
+        raise ValueError("tabular cache must contain 84 finite features per clip")
     for column in ("near_silent", "partial_zero", "clipped_flag", "dc_flag"):
-        if not np.array_equal(data[column].astype(bool), manifest[column].astype(bool).to_numpy()):
+        if not np.array_equal(data[column], manifest[column].to_numpy()):
             raise ValueError(f"{name}: manifest flag mismatch for {column}")
     for column in ("silent", "near_silent", "crop_all_zero"):
-        if not np.array_equal(data[column].astype(bool), index[column].astype(bool).to_numpy()):
+        if data[column].dtype.kind != "b" or not np.array_equal(data[column], index[column].to_numpy()):
             raise ValueError(f"{name}: index flag mismatch for {column}")
-    data["stats_eligible"] = index.stats_eligible.astype(bool).to_numpy()
-    data["group"] = manifest.group.to_numpy()
-    data["family"] = manifest.family.to_numpy()
-    data["drone_type"] = manifest.drone_type.to_numpy()
-    data["recording"] = manifest.recording.to_numpy()
-    data["label"] = manifest.label.to_numpy(dtype=np.int8)
+    if not np.array_equal(data["y"], manifest.label.to_numpy()):
+        raise ValueError(f"{name}: tabular labels differ from the manifest")
+    data["stats_eligible"] = index.stats_eligible.to_numpy(bool)
     data["stats_exclude"] = ~data["stats_eligible"]
-    if not np.array_equal(data["y"], data["label"]):
-        raise ValueError(f"{name}: labels differ between manifest and feature archive")
-    if name == "train":
-        stats_path = Path(paths["spec"]) / "norm_stats_global.npz"
+    for column in ("group", "family", "drone_type", "recording", "label"):
+        if column in manifest:
+            data[column] = manifest[column].to_numpy()
+    stats_path = Path(paths["spec"]) / "norm_stats_global.npz"
+    if name == "train" and stats_path.is_file():
         with np.load(stats_path, allow_pickle=False) as stats:
-            excluded_record = int(stats["clips_excluded"])
-        if int(data["stats_exclude"].sum()) != excluded_record:
-            raise ValueError("train stats_exclude does not match norm_stats_global.npz")
-    frontend_record = json.loads((Path(paths["spec"]) / "frontend_hash.json").read_text(encoding="utf-8"))
-    if frontend_record.get("params_hash") != current_hash:
-        raise ValueError(f"{name}: front-end lineage hash mismatch")
-    archive_sha = hashlib.sha256(archive_path.read_bytes()).hexdigest()
-    artifact_key = f"data/processed/features_tabular/{name}.npz"
-    artifact = frontend_record.get("artifacts", {}).get(artifact_key, {})
-    if artifact.get("config_hash") != current_hash or artifact.get("sha256") != archive_sha:
-        raise ValueError(f"{name}: tabular cache lineage/hash mismatch")
-    hash_record = json.loads((Path(paths["tables"]) / "manifest_hashes.json").read_text(encoding="utf-8"))
-    frozen_path = Path(paths["splits"]) / "FROZEN.txt"
-    frozen = {}
-    for line in frozen_path.read_text(encoding="utf-8").splitlines():
-        if ": " in line:
-            key, value = line.split(": ", 1)
-            frozen[key.strip()] = value.strip()
-    manifest_sha = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-    frozen_key = "val" if name == "val" else name
-    if (manifest_sha != hash_record.get(name) or manifest_sha != frozen.get(frozen_key)):
-        raise ValueError(f"{name}: manifest hash mismatch")
-    data["lineage_hash"] = np.asarray(current_hash)
-    data["tabular_sha256"] = np.asarray(archive_sha)
-    data["manifest_sha256"] = np.asarray(manifest_sha)
+            if int(data["stats_exclude"].sum()) != int(stats["clips_excluded"]):
+                raise ValueError("training exclusion count differs from normalization record")
+    data.update(lineage_hash=np.asarray(params_hash(config)), tabular_sha256=np.asarray(digest),
+                manifest_sha256=np.asarray(sidecar["verified_manifest_sha256"]))
     return data
 
 
 def load_cache_index(paths: dict, name: str, *, allow_test: bool = False):
-    """Load a mel-cache index after enforcing the split access guard."""
+    """Load a verified index without opening a power or audio payload."""
+    from .config import load_config
+
     guard_test_access(name, allow_test=allow_test)
     if name not in {"train", "val", "test"}:
         raise ValueError(f"unknown split: {name}")
-    import pandas as pd
-    return pd.read_csv(Path(paths["spec"]) / f"index_{name}.csv", keep_default_na=False)
+    config = load_config(Path(paths["root"]) / "config.yaml")
+    return _cache_context(paths, name, config, kind="power")[3]
 
 
 def load_power_cache(paths: dict, name: str, *, allow_test: bool = False,
                      mmap_mode: str | None = "r") -> np.ndarray:
-    """Load the stored float32 mel-power matrix behind the split access guard."""
+    """Return finite nonnegative powers after provenance, checksum and index checks."""
+    from .cache_metadata import file_sha256, validate_power_values
+    from .config import load_config
+
     guard_test_access(name, allow_test=allow_test)
     if name not in {"train", "val", "test"}:
         raise ValueError(f"unknown split: {name}")
-    cache_path = Path(paths["spec"]) / f"mel_power_{name}.npy"
-    from .config import load_config, params_hash
     config = load_config(Path(paths["root"]) / "config.yaml")
-    train_manifest_sha = hashlib.sha256((Path(paths["splits"]) / "train.csv").read_bytes()).hexdigest()
-    sidecar = verify_cache_sidecar(cache_path, frontend_params_hash=params_hash(config),
-                                   train_manifest_sha256=train_manifest_sha)
-    cache = np.load(cache_path,
-                    mmap_mode=mmap_mode, allow_pickle=False)
-    record_path = Path(paths["spec"]) / "cache_content_hash.json"
-    from .config import cache_content_hash
-    if record_path.is_file():
-        record = json.loads(record_path.read_text(encoding="utf-8"))
-        actual = cache_content_hash(config)
-        if record.get("cache_content_hash") != actual:
-            raise ValueError(f"{name}: cache content hash mismatch")
-    if cache.ndim != 2 or cache.shape[0] != config.n_mels or cache.dtype != np.float32:
-        raise ValueError(f"{name}: invalid mel-power cache shape or dtype")
-    verify_array_metadata(sidecar, shape=cache.shape, dtype=cache.dtype)
+    path, metadata, manifest, index = _cache_context(paths, name, config, kind="power")
+    if file_sha256(path) != metadata["expected_artifact_sha256"]:
+        raise ValueError(f"{name}: power cache checksum mismatch")
+    cache = np.load(path, mmap_mode=mmap_mode, allow_pickle=False)
+    try:
+        if cache.ndim != 2 or cache.shape[0] != config.n_mels or cache.dtype != np.float32:
+            raise ValueError(f"{name}: invalid mel-power cache shape or dtype")
+        verify_array_metadata(metadata, shape=cache.shape, dtype=cache.dtype)
+        validate_power_values(cache)
+    except BaseException:
+        if getattr(cache, "_mmap", None) is not None:
+            cache._mmap.close()
+        raise
     return cache
 
 
@@ -388,59 +467,67 @@ def get_window(cache: np.ndarray, row, config: FrontEndConfig, rng: np.random.Ge
 
 
 def cache_split_power(clips, *, split: str, output_dir: str | Path, config: FrontEndConfig,
-                      logged_override: str | None = None) -> tuple[Path, Path]:
-    """Write one concatenated float32 power cache and frame index for one split."""
+                      paths: dict | None = None, source_rate: int | None = None,
+                      logged_override: str | None = None,
+                      allow_test: bool = False) -> tuple[Path, Path]:
+    """Publish a canonical split from ordered waveform pairs and explicit provenance.
+
+    The old unlabelled, transposed format is no longer written. ``paths`` must
+    identify the manifests and both cache folders; ``source_rate`` is explicit.
+    The same transaction also publishes the matching tabular representation.
+    """
+    import pandas as pd
+    from .cache_metadata import publish_split_cache
+
+    guard_test_access(split, allow_test=allow_test)
+    if split not in {"train", "val", "test"}:
+        raise ValueError("unsupported cache-building split")
+    if paths is None or source_rate is None:
+        raise ValueError("canonical cache writing requires paths and an explicit source_rate")
+    if Path(output_dir).resolve() != Path(paths["spec"]).resolve():
+        raise ValueError("power output_dir must match paths['spec']")
     config.validate_cache_write(logged_override=logged_override)
-    if split not in {"train", "validation", "val", "test", "fixture"}: raise ValueError("unknown split")
-    root = Path(output_dir); root.mkdir(parents=True, exist_ok=True)
-    cache_record = {"cache_content_hash": cache_content_hash(config),
-                    "included_keys": ["sr", "channel", "n_fft", "win_length", "hop", "window",
-                                      "center", "n_mels", "fmin", "fmax", "mel_scale", "mel_norm",
-                                      "power", "L", "resample_quality"]}
-    sidecar = root / "cache_content_hash.json"
-    if sidecar.exists():
-        previous = json.loads(sidecar.read_text(encoding="utf-8"))
-        if previous.get("cache_content_hash") != cache_record["cache_content_hash"]:
-            raise ValueError("cache output directory is stamped with a different content hash")
-    else:
-        with sidecar.open("x", encoding="utf-8") as stream:
-            json.dump(cache_record, stream, indent=2)
-            stream.write("\n")
-    if config.passband_status != "measured":
-        reason = logged_override or config.passband_override_reason
-        (root / "passband_override.json").write_text(
-            __import__("json").dumps({"reason": reason, "fmax": config.fmax}, indent=2) + "\n",
-            encoding="utf8")
-    rows, arrays, offset = [], [], 0
-    for name, audio in clips:
-        fixed, status = fix_length(standardize(audio, config.sr, config), config)
-        if not fixed.size: raise ValueError(f"{name}: {status}")
-        power = mel_power(fixed, config)
-        rows.append({"file": str(name), "start_frame": offset, "n_frames": power.shape[1]})
-        arrays.append(power.T); offset += power.shape[1]
-    if not arrays: raise ValueError("no clips provided")
-    array_path, index_path = root / f"{split}.npy", root / f"{split}.csv"
-    if array_path.exists() or index_path.exists(): raise FileExistsError(f"refusing to overwrite {split} cache")
-    np.save(array_path, np.concatenate(arrays).astype(np.float32), allow_pickle=False)
-    import csv
-    with index_path.open("x", newline="", encoding="utf8") as f:
-        w = csv.DictWriter(f, fieldnames=("file", "start_frame", "n_frames")); w.writeheader(); w.writerows(rows)
-    return array_path, index_path
+    manifest = pd.read_csv(Path(paths["splits"]) / f"{split}.csv", keep_default_na=False)
+
+    def powers():
+        for name, audio in clips:
+            standardized = standardize(audio, source_rate, config)
+            flags = clip_flags(standardized, config)
+            position = manifest.loc[manifest.clip_id.eq(str(name))]
+            if len(position) != 1:
+                raise ValueError("waveform clip is not uniquely identified by the manifest")
+            for key in ("silent", "near_silent"):
+                if bool(position.iloc[0][key]) != flags[key]:
+                    raise ValueError(f"{name}: manifest {key} differs from the waveform")
+            fixed, status = fix_length(standardized, config)
+            if not fixed.size:
+                raise ValueError(f"{name}: {status}")
+            yield name, mel_power(fixed, config), status
+
+    arrays = _assemble_power_clips(manifest, powers(), config, logged_override=logged_override)
+    files = publish_split_cache(*arrays, manifest, split=split, paths=paths, config=config,
+                                logged_override=logged_override, allow_test=allow_test)
+    return files["power"], files["index"]
 
 
-def cache_split_tabular(clips, *, split: str, output_dir: str | Path, config: FrontEndConfig) -> Path:
-    config.validate_cache_write()
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    rows = []
-    for name, power in clips:
-        rows.append((str(name), tabular(power, config)))
-    if not rows: raise ValueError("no clips provided")
-    path = Path(output_dir) / f"{split}_tabular.npz"
-    if path.exists(): raise FileExistsError(f"refusing to overwrite {path.name}")
-    matrix = np.stack([x[1] for x in rows]).astype(np.float32)
-    if matrix.shape != (len(rows),84) or not np.all(np.isfinite(matrix)): raise ValueError("invalid tabular cache")
-    np.savez_compressed(path, files=np.asarray([x[0] for x in rows]), features=matrix)
-    return path
+def cache_split_tabular(clips, *, split: str, output_dir: str | Path, config: FrontEndConfig,
+                        paths: dict | None = None, allow_test: bool = False) -> Path:
+    """Publish both canonical representations from ordered full-clip powers."""
+    import pandas as pd
+    from .cache_metadata import publish_split_cache
+
+    guard_test_access(split, allow_test=allow_test)
+    if split not in {"train", "val", "test"}:
+        raise ValueError("unsupported cache-building split")
+    if paths is None:
+        raise ValueError("canonical cache writing requires paths with frozen manifests")
+    if Path(output_dir).resolve() != Path(paths["tab"]).resolve():
+        raise ValueError("tabular output_dir must match paths['tab']")
+    manifest = pd.read_csv(Path(paths["splits"]) / f"{split}.csv", keep_default_na=False)
+    arrays = _assemble_power_clips(manifest,
+                                  ((name, power, "provided_power") for name, power in clips), config)
+    return publish_split_cache(*arrays, manifest, split=split, paths=paths, config=config,
+                                allow_test=allow_test)["tabular"]
 
 
 def wave_to_input(audio: np.ndarray, config: FrontEndConfig, stats: dict | None = None) -> tuple[np.ndarray, dict[str, Any]]:

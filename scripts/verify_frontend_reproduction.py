@@ -35,6 +35,7 @@ def verify(*, execute_notebook: bool, measure_passband: bool) -> dict:
               "code_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
               "relevant_code_sha256": {str(path.relative_to(ROOT)): sha256(path)
                   for path in [ROOT / "src/dronedet/normalization.py", ROOT / "src/dronedet/features.py",
+                               ROOT / "src/dronedet/cache_metadata.py",
                                ROOT / "src/dronedet/data_preparation.py", ROOT / "src/dronedet/resample.py",
                                ROOT / "notebooks/02_feature_extraction.ipynb"]},
               "test_audio_or_array_payloads_opened": False}
@@ -86,9 +87,14 @@ def verify(*, execute_notebook: bool, measure_passband: bool) -> dict:
                     actual._mmap.close()
                 if hasattr(expected, "_mmap"):
                     expected._mmap.close()
+            with np.load(namespace["OUTPUT_ROOT"] / "data/processed/spectrograms/norm_stats_global.npz",
+                         allow_pickle=False) as regenerated_stats:
+                statistics_exact = all(np.array_equal(regenerated_stats[key], original[key])
+                                       for key in ("mean", "std"))
             report["notebook02"] = {"seconds": time.perf_counter() - started,
                 "stdout": output.getvalue(), "splits": errors,
-                "pass": all(v["max_power_abs_error"] == 0 and v["max_tabular_abs_error"] == 0 for v in errors.values())}
+                "saved_statistics_exact": statistics_exact,
+                "pass": statistics_exact and all(v["max_power_abs_error"] == 0 and v["max_tabular_abs_error"] == 0 for v in errors.values())}
         finally:
             temporary = namespace.get("_output_directory")
             if temporary is not None:
