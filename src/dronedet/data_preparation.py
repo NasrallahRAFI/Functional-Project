@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import platform
 import re
 import sys
@@ -14,7 +13,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import soundfile as sf
-import soxr
 
 CLASS_DIRS = ("unknown", "yes_drone")
 _DRONE = re.compile(r"^(?P<prefix>.+)-(?P<type>bebop|membo)_(?P<seg>[0-9]{3})_[.]wav$")
@@ -123,21 +121,93 @@ def l_rule_table(inv: pd.DataFrame, sr: int = 16000, n_fft: int = 1024, hop: int
     return result
 
 
-def measure_resampler_edge(in_sr: int = 48000, out_sr: int = 16000, quality: str = "HQ", duration: float = 3.0) -> dict:
-    time = np.arange(int(in_sr * duration)) / in_sr
-    def level(freq: float) -> float:
-        wave = (0.5 * np.sin(2 * np.pi * freq * time)).astype(np.float32)
-        output = soxr.resample(wave, in_sr, out_sr, quality=quality)
-        middle = output[len(output) // 4: 3 * len(output) // 4]
-        return float(20 * np.log10(np.sqrt(np.mean(middle.astype(np.float64) ** 2)) + 1e-20))
-    reference = level(1000.0)
-    frequencies = np.arange(5000.0, 8001.0, 25.0)
-    response = np.array([level(float(freq)) - reference for freq in frequencies])
-    below = np.where(response < -1.0)[0]
-    f1db = float(frequencies[below[0]]) if below.size else float(frequencies[-1])
-    fmax = min(8000.0, 250.0 * (math.ceil(f1db / 250.0) - 1))
-    return {"f1db": f1db, "fmax": fmax, "freqs": frequencies.tolist(), "resp_db": response.tolist(),
-            "method": "stepped sine response, 25 Hz increments, HQ, 48 kHz to 16 kHz"}
+def measure_resampler_edge(in_sr: int = 48000, out_sr: int = 16000, quality: str = "HQ",
+                           duration: float = 6.0, points: int = 12000) -> dict:
+    """Measure the canonical swept response at both common capture rates.
+
+    ``in_sr`` remains a compatibility argument. An additional rate is measured
+    when requested; neither of the two registered capture rates is omitted.
+    """
+    from .resample import fmax_below_passband, measure_swept_passband
+
+    measurements = {}
+    for source_rate in sorted({44100, 48000, in_sr}):
+        edge, frequency, response = measure_swept_passband(
+            source_rate, out_sr, quality=quality, duration_s=duration, points=points)
+        measurements[str(source_rate)] = {
+            "source_rate": source_rate, "target_rate": out_sr, "edge_hz": edge,
+            "frequencies_hz": frequency.tolist(),
+            "relative_level_db": [float(value) if np.isfinite(value) else None for value in response],
+        }
+    edge = min(record["edge_hz"] for record in measurements.values())
+    return {"f1db": edge, "fmax": fmax_below_passband(edge),
+            "method": "log_swept_chirp_instantaneous_frequency_v1",
+            "quality": quality, "target_rate": out_sr, "duration_s": duration,
+            "frequency_points": points, "reference_band_hz": [900, 1100],
+            "reference": "median response near 1 kHz", "measurements": measurements}
+
+
+def record_resampler_measurement(config_path: str | Path, record_path: str | Path, *,
+                                  measurement: dict | None = None) -> dict:
+    """Write measured evidence; a frozen configuration is always read-only.
+
+    A frozen mismatch is returned explicitly for the caller's acceptance gate.
+    Existing measurements/configuration are not silently reconciled after freeze.
+    """
+    import os
+    import tempfile
+    import yaml
+    from .config import load_config
+
+    config_path, record_path = Path(config_path), Path(record_path)
+    if record_path.resolve() == config_path.resolve():
+        raise ValueError("measurement record must not replace configuration")
+    original = config_path.read_bytes()
+    config = load_config(config_path)
+    result = dict(measurement if measurement is not None else measure_resampler_edge(
+        out_sr=config.sr, quality=config.resample_quality))
+    if not np.isfinite(result["f1db"]) or not np.isfinite(result["fmax"]):
+        raise ValueError("measured passband values must be finite")
+    from .resample import fmax_below_passband
+    if result["fmax"] != fmax_below_passband(result["f1db"]):
+        raise ValueError("measured fmax does not follow the registered passband rule")
+    frozen = (config_path.parent / "data/processed/splits/FROZEN.txt").is_file()
+    matches = (config.passband_status == "measured"
+               and config.measured_passband_hz is not None
+               and abs(config.measured_passband_hz - result["f1db"]) <= 1e-8
+               and config.fmax == result["fmax"])
+    result.update(generated_utc=datetime.now(timezone.utc).isoformat(),
+                  library_versions={name: version(name) for name in ("numpy", "scipy", "soxr")},
+                  frozen_configuration=frozen, configuration_matches=bool(matches),
+                  configuration_updated=not frozen,
+                  status="MISMATCH_FROZEN_CONFIG" if frozen and not matches else "PASS")
+    if not frozen:
+        raw = yaml.safe_load(original.decode("utf-8"))
+        raw["frontend"].update(fmax=result["fmax"], measured_passband_hz=result["f1db"],
+                               passband_status="measured")
+        # Check the candidate before replacing the original configuration.
+        from .config import config_from_mapping
+        config_from_mapping(raw)
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=config_path.parent,
+                                         delete=False, suffix=".tmp") as stream:
+            temporary = Path(stream.name)
+            yaml.safe_dump(raw, stream, sort_keys=False, allow_unicode=True)
+        try:
+            os.replace(temporary, config_path)
+        finally:
+            temporary.unlink(missing_ok=True)
+    elif config_path.read_bytes() != original:
+        raise RuntimeError("frozen configuration changed during measurement")
+    record_path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=record_path.parent,
+                                     delete=False, suffix=".tmp") as stream:
+        temporary = Path(stream.name)
+        stream.write(json.dumps(result, indent=2, allow_nan=False) + "\n")
+    try:
+        os.replace(temporary, record_path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return result
 
 
 def environment_log(path: Path, *, dataset_sha256=None, download_date=None, repository_commit=None,

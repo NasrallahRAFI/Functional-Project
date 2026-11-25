@@ -218,11 +218,46 @@ def build_split_cache(df, fe, root):
     return np.concatenate(powers, axis=1), pd.DataFrame(rows), np.vstack(vectors)
 
 
-def global_stats(cache: np.ndarray, index, config):
-    pieces = [to_db(cache[:, int(r.start_frame):int(r.start_frame) + int(r.n_frames)], config)
-              for r in index[index.stats_eligible].itertuples()]
-    values = np.concatenate(pieces, axis=1)
-    return values.mean(axis=1, dtype=np.float64), values.std(axis=1, dtype=np.float64), values.shape[1]
+def fit_cached_normalizer(cache: np.ndarray, index, manifest_rows, config: FrontEndConfig):
+    """Fit the canonical policy using a reconciled full-clip training cache.
+
+    The stored index owns eligibility; explicit manifest split values prevent
+    accidental validation fitting. Cached values are viewed, never modified.
+    """
+    from .normalization import Normalizer
+
+    rows = list(manifest_rows)
+    indexed = list(index.to_dict("records"))
+    if len(rows) != len(indexed) or not rows:
+        raise ValueError("normalization manifest/index row counts differ or are empty")
+    if cache.ndim != 2 or cache.shape[0] != config.n_mels:
+        raise ValueError("normalization cache has invalid dimensions")
+    powers, fit_rows, cursor = {}, [], 0
+    for manifest, stored in zip(rows, indexed):
+        clip = str(manifest.get("clip_id", ""))
+        if not clip or clip != str(stored.get("clip_id", "")):
+            raise ValueError("normalization manifest/index clip order differs")
+        start, count = int(stored["start_frame"]), int(stored["n_frames"])
+        if start != cursor or count < config.n_win or start + count > cache.shape[1]:
+            raise ValueError(f"{clip}: normalization cache index span is invalid")
+        fit_rows.append({**manifest, **stored, "split": manifest.get("split", "")})
+        powers[clip] = cache[:, start:start + count]
+        cursor += count
+    if cursor != cache.shape[1]:
+        raise ValueError("normalization index does not cover the full power cache")
+    return Normalizer.fit(fit_rows, config, powers)
+
+
+def global_stats(cache: np.ndarray, index, config, *, manifest_rows=None):
+    """Deprecated adapter; explicit training rows are required for safe fitting."""
+    import warnings
+
+    if manifest_rows is None:
+        raise ValueError("use fit_cached_normalizer with explicit training manifest rows")
+    warnings.warn("global_stats is deprecated; use fit_cached_normalizer", DeprecationWarning,
+                  stacklevel=2)
+    normalizer = fit_cached_normalizer(cache, index, manifest_rows, config)
+    return normalizer.mean, normalizer.std, normalizer.fit_record["frame_count"]
 
 
 def load_tabular(paths: dict, name: str, *, allow_test: bool = False) -> dict[str, np.ndarray]:

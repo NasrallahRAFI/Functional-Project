@@ -12,6 +12,8 @@ from scipy import signal
 from .config import FrontEndConfig
 from .features import to_db
 
+GLOBAL_STATS_POLICY = "train_stats_eligible_per_band_floor_mask_v1"
+
 
 def pcen_transform(power: np.ndarray, config: FrontEndConfig) -> np.ndarray:
     x = np.asarray(power, dtype=np.float32)
@@ -32,33 +34,47 @@ def pcen_transform(power: np.ndarray, config: FrontEndConfig) -> np.ndarray:
 class Normalizer:
     """Fit dB or PCEN statistics from explicit train-manifest rows only."""
     def __init__(self, mode: str, mean: np.ndarray | float, std: np.ndarray | float,
-                 excluded_count: int = 0) -> None:
+                 excluded_count: int = 0, *, fit_record: dict[str, Any] | None = None) -> None:
         self.mode = mode
         self.mean = np.asarray(mean, dtype=np.float32)
         self.std = np.asarray(std, dtype=np.float32)
         self.excluded_count = int(excluded_count)
+        self.fit_record = dict(fit_record or {})
         if not np.all(np.isfinite(self.mean)) or not np.all(np.isfinite(self.std)) or np.any(self.std <= 0):
             raise ValueError("normalization stats must be finite and std positive")
 
     @classmethod
     def fit(cls, manifest_rows, config: FrontEndConfig, power_by_file: dict[str, np.ndarray]) -> "Normalizer":
         rows = list(manifest_rows)
-        if any(str(row["split"]).lower() != "train" for row in rows):
+        if any(str(row.get("split", "")).lower() != "train" for row in rows):
             raise ValueError("Normalizer.fit accepts train rows only")
         if config.mode == "logstft":
             raise NotImplementedError("logstft requires a separate 513-bin cache")
-        values, excluded = [], 0
+        values, excluded, names = [], 0, set()
         from .features import stats_exclude
         for row in rows:
-            silent = bool(row.get("silent", row.get("all_zero", False)))
-            near_silent = bool(row.get("near_silent", False))
-            crop_all_zero = bool(row.get("crop_all_zero", False))
-            if stats_exclude(silent, near_silent, crop_all_zero):
+            name = str(row.get("file", row.get("clip_id", "")))
+            if not name or name in names:
+                raise ValueError("manifest rows require unique file or clip_id values")
+            names.add(name)
+            eligible = row.get("stats_eligible")
+            if not isinstance(eligible, (bool, np.bool_)):
+                raise ValueError("Normalizer.fit requires stored boolean stats_eligible values")
+            flag_names = ("silent", "near_silent", "crop_all_zero")
+            if all(key in row for key in flag_names):
+                flags = [row[key] for key in flag_names]
+                if any(not isinstance(flag, (bool, np.bool_)) for flag in flags):
+                    raise ValueError("normalization eligibility flags must be boolean")
+                if bool(eligible) == stats_exclude(*flags):
+                    raise ValueError(f"{name}: stats_eligible contradicts exclusion flags")
+            if not eligible:
                 excluded += 1
                 continue
-            name = str(row.get("file", row.get("clip_id", "")))
-            if not name: raise ValueError("manifest rows require file or clip_id")
             p = np.asarray(power_by_file[name], dtype=np.float32)
+            if p.ndim != 2 or p.shape[0] != config.n_mels or p.shape[1] < config.n_win:
+                raise ValueError(f"{name}: normalization power has invalid dimensions")
+            if not np.isfinite(p).all() or np.any(p < 0):
+                raise ValueError(f"{name}: normalization power must be finite and nonnegative")
             # Full-clip dB moments use every frame; PCEN/per-window modes use the demo-sized crop.
             if config.mode in {"pcen", "per_window_mean"}:
                 from .features import centre_window
@@ -71,6 +87,8 @@ class Normalizer:
                 v = v - v.mean()
             values.append(v.astype(np.float64))
         if not values: raise ValueError("no eligible training clips for normalization")
+        record = {"eligible_clips": len(values), "excluded_clips": excluded,
+                  "source_split": "train", "mode": config.mode}
         if config.mode == "global_stats":
             joined = np.concatenate(values, axis=1)
             # Floor-clamped dB cells carry the mel-normalization-dependent
@@ -81,20 +99,27 @@ class Normalizer:
             floor_epsilon_db = 1e-6
             mean = np.empty(config.n_mels, dtype=np.float64)
             std = np.empty(config.n_mels, dtype=np.float64)
+            counts = np.empty(config.n_mels, dtype=np.int64)
             for band in range(config.n_mels):
                 cells = joined[band, joined[band] > floor_db + floor_epsilon_db]
                 if cells.size == 0:
                     raise ValueError(f"mel band {band} has no non-floor training cells")
                 mean[band] = cells.mean(dtype=np.float64)
                 std[band] = cells.std(dtype=np.float64)
+                counts[band] = cells.size
+            record.update(policy=GLOBAL_STATS_POLICY, floor_threshold_db=floor_db + floor_epsilon_db,
+                          frame_count=joined.shape[1], retained_cells_per_band=counts.tolist(),
+                          masked_cells_per_band=(joined.shape[1] - counts).tolist())
         else:
             joined = np.concatenate([v.ravel() for v in values])
             mean, std = float(joined.mean()), float(joined.std())
-        return cls(config.mode, mean, np.maximum(std, 1e-6), excluded)
+            record.update(policy=f"train_centered_{config.mode}_v1", cells=int(joined.size))
+        return cls(config.mode, mean, np.maximum(std, 1e-6), excluded, fit_record=record)
 
     def state_dict(self) -> dict[str, Any]:
         return {"mode": self.mode, "mean": self.mean.tolist(), "std": self.std.tolist(),
-                "excluded_silent_near_silent": self.excluded_count}
+                "excluded_silent_near_silent": self.excluded_count,
+                "fit_record": self.fit_record}
 
     def save(self, path: str | Path) -> None:
         Path(path).write_text(json.dumps(self.state_dict(), indent=2) + "\n", encoding="utf8")
