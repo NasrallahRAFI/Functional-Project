@@ -19,7 +19,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from dronedet.config import config_hash, load_config, params_hash
+from dronedet.config import (config_hash, legacy_config_hash,
+                             legacy_params_hash, load_config, params_hash)
 from dronedet.features import get_window, load_cache_index, load_power_cache
 from dronedet.ledger import append_run, sha256_file, write_run_report
 from dronedet.models.cnn import build_cnn, parameter_count
@@ -135,7 +136,7 @@ def main() -> int:
     torch.set_num_threads(4)
     torch.use_deterministic_algorithms(True, warn_only=True)
     config = load_config(ROOT / "config.yaml")
-    if config.mode != "global_stats" or params_hash(config) != EXPECTED_FRONTEND_HASH:
+    if config.mode != "global_stats" or legacy_params_hash(config) != EXPECTED_FRONTEND_HASH:
         raise RuntimeError("B3 must use the tagged project global_stats front end")
     if not np.isfinite(args.max_db) or args.max_db < 0:
         raise ValueError("--max-db must be finite and nonnegative")
@@ -164,7 +165,7 @@ def main() -> int:
                  "std": archive["std"].astype(np.float32),
                  "clips_excluded": int(archive["clips_excluded"])}
     lineage_hash = config_hash(config, stats)
-    if lineage_hash != EXPECTED_STATS_HASH or stats["clips_excluded"] != 88:
+    if legacy_config_hash(config, stats) != EXPECTED_STATS_HASH or stats["clips_excluded"] != 88:
         raise RuntimeError("B3 normalization-statistics lineage does not match the frozen front end")
     yaml_data = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
     raw_root = Path(yaml_data["paths"]["local"]["raw_root"]).resolve()

@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from dronedet.config import config_hash, load_config, params_hash
+from dronedet.config import config_hash, legacy_params_hash, load_config, params_hash
 from dronedet.features import (get_window, load_cache_index, load_power_cache,
                                to_db)
 from dronedet.ledger import append_run, sha256_file, write_run_report
@@ -75,6 +75,7 @@ def main() -> int:
     args = parser.parse_args()
     root = _root_from_config(args.config.resolve())
     fe = load_config(args.config)
+    legacy_params_digest = legacy_params_hash(fe)
     params_digest = params_hash(fe)
     input_shape = (1, fe.n_mels, fe.n_win)
     if fe.mode != "global_stats":
@@ -96,7 +97,7 @@ def main() -> int:
     val_sha = hashlib.sha256(val_manifest_path.read_bytes()).hexdigest()
     with (paths["spec"] / "frontend_hash.json").open(encoding="utf-8") as stream:
         frontend_record = json.load(stream)
-    if frontend_record.get("params_hash") != params_digest:
+    if frontend_record.get("params_hash") != legacy_params_digest:
         raise RuntimeError("frozen front-end parameter hash mismatch")
     with np.load(paths["spec"] / "norm_stats_global.npz", allow_pickle=False) as archive:
         stats = {"mean": archive["mean"].astype(np.float32),

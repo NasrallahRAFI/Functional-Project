@@ -18,7 +18,8 @@ from sklearn.metrics import confusion_matrix, roc_auc_score
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
-from dronedet.config import config_hash, load_config, params_hash
+from dronedet.config import (config_hash, legacy_config_hash,
+                             legacy_params_hash, load_config, params_hash)
 from dronedet.features import centre_window, load_cache_index, load_power_cache
 from dronedet.ledger import append_run, sha256_file, write_run_report
 from dronedet.metrics import choose_f1_threshold
@@ -36,7 +37,7 @@ def main() -> int:
     torch.set_num_threads(4)
     torch.use_deterministic_algorithms(True, warn_only=True)
     config = load_config(ROOT / "config.yaml")
-    if config.mode != "global_stats" or params_hash(config) != EXPECTED_FRONTEND_HASH:
+    if config.mode != "global_stats" or legacy_params_hash(config) != EXPECTED_FRONTEND_HASH:
         raise RuntimeError("Stage D front end differs from the frozen front end")
     stage_c_path = ROOT / "results/tables/run_report_30_local_stage_c.json"
     stage_c = json.loads(stage_c_path.read_text(encoding="utf-8"))
@@ -68,7 +69,8 @@ def main() -> int:
                  "std": archive["std"].astype(np.float32),
                  "clips_excluded": int(archive["clips_excluded"])}
     lineage_hash = config_hash(config, stats)
-    if lineage_hash != EXPECTED_STATS_HASH or lineage_hash != frozen.get("lineage_hash"):
+    if (legacy_config_hash(config, stats) != EXPECTED_STATS_HASH or
+            legacy_config_hash(config, stats) != frozen.get("lineage_hash")):
         raise RuntimeError("Stage D normalization lineage differs from frozen baseline")
 
     def fixed_inputs(cache, index):

@@ -20,7 +20,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from dronedet.config import cache_content_hash, config_hash, load_config, params_hash
+from dronedet.config import (cache_content_hash, config_hash, legacy_params_hash,
+                             load_config, params_hash)
 from dronedet.features import (centre_window, fix_length, get_window, load_audio,
                                mel_power, standardize, to_db)
 from dronedet.ledger import append_run, sha256_file, write_run_report
@@ -254,7 +255,7 @@ def main() -> int:
     torch.set_num_threads(4)
     torch.use_deterministic_algorithms(True, warn_only=True)
     base = load_config(ROOT / "config.yaml")
-    if base.mode != "global_stats" or params_hash(base) != \
+    if base.mode != "global_stats" or legacy_params_hash(base) != \
             "97544883461de11a1ee51cc17d7028431d6d0ea8f175effc8e63bc18595f28fc":
         raise RuntimeError("B2 must start from the tagged project front end")
     b1 = json.loads((ROOT / "results/tables/run_report_30_local_b1.json").read_text(encoding="utf-8"))

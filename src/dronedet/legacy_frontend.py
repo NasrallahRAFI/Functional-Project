@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-import warnings
 import logging
+import warnings
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-warnings.warn("dronedet.legacy_frontend is deprecated; use dronedet.features", DeprecationWarning, stacklevel=2)
+warnings.warn(
+    "dronedet.legacy_frontend is deprecated; use dronedet.features",
+    DeprecationWarning,
+    stacklevel=2,
+)
 _log = logging.getLogger(__name__)
 
 import librosa
@@ -53,12 +57,20 @@ class FrontEndConfig:
         if self.n_fft < 2 or not 0 < self.hop <= self.n_fft:
             raise ValueError("n_fft must be >= 2 and hop must be within n_fft")
         if self.win_length != self.n_fft or self.window != "hann" or self.center:
-            raise ValueError("project front end requires a full-length Hann window and center=False")
+            raise ValueError(
+                "project front end requires a full-length Hann window and center=False"
+            )
         if self.n_mels <= 0 or not 0 <= self.fmin < self.fmax <= self.sample_rate / 2:
             raise ValueError("invalid mel range or fmax exceeds Nyquist")
-        if self.measured_passband_hz is not None and self.fmax > self.measured_passband_hz:
+        if (
+            self.measured_passband_hz is not None
+            and self.fmax > self.measured_passband_hz
+        ):
             raise ValueError("fmax exceeds the measured resampler passband")
-        if self.mel_scale not in {"htk", "slaney"} or self.mel_norm not in {"area", "peak"}:
+        if self.mel_scale not in {"htk", "slaney"} or self.mel_norm not in {
+            "area",
+            "peak",
+        }:
             raise ValueError("mel_scale must be htk/slaney and mel_norm area/peak")
         if self.power != 2.0 or self.amin <= 0 or self.top_db is not None:
             raise ValueError("project log-mel uses power=2, amin>0, and top_db=None")
@@ -70,7 +82,16 @@ class FrontEndConfig:
             raise ValueError("unsupported front-end mode")
         if self.preset not in {"project", "reference"}:
             raise ValueError("preset must be project or reference")
-        if min(self.pcen_time_constant, self.pcen_gain, self.pcen_bias, self.pcen_power, self.pcen_eps) <= 0:
+        if (
+            min(
+                self.pcen_time_constant,
+                self.pcen_gain,
+                self.pcen_bias,
+                self.pcen_power,
+                self.pcen_eps,
+            )
+            <= 0
+        ):
             raise ValueError("PCEN parameters must be positive")
         self.validate_filterbank()
 
@@ -78,7 +99,7 @@ class FrontEndConfig:
     def n_samples(self) -> int:
         if self.clip_length_s is None:
             raise ValueError("clip_length_s awaits the dataset duration audit")
-        return int(round(self.clip_length_s * self.sample_rate))
+        return round(self.clip_length_s * self.sample_rate)
 
     @property
     def n_win(self) -> int:
@@ -90,6 +111,11 @@ class FrontEndConfig:
 
     @property
     def sample_rate_hz(self) -> int:
+        return self.sample_rate
+
+    @property
+    def sr(self) -> int:
+        """Alias required by the canonical waveform standardization protocol."""
         return self.sample_rate
 
     @property
@@ -112,11 +138,20 @@ class FrontEndConfig:
     @classmethod
     def reference(cls, **overrides) -> "FrontEndConfig":
         values = {
-            "preset": "reference", "sample_rate": 16_000, "n_fft": 1024,
-            "win_length": 1024, "hop": 256, "n_mels": 64,
-            "fmin": 50.0, "fmax": 8000.0, "measured_passband_hz": None,
-            "mel_scale": "htk", "mel_norm": "area", "amin": 1e-12,
-            "clip_length_s": 33_536 / 16_000, "mode": "global_stats",
+            "preset": "reference",
+            "sample_rate": 16_000,
+            "n_fft": 1024,
+            "win_length": 1024,
+            "hop": 256,
+            "n_mels": 64,
+            "fmin": 50.0,
+            "fmax": 8000.0,
+            "measured_passband_hz": None,
+            "mel_scale": "htk",
+            "mel_norm": "area",
+            "amin": 1e-12,
+            "clip_length_s": 33_536 / 16_000,
+            "mode": "global_stats",
         }
         values.update(overrides)
         return cls(**values)
@@ -139,28 +174,40 @@ class FrontEndConfig:
         if np.any(counts < 2):
             raise ValueError("every mel filter must have at least two nonzero FFT bins")
         edges = librosa.mel_frequencies(
-            n_mels=self.n_mels + 2, fmin=self.fmin, fmax=self.fmax,
+            n_mels=self.n_mels + 2,
+            fmin=self.fmin,
+            fmax=self.fmax,
             htk=self.mel_scale == "htk",
         )
         spacing = self.sample_rate / self.n_fft
         half_width = float(edges[1] - edges[0])
         if half_width < spacing:
             raise ValueError("lowest mel filter half-width is below one FFT bin")
-        return {"minimum_nonzero_bins": int(counts.min()), "lowest_half_width_hz": half_width,
-                "fft_bin_spacing_hz": spacing, "margin_bins": half_width / spacing}
+        return {
+            "minimum_nonzero_bins": int(counts.min()),
+            "lowest_half_width_hz": half_width,
+            "fft_bin_spacing_hz": spacing,
+            "margin_bins": half_width / spacing,
+        }
 
 
 class FrontEnd:
     """Compute power mel, log-mel and the reference linear log-STFT."""
 
     def __init__(self, config: FrontEndConfig | None = None) -> None:
-        _log.warning("legacy front end, output differs from dronedet.features, not for results")
+        _log.warning(
+            "legacy front end, output differs from dronedet.features, not for results"
+        )
         self.config = config or FrontEndConfig()
         self.mel = librosa.filters.mel(
-            sr=self.config.sample_rate, n_fft=self.config.n_fft,
-            n_mels=self.config.n_mels, fmin=self.config.fmin, fmax=self.config.fmax,
+            sr=self.config.sample_rate,
+            n_fft=self.config.n_fft,
+            n_mels=self.config.n_mels,
+            fmin=self.config.fmin,
+            fmax=self.config.fmax,
             htk=self.config.mel_scale == "htk",
-            norm=np.inf if self.config.mel_norm == "peak" else "slaney", dtype=np.float32,
+            norm=np.inf if self.config.mel_norm == "peak" else "slaney",
+            dtype=np.float32,
         )
         self.reset()
 
@@ -192,11 +239,20 @@ class FrontEnd:
         if x.size < self.config.n_fft:
             return np.empty((self.config.n_mels, 0), dtype=np.float32)
         mel = librosa.feature.melspectrogram(
-            y=x, sr=self.config.sample_rate, n_fft=self.config.n_fft,
-            hop_length=self.config.hop, win_length=self.config.win_length,
-            window="hann", center=False, power=2.0,
-            n_mels=self.config.n_mels, fmin=self.config.fmin, fmax=self.config.fmax,
-            htk=self.config.mel_scale == "htk", norm=np.inf if self.config.mel_norm == "peak" else "slaney", dtype=np.float32,
+            y=x,
+            sr=self.config.sample_rate,
+            n_fft=self.config.n_fft,
+            hop_length=self.config.hop,
+            win_length=self.config.win_length,
+            window="hann",
+            center=False,
+            power=2.0,
+            n_mels=self.config.n_mels,
+            fmin=self.config.fmin,
+            fmax=self.config.fmax,
+            htk=self.config.mel_scale == "htk",
+            norm=np.inf if self.config.mel_norm == "peak" else "slaney",
+            dtype=np.float32,
         )
         return np.asarray(mel, dtype=np.float32)
 
@@ -209,13 +265,27 @@ class FrontEnd:
         x = self._mono(audio)
         if x.size < self.config.n_fft:
             return np.empty((self.config.n_fft // 2 + 1, 0), dtype=np.float32)
-        spectrum = np.abs(librosa.stft(
-            x, n_fft=self.config.n_fft, hop_length=self.config.hop,
-            win_length=self.config.win_length, window="hann", center=False,
-        )) ** 2
-        return np.asarray(librosa.power_to_db(spectrum, ref=1.0, amin=self.config.amin, top_db=None), dtype=np.float32)
+        spectrum = (
+            np.abs(
+                librosa.stft(
+                    x,
+                    n_fft=self.config.n_fft,
+                    hop_length=self.config.hop,
+                    win_length=self.config.win_length,
+                    window="hann",
+                    center=False,
+                )
+            )
+            ** 2
+        )
+        return np.asarray(
+            librosa.power_to_db(spectrum, ref=1.0, amin=self.config.amin, top_db=None),
+            dtype=np.float32,
+        )
 
-    def process_window(self, audio: np.ndarray, *, stats: dict | None = None) -> np.ndarray:
+    def process_window(
+        self, audio: np.ndarray, *, stats: dict | None = None
+    ) -> np.ndarray:
         """Return a configured window tensor shaped (1, mel, time)."""
         cfg = self.config
         if cfg.clip_length_s is None:
@@ -227,17 +297,30 @@ class FrontEnd:
             x = np.pad(x, (0, cfg.win_samples - x.size), mode="wrap")
         else:
             start = (x.size - cfg.win_samples) // 2
-            x = x[start:start + cfg.win_samples]
+            x = x[start : start + cfg.win_samples]
         power = self.power(x)
         if cfg.mode == "pcen":
             magnitude = np.sqrt(power) * np.float32(cfg.pcen_input_scale)
             time_frames = cfg.pcen_time_constant * cfg.sample_rate / cfg.hop
-            smoother = (np.sqrt(1.0 + 4.0 * time_frames**2) - 1.0) / (2.0 * time_frames**2)
-            zi = ((1.0 - smoother) * magnitude.mean(axis=-1, keepdims=True)).astype(np.float32)
-            result = librosa.pcen(magnitude, sr=cfg.sample_rate, hop_length=cfg.hop,
-                                  time_constant=cfg.pcen_time_constant, gain=cfg.pcen_gain,
-                                  bias=cfg.pcen_bias, power=cfg.pcen_power, eps=cfg.pcen_eps,
-                                  b=smoother, zi=zi, axis=-1)
+            smoother = (np.sqrt(1.0 + 4.0 * time_frames**2) - 1.0) / (
+                2.0 * time_frames**2
+            )
+            zi = ((1.0 - smoother) * magnitude.mean(axis=-1, keepdims=True)).astype(
+                np.float32
+            )
+            result = librosa.pcen(
+                magnitude,
+                sr=cfg.sample_rate,
+                hop_length=cfg.hop,
+                time_constant=cfg.pcen_time_constant,
+                gain=cfg.pcen_gain,
+                bias=cfg.pcen_bias,
+                power=cfg.pcen_power,
+                eps=cfg.pcen_eps,
+                b=smoother,
+                zi=zi,
+                axis=-1,
+            )
             if stats is None:
                 raise ValueError("PCEN scalar training statistics are required")
             result = (result - float(stats["mean"])) / float(stats["std"])
@@ -250,7 +333,9 @@ class FrontEnd:
             elif cfg.mode == "global_stats":
                 if stats is None:
                     raise ValueError("training per-bin statistics are required")
-                result = (db - np.asarray(stats["mean"], np.float32)[:, None]) / np.asarray(stats["std"], np.float32)[:, None]
+                result = (
+                    db - np.asarray(stats["mean"], np.float32)[:, None]
+                ) / np.asarray(stats["std"], np.float32)[:, None]
             else:
                 result = self.linear_log_stft(x)
         return np.asarray(result[None, ...], dtype=np.float32)
@@ -261,10 +346,16 @@ class FrontEnd:
         if pcm.ndim != 1 or pcm.dtype != np.int16:
             raise ValueError("push expects a one-dimensional int16 PCM chunk")
         audio = np.concatenate((self._buffer, pcm.astype(np.float32) / 32768.0))
-        frames = 0 if audio.size < self.config.n_fft else 1 + (audio.size - self.config.n_fft) // self.config.hop
+        frames = (
+            0
+            if audio.size < self.config.n_fft
+            else 1 + (audio.size - self.config.n_fft) // self.config.hop
+        )
         consumed = frames * self.config.hop
         self._buffer = audio[consumed:].copy()
-        return self.offline(audio[:self.config.n_fft + max(frames - 1, 0) * self.config.hop])
+        return self.offline(
+            audio[: self.config.n_fft + max(frames - 1, 0) * self.config.hop]
+        )
 
 
 def load_frontend_config(path: str | Path) -> FrontEndConfig:
@@ -272,6 +363,7 @@ def load_frontend_config(path: str | Path) -> FrontEndConfig:
         text = stream.read()
     if Path(path).suffix.lower() in {".yaml", ".yml"}:
         import yaml
+
         raw = yaml.safe_load(text)
         raw = raw.get("frontend", raw)
     else:
@@ -283,7 +375,13 @@ def load_frontend_config(path: str | Path) -> FrontEndConfig:
         raw["clip_length_s"] = raw["L"]
     for old, new in aliases.items():
         if old in raw and new not in raw:
-            raw[new] = {"constant_area": "area", "slaney": "area", "peak": "peak"}.get(raw[old], raw[old]) if old == "mel_normalization" else raw[old]
+            raw[new] = (
+                {"constant_area": "area", "slaney": "area", "peak": "peak"}.get(
+                    raw[old], raw[old]
+                )
+                if old == "mel_normalization"
+                else raw[old]
+            )
     preset = raw.get("preset", "project")
     allowed = set(FrontEndConfig.__dataclass_fields__)
     if preset == "reference":
@@ -304,7 +402,9 @@ def frontend_hash(config: FrontEndConfig, stats: dict | None = None) -> str:
     payload = asdict(config)
     if config.clip_length_s is not None:
         payload.update(n_win=config.n_win, win_samples=config.win_samples)
-    digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode())
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    )
     if stats is not None:
         for key in ("mean", "std"):
             if key in stats:

@@ -51,6 +51,12 @@ class Normalizer:
         if config.mode == "logstft":
             raise NotImplementedError("logstft requires a separate 513-bin cache")
         values, excluded, names = [], 0, set()
+        eligible_count = 0
+        global_count = np.zeros(config.n_mels, dtype=np.int64)
+        global_mean = np.zeros(config.n_mels, dtype=np.float64)
+        global_m2 = np.zeros(config.n_mels, dtype=np.float64)
+        global_frame_count = 0
+        global_masked = np.zeros(config.n_mels, dtype=np.int64)
         from .features import stats_exclude
         for row in rows:
             name = str(row.get("file", row.get("clip_id", "")))
@@ -70,6 +76,7 @@ class Normalizer:
             if not eligible:
                 excluded += 1
                 continue
+            eligible_count += 1
             p = np.asarray(power_by_file[name], dtype=np.float32)
             if p.ndim != 2 or p.shape[0] != config.n_mels or p.shape[1] < config.n_win:
                 raise ValueError(f"{name}: normalization power has invalid dimensions")
@@ -85,31 +92,47 @@ class Normalizer:
                 v = to_db(p, config)
             if config.mode == "per_window_mean":
                 v = v - v.mean()
-            values.append(v.astype(np.float64))
-        if not values: raise ValueError("no eligible training clips for normalization")
-        record = {"eligible_clips": len(values), "excluded_clips": excluded,
+            if config.mode == "global_stats":
+                # Merge per-clip batch moments instead of retaining every
+                # full dB matrix and concatenating them at the end.
+                batch = v.astype(np.float64, copy=False)
+                global_frame_count += batch.shape[1]
+                floor_db = 10.0 * float(np.log10(config.amin))
+                floor_threshold = floor_db + 1e-6
+                for band in range(config.n_mels):
+                    cells = batch[band, batch[band] > floor_threshold]
+                    n = cells.size
+                    global_masked[band] += batch.shape[1] - n
+                    if n == 0:
+                        continue
+                    batch_mean = cells.mean(dtype=np.float64)
+                    batch_m2 = np.square(cells - batch_mean).sum(dtype=np.float64)
+                    previous = int(global_count[band])
+                    total = previous + n
+                    delta = batch_mean - global_mean[band]
+                    global_m2[band] += batch_m2 + delta * delta * previous * n / total
+                    global_mean[band] += delta * n / total
+                    global_count[band] = total
+            else:
+                values.append(v.astype(np.float64))
+        if eligible_count == 0: raise ValueError("no eligible training clips for normalization")
+        record = {"eligible_clips": eligible_count, "excluded_clips": excluded,
                   "source_split": "train", "mode": config.mode}
         if config.mode == "global_stats":
-            joined = np.concatenate(values, axis=1)
             # Floor-clamped dB cells carry the mel-normalization-dependent
             # amin offset into otherwise per-band-invariant statistics. Keep
             # the train-clip eligibility rule, and additionally omit cells at
             # the configured power_to_db floor from each band's moments.
-            floor_db = 10.0 * float(np.log10(config.amin))
-            floor_epsilon_db = 1e-6
-            mean = np.empty(config.n_mels, dtype=np.float64)
-            std = np.empty(config.n_mels, dtype=np.float64)
-            counts = np.empty(config.n_mels, dtype=np.int64)
-            for band in range(config.n_mels):
-                cells = joined[band, joined[band] > floor_db + floor_epsilon_db]
-                if cells.size == 0:
-                    raise ValueError(f"mel band {band} has no non-floor training cells")
-                mean[band] = cells.mean(dtype=np.float64)
-                std[band] = cells.std(dtype=np.float64)
-                counts[band] = cells.size
-            record.update(policy=GLOBAL_STATS_POLICY, floor_threshold_db=floor_db + floor_epsilon_db,
-                          frame_count=joined.shape[1], retained_cells_per_band=counts.tolist(),
-                          masked_cells_per_band=(joined.shape[1] - counts).tolist())
+            if np.any(global_count == 0):
+                band = int(np.flatnonzero(global_count == 0)[0])
+                raise ValueError(f"mel band {band} has no non-floor training cells")
+            mean = global_mean
+            std = np.sqrt(np.maximum(global_m2 / global_count, 0.0))
+            record.update(policy=GLOBAL_STATS_POLICY,
+                          floor_threshold_db=floor_db + 1e-6,
+                          frame_count=global_frame_count,
+                          retained_cells_per_band=global_count.tolist(),
+                          masked_cells_per_band=global_masked.tolist())
         else:
             joined = np.concatenate([v.ravel() for v in values])
             mean, std = float(joined.mean()), float(joined.std())
@@ -223,8 +246,8 @@ def mel_norm_equivalence_check(manifest_rows, raw_root: str | Path, config: Fron
 
     peak_config = __import__("dataclasses").replace(config, mel_norm="peak")
     root = Path(raw_root)
-    area_powers: list[np.ndarray] = []
-    peak_powers: list[np.ndarray] = []
+    area_db_by_clip: list[np.ndarray] = []
+    peak_db_by_clip: list[np.ndarray] = []
     eligible: list[bool] = []
     band_edges = librosa.mel_frequencies(n_mels=config.n_mels + 2,
         fmin=config.fmin, fmax=config.fmax, htk=config.mel_scale == "htk")
@@ -250,22 +273,22 @@ def mel_norm_equivalence_check(manifest_rows, raw_root: str | Path, config: Fron
             raise ValueError("train manifest rows require clip_id or file")
         area, _ = file_to_power(root / clip, config)
         peak, _ = file_to_power(root / clip, peak_config)
-        area_powers.append(area)
-        peak_powers.append(peak)
+        area_db_by_clip.append(to_db(area, config))
+        peak_db_by_clip.append(to_db(peak, config))
         if "stats_eligible" not in row:
             raise ValueError("mel_norm equivalence requires stored train stats_eligible values")
         eligible.append(bool(row["stats_eligible"]))
     eligible_arr = np.asarray(eligible, dtype=bool)
 
-    def fit_stats(powers: list[np.ndarray], *, exclude_all_floor_frames: bool
+    def fit_stats(db_by_clip: list[np.ndarray], *, exclude_all_floor_frames: bool
                   ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         sums = np.zeros(config.n_mels, dtype=np.float64)
         sums2 = np.zeros(config.n_mels, dtype=np.float64)
         counts = np.zeros(config.n_mels, dtype=np.int64)
-        for power, use in zip(powers, eligible_arr):
+        for db, use in zip(db_by_clip, eligible_arr):
             if not use:
                 continue
-            values = to_db(power, config).astype(np.float64)
+            values = db.astype(np.float64, copy=False)
             floor_cells = values <= floor_db + floor_epsilon_db
             mask = ~floor_cells
             if exclude_all_floor_frames:
@@ -282,22 +305,21 @@ def mel_norm_equivalence_check(manifest_rows, raw_root: str | Path, config: Fron
         variance = np.maximum(sums2 / counts - mean * mean, 0.0)
         return mean, np.maximum(np.sqrt(variance), 1e-6), counts
 
-    base = {"area": fit_stats(area_powers, exclude_all_floor_frames=False),
-            "peak": fit_stats(peak_powers, exclude_all_floor_frames=False)}
+    base = {"area": fit_stats(area_db_by_clip, exclude_all_floor_frames=False),
+            "peak": fit_stats(peak_db_by_clip, exclude_all_floor_frames=False)}
     # Retain a whole-frame counterfactual for continuity with the earlier
     # OD1 report. Under the approved cell-level floor mask, removing an
     # all-floor frame is redundant because all its cells are already omitted.
-    no_all_floor = {"area": fit_stats(area_powers, exclude_all_floor_frames=True),
-                    "peak": fit_stats(peak_powers, exclude_all_floor_frames=True)}
-    arms = {"area": area_powers, "peak": peak_powers}
+    no_all_floor = {"area": fit_stats(area_db_by_clip, exclude_all_floor_frames=True),
+                    "peak": fit_stats(peak_db_by_clip, exclude_all_floor_frames=True)}
+    arms = {"area": area_db_by_clip, "peak": peak_db_by_clip}
     floor_stats = {arm: np.zeros(config.n_mels, dtype=np.int64) for arm in arms}
     total_stats = {arm: np.zeros(config.n_mels, dtype=np.int64) for arm in arms}
-    for arm, powers in arms.items():
-        for power, use in zip(powers, eligible_arr):
+    for arm, db_by_clip in arms.items():
+        for db, use in zip(db_by_clip, eligible_arr):
             if use:
-                values = to_db(power, config)
-                floor_stats[arm] += (values <= floor_db + floor_epsilon_db).sum(axis=1)
-                total_stats[arm] += values.shape[1]
+                floor_stats[arm] += (db <= floor_db + floor_epsilon_db).sum(axis=1)
+                total_stats[arm] += db.shape[1]
     nonfloor_stats = {arm: total_stats[arm] - floor_stats[arm] for arm in arms}
     if any(np.any(counts < min_nonfloor_cells_per_band) for counts in nonfloor_stats.values()):
         return {"status": "stop_insufficient_nonfloor_statistics",
@@ -310,8 +332,8 @@ def mel_norm_equivalence_check(manifest_rows, raw_root: str | Path, config: Fron
 
     # Compute all eligible frame offsets, or every fourth offset in fallback.
     offsets_by_clip: list[list[int]] = []
-    for power in area_powers:
-        n_frames = power.shape[1]
+    for db in area_db_by_clip:
+        n_frames = db.shape[1]
         last = n_frames - config.n_win
         offsets = list(range(0, last + 1, offset_stride)) if last >= 0 else []
         if offsets and offsets[-1] != last:
@@ -332,13 +354,12 @@ def mel_norm_equivalence_check(manifest_rows, raw_root: str | Path, config: Fron
         mean, std, _ = base[arm]
         final_stats32[arm] = (mean.astype(np.float32).astype(np.float64),
                                std.astype(np.float32).astype(np.float64))
-    for i, (a_power, p_power) in enumerate(zip(area_powers, peak_powers)):
-        if a_power.shape[1] < config.n_win or p_power.shape[1] < config.n_win:
+    for i, (a_db, p_db) in enumerate(zip(area_db_by_clip, peak_db_by_clip)):
+        if a_db.shape[1] < config.n_win or p_db.shape[1] < config.n_win:
             continue
-        start = (a_power.shape[1] - config.n_win) // 2
+        start = (a_db.shape[1] - config.n_win) // 2
         centered_window_count += 1
-        for arm, power in (("area", a_power), ("peak", p_power)):
-            values = to_db(power, config)
+        for arm, values in (("area", a_db), ("peak", p_db)):
             window = values[:, start:start + config.n_win]
             floor_cells = window <= floor_db + floor_epsilon_db
             all_floor = np.all(floor_cells, axis=0)
@@ -406,14 +427,13 @@ def mel_norm_equivalence_check(manifest_rows, raw_root: str | Path, config: Fron
     floor_free_window_count = 0
     precision_max = {arm: 0.0 for arm in arms}
     clip_max: list[dict[str, Any]] = []
-    for i, (row, a_power, p_power, offsets) in enumerate(
-            zip(rows, area_powers, peak_powers, offsets_by_clip)):
+    for i, (row, a_db, p_db, offsets) in enumerate(
+            zip(rows, area_db_by_clip, peak_db_by_clip, offsets_by_clip)):
         label = str(row.get("label_name", row.get("label", "unknown")))
         flags = {name: bool(row.get(name, row.get("all_zero", False) if name == "silent" else False))
                  for name in ("silent", "near_silent", "clipped")}
-        for arm, power in (("area", a_power), ("peak", p_power)):
+        for arm, db in (("area", a_db), ("peak", p_db)):
             if eligible_arr[i]:
-                db = to_db(power, config)
                 floored = db <= floor_db + floor_epsilon_db
                 bucket = stats_counts.setdefault(arm, {})
                 for group, key in [("class", label)] + [(name, f"{name}={value}") for name, value in flags.items()]:
@@ -424,8 +444,8 @@ def mel_norm_equivalence_check(manifest_rows, raw_root: str | Path, config: Fron
                                 for frame in range(start, start + config.n_win)})
         if unique_frames:
             frame_idx = np.asarray(unique_frames, dtype=np.int64)
-            for arm, power in (("area", a_power), ("peak", p_power)):
-                db_frames = to_db(power[:, frame_idx], config)
+            for arm, db in (("area", a_db), ("peak", p_db)):
+                db_frames = db[:, frame_idx]
                 floor_mask = db_frames <= floor_db + floor_epsilon_db
                 all_floor = np.all(floor_mask, axis=0)
                 partial_floor = np.any(floor_mask, axis=0) & ~all_floor
@@ -441,33 +461,33 @@ def mel_norm_equivalence_check(manifest_rows, raw_root: str | Path, config: Fron
         max_resid = 0.0
         for start in offsets:
             total_evaluated_windows += 1
-            a_db = to_db(a_power[:, start:start + config.n_win], config)
-            p_db = to_db(p_power[:, start:start + config.n_win], config)
+            a_window_db = a_db[:, start:start + config.n_win]
+            p_window_db = p_db[:, start:start + config.n_win]
             # Residual applies only where both configurations are >1 dB above floor.
-            valid = (a_db > floor_db + 1.0) & (p_db > floor_db + 1.0)
+            valid = (a_window_db > floor_db + 1.0) & (p_window_db > floor_db + 1.0)
             am, ast, _ = final_stats["area"]
             pm, pst, _ = final_stats["peak"]
-            az = (a_db - am[:, None]) / ast[:, None]
-            pz = (p_db - pm[:, None]) / pst[:, None]
+            az = (a_window_db - am[:, None]) / ast[:, None]
+            pz = (p_window_db - pm[:, None]) / pst[:, None]
             residual = np.abs(az - pz)
             if np.any(valid):
                 add_residual(residual_all_nonfloor, residual[valid])
                 max_resid = max(max_resid, float(residual[valid].max(initial=0.0)))
-            floor_free_window = not bool(np.any(a_db <= floor_db + floor_epsilon_db)
-                                         or np.any(p_db <= floor_db + floor_epsilon_db))
+            floor_free_window = not bool(np.any(a_window_db <= floor_db + floor_epsilon_db)
+                                         or np.any(p_window_db <= floor_db + floor_epsilon_db))
             if floor_free_window:
                 floor_free_window_count += 1
                 add_residual(residual_floor_free_windows, residual)
             # D5 compares outputs under float32 and float64 versions of the
             # selected statistics for both arms on the same evaluated cells.
-            for arm, values in (("area", a_db), ("peak", p_db)):
+            for arm, values in (("area", a_window_db), ("peak", p_window_db)):
                 mu64, sd64, _ = final_stats[arm]
                 mu32, sd32 = final_stats32[arm]
                 z64 = (values - mu64[:, None]) / sd64[:, None]
                 z32 = (values - mu32[:, None]) / sd32[:, None]
                 precision_max[arm] = max(precision_max[arm],
                     float(np.max(np.abs(z64 - z32), initial=0.0)))
-            for arm, db in (("area", a_db), ("peak", p_db)):
+            for arm, db in (("area", a_window_db), ("peak", p_window_db)):
                 floor_mask = db <= floor_db + floor_epsilon_db
                 all_floor = np.all(floor_mask, axis=0)
                 partial_floor = np.any(floor_mask, axis=0) & ~all_floor
@@ -557,10 +577,10 @@ def mel_norm_equivalence_check(manifest_rows, raw_root: str | Path, config: Fron
             "delta_valid_cells_by_arm": od1_delta_cells,
             "whole_frame_counterfactual_is_redundant_after_cell_masking": True,
             "excluded_all_floor_statistics_frames_by_arm": {
-                arm: int(sum(power.shape[1] - int(np.count_nonzero(
-                    ~np.all(to_db(power, config) <= floor_db + floor_epsilon_db, axis=0)))
-                    for power, use in zip(powers, eligible_arr) if use))
-                for arm, powers in arms.items()},
+                arm: int(sum(db.shape[1] - int(np.count_nonzero(
+                    ~np.all(db <= floor_db + floor_epsilon_db, axis=0)))
+                    for db, use in zip(db_by_clip, eligible_arr) if use))
+                for arm, db_by_clip in arms.items()},
         },
         "equivalence_residual": {
             "acceptance_subset": "windows with no floor cell in either mel_norm arm",

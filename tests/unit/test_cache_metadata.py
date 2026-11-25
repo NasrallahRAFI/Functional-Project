@@ -17,12 +17,42 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from dronedet.cache_metadata import file_sha256, sidecar_path
 from dronedet.config import load_config, params_hash
 from dronedet.features import (cache_split_power, cache_split_tabular, load_cache_index,
-                               load_power_cache, load_tabular, mel_power, standardize, tabular)
+                               get_window, load_power_cache, load_tabular, mel_power,
+                               standardize, tabular)
 
 REPO = Path(__file__).resolve().parents[2]
 
 
 class CacheSidecarTests(unittest.TestCase):
+    def test_eval_windows_are_centered_and_rng_is_training_only(self):
+        config = load_config(REPO / "config.yaml")
+        cache = np.arange(64 * 100, dtype=np.float32).reshape(64, 100)
+        row = pd.Series({"start_frame": 10, "n_frames": 40, "win_start_frame": 6})
+        first = get_window(cache, row, config, split="val")
+        second = get_window(cache, row, config, split="val")
+        np.testing.assert_array_equal(first, second)
+        np.testing.assert_array_equal(first, cache[:, 16:44])
+        with self.assertRaisesRegex(ValueError, "training only"):
+            get_window(cache, row, config, np.random.default_rng(3), split="val")
+        train1 = get_window(cache, row, config, np.random.default_rng(11), split="train")
+        train2 = get_window(cache, row, config, np.random.default_rng(11), split="train")
+        np.testing.assert_array_equal(train1, train2)
+        selected_offsets = set()
+        for seed in range(1000):
+            window = get_window(cache, row, config, np.random.default_rng(seed), split="train")
+            offset = int(np.flatnonzero(cache[0] == window[0, 0])[0]) - 10
+            selected_offsets.add(offset)
+        self.assertEqual(selected_offsets, set(range(13)))
+
+    def test_invalid_window_spans_and_noncentered_eval_offsets_are_rejected(self):
+        config = load_config(REPO / "config.yaml")
+        cache = np.zeros((64, 100), dtype=np.float32)
+        with self.assertRaisesRegex(ValueError, "canonical centre"):
+            get_window(cache, pd.Series({"start_frame": 0, "n_frames": 40,
+                                         "win_start_frame": 0}), config, split="val")
+        with self.assertRaisesRegex(ValueError, "cache bounds"):
+            get_window(cache, pd.Series({"start_frame": 70, "n_frames": 40,
+                                         "win_start_frame": 6}), config, split="train")
     def test_missing_sidecar_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
             paths, cache = self._loader_paths(Path(folder))
@@ -47,6 +77,21 @@ class CacheSidecarTests(unittest.TestCase):
             result = load_power_cache(paths, "train")
             self.assertEqual(result.shape, (64, 28))
             result._mmap.close()
+
+    def test_d055_mode_and_decision_changes_do_not_invalidate_cached_content(self):
+        with tempfile.TemporaryDirectory() as folder:
+            paths, _ = self._loader_paths(Path(folder))
+            self._write_valid(paths)
+            config_path = paths["root"] / "config.yaml"
+            raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+            raw["frontend"]["mode"] = "pcen"
+            raw["frontend"]["pcen_gain"] = 0.7
+            raw["decision"]["interval_s"] = 0.75
+            raw["decision"]["smoothing_windows"] = 5
+            config_path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+            loaded = load_power_cache(paths, "train", mmap_mode=None)
+            self.assertEqual(loaded.shape, (64, 28))
+            self.assertEqual(load_tabular(paths, "train")["X"].shape, (1, 84))
 
     def test_power_and_tabular_writers_round_trip_without_renaming_or_stamping(self):
         for writer in ("wave", "power"):

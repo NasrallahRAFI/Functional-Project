@@ -25,7 +25,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from dronedet.bundle import verify_bundle  # noqa: E402
-from dronedet.config import cache_content_hash, load_config, load_project_config, params_hash  # noqa: E402
+from dronedet.config import (cache_content_hash, legacy_cache_content_hash,
+                             legacy_params_hash, load_config, load_project_config,
+                             params_hash)  # noqa: E402
 from dronedet.data_preparation import locate_dataset_root  # noqa: E402
 from dronedet.features import load_cache_index, load_power_cache, load_tabular  # noqa: E402
 from dronedet.ledger import (package_versions, save_freeze_package, sha256_file,
@@ -90,10 +92,10 @@ def phase0_local(runtime: dict) -> dict:
     current_params_hash = params_hash(config)
     current_cache_hash = cache_content_hash(config)
     front = json.loads((paths["spec"] / "frontend_hash.json").read_text(encoding="utf-8"))
-    if current_params_hash != front.get("params_hash"):
+    if legacy_params_hash(config) != front.get("params_hash"):
         raise RuntimeError("STOP local front-end params hash mismatch")
     content_record = json.loads((paths["spec"] / "cache_content_hash.json").read_text(encoding="utf-8"))
-    if current_cache_hash != content_record.get("cache_content_hash"):
+    if legacy_cache_content_hash(config) != content_record.get("cache_content_hash"):
         raise RuntimeError("STOP local cache content hash mismatch")
     stats_path = paths["spec"] / "norm_stats_global.npz"
     stats_sha = sha256_file(stats_path)

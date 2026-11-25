@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import wave
 import struct
+import wave
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -71,7 +71,9 @@ def inspect_wav_header(path: str | Path) -> WavHeader:
                 payload = stream.read(min(size, 64))
                 if len(payload) < 16:
                     raise ValueError("truncated WAV fmt chunk")
-                tag, channels, rate, _byte_rate, align, bits = struct.unpack_from("<HHIIHH", payload)
+                tag, channels, rate, _byte_rate, align, bits = struct.unpack_from(
+                    "<HHIIHH", payload
+                )
                 if tag == 0xFFFE and len(payload) >= 40:
                     guid = payload[24:40]
                     if guid == bytes.fromhex("0100000000001000800000aa00389b71"):
@@ -92,7 +94,9 @@ def inspect_wav_header(path: str | Path) -> WavHeader:
     return WavHeader(tag, channels, rate, bits, align, data_offset, data_bytes)
 
 
-def _decode_channel(raw: bytes, header: WavHeader, count: int, channel_index: int) -> np.ndarray:
+def _decode_channel(
+    raw: bytes, header: WavHeader, count: int, channel_index: int
+) -> np.ndarray:
     width = (header.bits_per_sample + 7) // 8
     if width * header.channels != header.block_align:
         raise ValueError("unsupported WAV block alignment")
@@ -101,18 +105,30 @@ def _decode_channel(raw: bytes, header: WavHeader, count: int, channel_index: in
     elif header.format_tag == 3 and header.bits_per_sample == 32:
         decoded = np.frombuffer(raw, dtype="<f4").reshape(count, header.channels)
     elif header.format_tag == 3 and header.bits_per_sample == 64:
-        decoded = np.frombuffer(raw, dtype="<f8").reshape(count, header.channels).astype(np.float32)
+        decoded = (
+            np.frombuffer(raw, dtype="<f8")
+            .reshape(count, header.channels)
+            .astype(np.float32)
+        )
     else:
-        raise ValueError(f"unsupported WAV format tag={header.format_tag}, bits={header.bits_per_sample}")
+        raise ValueError(
+            f"unsupported WAV format tag={header.format_tag}, bits={header.bits_per_sample}"
+        )
     values = decoded[:, channel_index]
     if not np.all(np.isfinite(values)):
         raise ValueError("WAV contains non-finite samples")
     return values.astype(np.float32, copy=False)
 
 
-def _read_channel_frames(path: str | Path, header: WavHeader, start: int, count: int,
-                         channel_index: int) -> np.ndarray:
-    if not 0 <= channel_index < header.channels or start < 0 or count < 0 or start + count > header.frames:
+def _read_channel_frames(
+    path: str | Path, header: WavHeader, start: int, count: int, channel_index: int
+) -> np.ndarray:
+    if (
+        not 0 <= channel_index < header.channels
+        or start < 0
+        or count < 0
+        or start + count > header.frames
+    ):
         raise ValueError("requested WAV channel/frame range is invalid")
     with Path(path).open("rb") as stream:
         stream.seek(header.data_offset + start * header.block_align)
@@ -137,16 +153,21 @@ def standardize_wav_streaming(
     header = inspect_wav_header(source)
     if header.format_tag not in {1, 3}:
         raise ValueError(f"unsupported WAV format tag {header.format_tag}")
-    start = int(round(segment_start_seconds * header.sample_rate))
-    stop = header.frames if segment_end_seconds is None else int(round(segment_end_seconds * header.sample_rate))
+    start = round(segment_start_seconds * header.sample_rate)
+    stop = (
+        header.frames
+        if segment_end_seconds is None
+        else round(segment_end_seconds * header.sample_rate)
+    )
     if start < 0 or stop <= start or stop > header.frames or target_rate <= 0:
         raise ValueError("segment or target sample rate is outside source WAV")
     if not 0 <= channel_index < header.channels or output_block_frames <= 0:
         raise ValueError("channel index or output block size is invalid")
-    count = stop - start
     clipped, scanned = 0, 0
     for offset in range(start, stop, 65_536):
-        block = _read_channel_frames(source, header, offset, min(65_536, stop - offset), channel_index)
+        block = _read_channel_frames(
+            source, header, offset, min(65_536, stop - offset), channel_index
+        )
         clipped += int(np.count_nonzero(np.abs(block) >= 0.999))
         scanned += block.size
     fraction = clipped / max(scanned, 1)
@@ -160,16 +181,34 @@ def standardize_wav_streaming(
     if destination.exists():
         raise FileExistsError(f"refusing to overwrite WAV: {destination}")
     try:
-        converter = None if target_rate == header.sample_rate else resample_stream(header.sample_rate, target_rate, quality="HQ")
+        converter = (
+            None
+            if target_rate == header.sample_rate
+            else resample_stream(header.sample_rate, target_rate, quality="HQ")
+        )
         with wave.open(str(destination), "wb") as stream:
-            stream.setnchannels(1); stream.setsampwidth(2); stream.setframerate(target_rate)
+            stream.setnchannels(1)
+            stream.setsampwidth(2)
+            stream.setframerate(target_rate)
             for offset in range(start, stop, output_block_frames):
-                source_block = _read_channel_frames(source, header, offset, min(output_block_frames, stop - offset), channel_index)
-                converted = source_block if converter is None else converter.resample_chunk(source_block, last=False)
+                source_block = _read_channel_frames(
+                    source,
+                    header,
+                    offset,
+                    min(output_block_frames, stop - offset),
+                    channel_index,
+                )
+                converted = (
+                    source_block
+                    if converter is None
+                    else converter.resample_chunk(source_block, last=False)
+                )
                 pcm = np.rint(np.clip(converted, -1.0, 1.0) * 32767.0).astype("<i2")
                 stream.writeframesraw(pcm.tobytes())
             if converter is not None:
-                tail = converter.resample_chunk(np.empty(0, dtype=np.float32), last=True)
+                tail = converter.resample_chunk(
+                    np.empty(0, dtype=np.float32), last=True
+                )
                 pcm = np.rint(np.clip(tail, -1.0, 1.0) * 32767.0).astype("<i2")
                 stream.writeframesraw(pcm.tobytes())
         return StandardizedWavInfo(target_rate, 1, 2, float(fraction))
@@ -178,7 +217,9 @@ def standardize_wav_streaming(
         raise
 
 
-def _decode_pcm(raw: bytes, sample_width: int, frame_count: int, channels: int) -> np.ndarray:
+def _decode_pcm(
+    raw: bytes, sample_width: int, frame_count: int, channels: int
+) -> np.ndarray:
     if sample_width == 1:
         values = np.frombuffer(raw, dtype=np.uint8).astype(np.float32)
         values = (values - 128.0) / 128.0
@@ -186,11 +227,18 @@ def _decode_pcm(raw: bytes, sample_width: int, frame_count: int, channels: int) 
         values = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
     elif sample_width == 3:
         packed = np.frombuffer(raw, dtype=np.uint8).reshape(-1, 3)
-        integers = packed[:, 0].astype(np.int32) | (packed[:, 1].astype(np.int32) << 8) | (packed[:, 2].astype(np.int32) << 16)
+        integers = (
+            packed[:, 0].astype(np.int32)
+            | (packed[:, 1].astype(np.int32) << 8)
+            | (packed[:, 2].astype(np.int32) << 16)
+        )
         integers = (integers ^ 0x800000) - 0x800000
         values = integers.astype(np.float32) / 8388608.0
     elif sample_width == 4:
-        values = np.frombuffer(raw, dtype="<i4").astype(np.float64).astype(np.float32) / 2147483648.0
+        values = (
+            np.frombuffer(raw, dtype="<i4").astype(np.float64).astype(np.float32)
+            / 2147483648.0
+        )
     else:
         raise ValueError(f"unsupported PCM sample width: {sample_width} bytes")
     if values.size != frame_count * channels:
@@ -223,22 +271,36 @@ def _is_integer_pcm_wav(path: str | Path) -> bool:
             stream.seek(chunk_size + (chunk_size & 1), 1)
 
 
-def read_wav_mono(path: str | Path, channel_index: int | None = 0, *,
-                  segment_start_seconds: float | None = None,
-                  segment_end_seconds: float | None = None) -> WavAudio:
+def read_wav_mono(
+    path: str | Path,
+    channel_index: int | None = 0,
+    *,
+    segment_start_seconds: float | None = None,
+    segment_end_seconds: float | None = None,
+) -> WavAudio:
     """Read uncompressed PCM WAV, selecting one channel or averaging channels, and flag clipping."""
     info = sf.info(str(path))
     channels, sample_rate, frames = info.channels, info.samplerate, info.frames
     if channels <= 0 or sample_rate <= 0:
         raise ValueError("invalid audio header")
-    if any(value is not None and not np.isfinite(value)
-           for value in (segment_start_seconds, segment_end_seconds)):
+    if any(
+        value is not None and not np.isfinite(value)
+        for value in (segment_start_seconds, segment_end_seconds)
+    ):
         raise ValueError("segment time bounds must be finite")
     decoded, decoded_rate = sf.read(str(path), dtype="float32", always_2d=True)
     if decoded_rate != sample_rate or decoded.shape != (frames, channels):
         raise ValueError("audio data does not match its header")
-    start = 0 if segment_start_seconds is None else int(round(segment_start_seconds * sample_rate))
-    stop = frames if segment_end_seconds is None else int(round(segment_end_seconds * sample_rate))
+    start = (
+        0
+        if segment_start_seconds is None
+        else round(segment_start_seconds * sample_rate)
+    )
+    stop = (
+        frames
+        if segment_end_seconds is None
+        else round(segment_end_seconds * sample_rate)
+    )
     if start < 0 or stop <= start or stop > frames:
         raise ValueError("segment time bounds are invalid or outside the source WAV")
     if channel_index is None:
@@ -246,10 +308,16 @@ def read_wav_mono(path: str | Path, channel_index: int | None = 0, *,
         clipping_signal = decoded[start:stop]
     else:
         if not 0 <= channel_index < channels:
-            raise ValueError(f"channel_index {channel_index} outside WAV's {channels} channels")
+            raise ValueError(
+                f"channel_index {channel_index} outside WAV's {channels} channels"
+            )
         mono = decoded[:, channel_index].astype(np.float32)
-        clipping_signal = decoded[start:stop, channel_index:channel_index + 1]
-    clipped_fraction = float(np.mean(np.max(np.abs(clipping_signal), axis=1) >= 0.999)) if frames else 0.0
+        clipping_signal = decoded[start:stop, channel_index : channel_index + 1]
+    clipped_fraction = (
+        float(np.mean(np.max(np.abs(clipping_signal), axis=1) >= 0.999))
+        if frames
+        else 0.0
+    )
     return WavAudio(mono, sample_rate, channels, 4, clipped_fraction)
 
 
@@ -283,15 +351,29 @@ def standardize_wav(
     """Convert to mono 16-bit PCM at target rate; reject corrupt or materially clipped input."""
     if max_clip_fraction is not None and not 0 <= max_clip_fraction <= 1:
         raise ValueError("max_clip_fraction must be between 0 and 1, or None")
-    audio = read_wav_mono(source, channel_index=channel_index,
-                           segment_start_seconds=segment_start_seconds,
-                           segment_end_seconds=segment_end_seconds)
+    audio = read_wav_mono(
+        source,
+        channel_index=channel_index,
+        segment_start_seconds=segment_start_seconds,
+        segment_end_seconds=segment_end_seconds,
+    )
     if audio.samples.size == 0:
         raise ValueError("WAV contains no audio frames")
-    if any(value is not None and not np.isfinite(value) for value in (segment_start_seconds, segment_end_seconds)):
+    if any(
+        value is not None and not np.isfinite(value)
+        for value in (segment_start_seconds, segment_end_seconds)
+    ):
         raise ValueError("segment time bounds must be finite")
-    start = 0 if segment_start_seconds is None else int(round(segment_start_seconds * audio.sample_rate))
-    stop = audio.samples.size if segment_end_seconds is None else int(round(segment_end_seconds * audio.sample_rate))
+    start = (
+        0
+        if segment_start_seconds is None
+        else round(segment_start_seconds * audio.sample_rate)
+    )
+    stop = (
+        audio.samples.size
+        if segment_end_seconds is None
+        else round(segment_end_seconds * audio.sample_rate)
+    )
     if start < 0 or stop <= start or stop > audio.samples.size:
         raise ValueError("segment time bounds are invalid or outside the source WAV")
     selected = audio.samples[start:stop]

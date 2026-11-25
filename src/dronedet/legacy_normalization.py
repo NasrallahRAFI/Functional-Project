@@ -62,40 +62,8 @@ class LogMelNormalizer:
 
     @classmethod
     def fit(cls, training_spectrograms: Iterable[np.ndarray], db_floor: float = -120.0) -> "LogMelNormalizer":
+        """Reject the retired array-only API with the supported replacement."""
         raise RuntimeError("use dronedet.features.Normalizer.fit(manifest_rows)")
-        m2: np.ndarray | None = None
-        count = 0
-        silent_count = 0
-        for item in training_spectrograms:
-            silent = False
-            if isinstance(item, tuple) and len(item) == 2:
-                item, silent = item
-            if silent:
-                silent_count += 1
-                continue
-            values = np.asarray(item, dtype=np.float32)
-            if values.ndim != 2 or values.shape[0] == 0 or values.shape[1] == 0:
-                raise ValueError("each input must have shape (n_mels, nonzero_frames)")
-            if mean is not None and values.shape[0] != mean.size:
-                raise ValueError("all inputs must use the same number of mel bins")
-            clipped = np.maximum(values, db_floor).astype(np.float64)
-            batch_count = clipped.shape[1]
-            batch_mean = clipped.mean(axis=1)
-            batch_m2 = np.sum((clipped - batch_mean[:, None]) ** 2, axis=1)
-            if mean is None:
-                mean, m2, count = batch_mean, batch_m2, batch_count
-                continue
-            combined = count + batch_count
-            delta = batch_mean - mean
-            m2 += batch_m2 + delta**2 * (count * batch_count / combined)
-            mean += delta * (batch_count / combined)
-            count = combined
-        if mean is None or m2 is None or count == 0:
-            raise ValueError("training spectrograms are required")
-        std = np.sqrt(np.maximum(m2 / count, 0.0))
-        result = cls(mean.astype(np.float32), np.maximum(std, 1e-6).astype(np.float32), db_floor)
-        result.excluded_silent_count = silent_count
-        return result
 
     def transform(self, spectrogram: np.ndarray) -> np.ndarray:
         x = np.asarray(spectrogram, dtype=np.float32)

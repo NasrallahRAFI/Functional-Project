@@ -6,6 +6,7 @@ import hashlib
 import json
 import warnings
 from dataclasses import asdict, dataclass
+import math
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,34 @@ class FrontEndConfig:
     def __post_init__(self) -> None:
         if self.preset not in {"project", "reference"}:
             raise ValueError("preset must be 'project' or 'reference'")
+        integer_fields = {"sr": self.sr, "channel": self.channel, "n_fft": self.n_fft,
+                          "win_length": self.win_length, "hop": self.hop,
+                          "n_mels": self.n_mels, "manifest_seed": self.manifest_seed,
+                          "smoothing_windows": self.smoothing_windows}
+        for name, value in integer_fields.items():
+            if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)):
+                raise ValueError(f"{name} must be an integer")
+        finite_fields = ("L", "fmin", "fmax", "power", "amin", "pcen_time_constant",
+                         "pcen_gain", "pcen_bias", "pcen_power", "pcen_eps",
+                         "pcen_input_scale", "near_silent_dbfs", "clipped_peak",
+                         "clipped_fraction", "decision_interval_s")
+        for name in finite_fields:
+            value = getattr(self, name)
+            if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, float, np.integer, np.floating)):
+                raise ValueError(f"{name} must be numeric")
+            if not math.isfinite(float(value)):
+                raise ValueError(f"{name} must be finite")
+        for name in ("top_db", "measured_passband_hz"):
+            value = getattr(self, name)
+            if value is not None and (isinstance(value, (bool, np.bool_)) or
+                    not isinstance(value, (int, float, np.integer, np.floating)) or
+                    not math.isfinite(float(value))):
+                raise ValueError(f"{name} must be finite numeric when specified")
+        if not isinstance(self.gain_range_db, (tuple, list)) or len(self.gain_range_db) != 2:
+            raise ValueError("gain_range_db must be an increasing finite numeric pair")
+        if any(isinstance(x, (bool, np.bool_)) or not isinstance(x, (int, float, np.integer, np.floating))
+               or not math.isfinite(float(x)) for x in self.gain_range_db):
+            raise ValueError("gain_range_db must be an increasing finite numeric pair")
         if self.sr <= 0 or self.channel < 0:
             raise ValueError("sr must be positive and channel nonnegative")
         if self.n_fft < 2 or self.win_length != self.n_fft or not 0 < self.hop <= self.n_fft:
@@ -79,14 +108,18 @@ class FrontEndConfig:
             raise ValueError("unsupported soxr quality")
         if self.mode not in {"global_stats", "per_window_mean", "pcen", "logstft"}:
             raise ValueError("unsupported front-end mode")
-        if min(self.pcen_time_constant, self.pcen_gain, self.pcen_bias, self.pcen_power, self.pcen_eps) <= 0:
-            raise ValueError("PCEN parameters must be positive")
+        if (self.pcen_time_constant <= 0 or not 0 <= self.pcen_gain <= 1 or
+                self.pcen_bias <= 0 or not 0 < self.pcen_power <= 1 or
+                self.pcen_eps <= 0 or self.pcen_input_scale <= 0):
+            raise ValueError("invalid PCEN parameters: time/bias/eps/scale > 0, gain in [0,1], power in (0,1]")
         if len(self.gain_range_db) != 2 or self.gain_range_db[0] >= self.gain_range_db[1]:
             raise ValueError("gain_range_db must be an increasing pair")
         if not 0 < self.clipped_peak <= 1 or not 0 < self.clipped_fraction <= 1:
             raise ValueError("invalid clipping thresholds")
         if self.passband_override_reason is not None and not self.passband_override_reason.strip():
             raise ValueError("passband override reason must not be blank")
+        if self.decision_interval_s <= 0 or self.smoothing_windows <= 0:
+            raise ValueError("decision interval and smoothing window count must be positive")
         self.validate_filterbank()
         if self.passband_status == "interim":
             warnings.warn("fmax is interim until the soxr passband measurement is recorded", UserWarning, stacklevel=2)
@@ -177,6 +210,8 @@ class FrontEndConfig:
         return self.validate_filterbank()
 
     def validate_cache_write(self, *, logged_override: str | None = None) -> None:
+        if self.n_mels < 20:
+            raise ValueError("the canonical 84-column tabular representation requires at least 20 mel bands")
         if self.passband_status == "measured":
             return
         reason = logged_override or self.passband_override_reason
@@ -202,7 +237,18 @@ def _preset_values(preset: str) -> dict[str, Any]:
 
 
 def config_from_mapping(raw: dict[str, Any], *, preset: str | None = None) -> FrontEndConfig:
-    section = raw.get("frontend", raw)
+    if not isinstance(raw, dict):
+        raise ValueError("configuration must contain a mapping")
+    if "frontend" in raw:
+        allowed_root = {"frontend", "decision", "cnn_frontend", "seed", "paths", "cleaning", "split"}
+        unknown_root = set(raw) - allowed_root
+        if unknown_root:
+            raise ValueError(f"unknown project configuration keys: {sorted(unknown_root)}")
+        section = raw["frontend"]
+        if not isinstance(section, dict):
+            raise ValueError("frontend must contain a mapping")
+    else:
+        section = raw
     selected = preset or str(section.get("preset", raw.get("preset", "project")))
     values = _preset_values(selected)
     aliases = {
@@ -211,14 +257,40 @@ def config_from_mapping(raw: dict[str, Any], *, preset: str | None = None) -> Fr
     }
     normalized: dict[str, Any] = {}
     for key, value in section.items():
-        normalized[aliases.get(key, key)] = value
+        canonical = aliases.get(key, key)
+        if canonical in normalized:
+            raise ValueError(f"conflicting frontend aliases for {canonical}")
+        if canonical != key:
+            warnings.warn(f"frontend key {key!r} is deprecated; use {canonical!r}",
+                          DeprecationWarning, stacklevel=2)
+        normalized[canonical] = value
     if "mel_norm" in normalized:
         normalized["mel_norm"] = {"constant_area": "area", "slaney": "area"}.get(normalized["mel_norm"], normalized["mel_norm"])
     values.update(normalized)
+    decision = raw.get("decision", {}) if "frontend" in raw else {}
+    if not isinstance(decision, dict):
+        raise ValueError("decision must contain a mapping")
+    unknown_decision = set(decision) - {"policy_id", "interval_s", "smoothing_windows"}
+    if unknown_decision:
+        raise ValueError(f"unknown decision keys: {sorted(unknown_decision)}")
+    policy_id = decision.get("policy_id", "threshold-majority-v1")
+    if not isinstance(policy_id, str) or policy_id != "threshold-majority-v1":
+        raise ValueError(f"unsupported decision policy_id: {policy_id!r}")
+    # Read the historical frontend placement for a lossless legacy identity check.
+    if "decision_interval_s" in normalized or "smoothing_windows" in normalized:
+        warnings.warn("decision settings under frontend are deprecated; use the decision section",
+                      DeprecationWarning, stacklevel=2)
+    if "interval_s" in decision:
+        values["decision_interval_s"] = decision["interval_s"]
+    if "smoothing_windows" in decision:
+        values["smoothing_windows"] = decision["smoothing_windows"]
     if "gain_range_db" in values:
         values["gain_range_db"] = tuple(values["gain_range_db"])
     known = set(FrontEndConfig.__dataclass_fields__)
-    return FrontEndConfig(**{key: value for key, value in values.items() if key in known})
+    unknown = set(normalized) - known
+    if unknown:
+        raise ValueError(f"unknown frontend keys: {sorted(unknown)}")
+    return FrontEndConfig(**values)
 
 
 def load_config(path: str | Path, *, preset: str | None = None) -> FrontEndConfig:
@@ -264,8 +336,8 @@ def validate_frontend(config: FrontEndConfig, passband_limit_hz: float | None = 
 
 
 def params_hash(config: FrontEndConfig) -> str:
-    """Stable front-end parameter hash, including derived window dimensions."""
-    return config_hash(config)
+    """Versioned transformation identity, excluding decisions and audit provenance."""
+    return transform_hash(config)
 
 
 def cache_content_hash(config: FrontEndConfig) -> str:
@@ -282,8 +354,108 @@ def cache_content_hash(config: FrontEndConfig) -> str:
         "resample_quality",
     )
     payload = {key: getattr(config, key) for key in keys}
+    payload = {"identity_schema": 2, "domain": "mel_power", **payload}
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def legacy_cache_content_hash(config: FrontEndConfig) -> str:
+    """V1 cache identity for read-only verification of installed cache metadata."""
+    keys = ("sr", "channel", "n_fft", "win_length", "hop", "window", "center",
+            "n_mels", "fmin", "fmax", "mel_scale", "mel_norm", "power", "L",
+            "resample_quality")
+    payload = {key: getattr(config, key) for key in keys}
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _canonical_hash(payload: dict[str, Any]) -> str:
+    def json_value(value: Any) -> Any:
+        if isinstance(value, np.generic):
+            return value.item()
+        if isinstance(value, tuple):
+            return [json_value(item) for item in value]
+        if isinstance(value, list):
+            return [json_value(item) for item in value]
+        if isinstance(value, dict):
+            return {str(key): json_value(item) for key, item in value.items()}
+        return value
+    return hashlib.sha256(json.dumps(json_value(payload), sort_keys=True,
+                                     separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
+
+
+def transform_hash(config: FrontEndConfig) -> str:
+    """Identity for converting cached power into a frontend representation."""
+    fields = asdict(config)
+    for name in ("decision_interval_s", "smoothing_windows", "measured_passband_hz",
+                 "passband_status", "passband_override_reason", "manifest_seed"):
+        fields.pop(name, None)
+    fields.update(n_win=config.n_win, win_samples=config.win_samples)
+    return _canonical_hash({"identity_schema": 2, "domain": "frontend_transform", **fields})
+
+
+def tabular_content_hash(config: FrontEndConfig) -> str:
+    """Identity for the fixed 84-column descriptor array derived from mel power."""
+    from .features import feature_names
+    catalog = hashlib.sha256(json.dumps(feature_names(), separators=(",", ":")).encode()).hexdigest()
+    return _canonical_hash({"identity_schema": 2, "domain": "tabular_content",
+                            "power_content_hash": cache_content_hash(config),
+                            "feature_catalog_sha256": catalog,
+                            "feature_algorithm": "drone_tabular_v8"})
+
+
+def decision_hash(config: FrontEndConfig, *, threshold: float | None = None,
+                  policy_id: str = "threshold-majority-v1") -> str:
+    if not isinstance(policy_id, str) or not policy_id:
+        raise ValueError("decision policy_id must be a nonempty string")
+    payload = {"identity_schema": 2, "domain": "decision",
+               "policy_id": policy_id,
+               "interval_s": float(config.decision_interval_s),
+               "smoothing_windows": int(config.smoothing_windows)}
+    if threshold is not None:
+        if not isinstance(threshold, (int, float, np.integer, np.floating)) or not math.isfinite(float(threshold)):
+            raise ValueError("decision threshold must be finite numeric")
+        payload["threshold"] = float(threshold)
+    return _canonical_hash(payload)
+
+
+def normalization_lineage_hash(config: FrontEndConfig, stats: dict[str, Any], *,
+                               fit_policy: str = "train_stats_eligible_per_band_floor_mask_v1") -> str:
+    digest = hashlib.sha256()
+    arrays = {}
+    for key in ("mean", "std"):
+        if key not in stats:
+            raise ValueError(f"normalization statistics missing {key}")
+        array = np.asarray(stats[key], dtype="<f4")
+        if not np.isfinite(array).all():
+            raise ValueError(f"normalization statistics contain non-finite {key}")
+        arrays[key] = array
+    digest.update(json.dumps({"identity_schema": 2, "domain": "normalized_model_input",
+                              "transform_hash": transform_hash(config),
+                              "mode": config.mode, "fit_policy": fit_policy,
+                              "statistics_shape": {key: list(value.shape) for key, value in arrays.items()}},
+                             sort_keys=True, separators=(",", ":")).encode("utf-8"))
+    for key in ("mean", "std"):
+        digest.update(arrays[key].tobytes())
+    return digest.hexdigest()
+
+
+def legacy_config_hash(config: FrontEndConfig, stats: dict[str, Any] | None = None) -> str:
+    """Exact V1 hash algorithm for verifying immutable artifacts during migration."""
+    payload = asdict(config)
+    payload.update(n_win=config.n_win, win_samples=config.win_samples, F_MAX=config.fmax, mode=config.mode)
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                                      default=lambda value: list(value) if isinstance(value, tuple) else value).encode("utf-8"))
+    if stats is not None:
+        for key in ("mean", "std"):
+            if key in stats:
+                digest.update(np.asarray(stats[key], dtype="<f4").tobytes())
+    return digest.hexdigest()
+
+
+def legacy_params_hash(config: FrontEndConfig) -> str:
+    """V1 parameter identity retained only for validating immutable artifacts."""
+    return legacy_config_hash(config)
 
 
 def ensure_not_raw(path: str | Path, config: dict[str, Any]) -> Path:
@@ -297,27 +469,9 @@ def ensure_not_raw(path: str | Path, config: dict[str, Any]) -> Path:
 
 
 def config_hash(config: FrontEndConfig, stats: dict[str, Any] | None = None) -> str:
-    payload = asdict(config)
-    payload.update(n_win=config.n_win, win_samples=config.win_samples, F_MAX=config.fmax, mode=config.mode)
-
-    def json_value(value: Any) -> Any:
-        if isinstance(value, np.generic):
-            return value.item()
-        if isinstance(value, tuple):
-            return [json_value(item) for item in value]
-        if isinstance(value, list):
-            return [json_value(item) for item in value]
-        if isinstance(value, dict):
-            return {str(key): json_value(item) for key, item in value.items()}
-        return value
-
-    digest = hashlib.sha256(json.dumps(json_value(payload), sort_keys=True,
-                                      separators=(",", ":")).encode("utf-8"))
-    if stats is not None:
-        for key in ("mean", "std"):
-            if key in stats:
-                digest.update(np.asarray(stats[key], dtype="<f4").tobytes())
-    return digest.hexdigest()
+    if stats is None:
+        return transform_hash(config)
+    return normalization_lineage_hash(config, stats)
 
 
 def write_environment_log(path: str | Path, *, dataset_sha256: str | None = None,

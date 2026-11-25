@@ -18,7 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from dronedet.config import config_hash, load_project_config
+from dronedet.config import (config_hash, legacy_config_hash,
+                             legacy_params_hash, load_project_config)
 from dronedet.data_preparation import measure_resampler_edge
 from dronedet.features import fit_cached_normalizer, load_cache_index, load_power_cache
 from run_frontend_correction_baseline import sha256
@@ -35,6 +36,7 @@ def verify(*, execute_notebook: bool, measure_passband: bool) -> dict:
               "code_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
               "relevant_code_sha256": {str(path.relative_to(ROOT)): sha256(path)
                   for path in [ROOT / "src/dronedet/normalization.py", ROOT / "src/dronedet/features.py",
+                               ROOT / "src/dronedet/config.py",
                                ROOT / "src/dronedet/cache_metadata.py",
                                ROOT / "src/dronedet/data_preparation.py", ROOT / "src/dronedet/resample.py",
                                ROOT / "notebooks/02_feature_extraction.ipynb"]},
@@ -52,9 +54,10 @@ def verify(*, execute_notebook: bool, measure_passband: bool) -> dict:
                     "std_exact": bool(np.array_equal(fitted.std, original["std"])),
                     "max_mean_abs_error": float(np.max(abs(fitted.mean - original["mean"]))),
                     "max_std_abs_error": float(np.max(abs(fitted.std - original["std"]))),
-                    "statistics_bearing_hash": config_hash(config, {"mean": fitted.mean, "std": fitted.std})}
+                    "legacy_statistics_bearing_hash": legacy_config_hash(config, {"mean": fitted.mean, "std": fitted.std}),
+                    "normalization_lineage_hash_v2": config_hash(config, {"mean": fitted.mean, "std": fitted.std})}
     reproduction["pass"] = (reproduction["mean_exact"] and reproduction["std_exact"]
-        and reproduction["statistics_bearing_hash"] == baseline["statistics_bearing_hash"]
+        and reproduction["legacy_statistics_bearing_hash"] == baseline["statistics_bearing_hash"]
         and fitted.excluded_count == 88)
     report["masked_fit"] = reproduction
     print(json.dumps({"masked_fit": {key: value for key, value in reproduction.items() if key != "fit_record"}}), flush=True)
@@ -107,12 +110,21 @@ def verify(*, execute_notebook: bool, measure_passband: bool) -> dict:
         report["swept_passband"] = {**measured, "seconds": time.perf_counter() - started,
             "pass": abs(measured["f1db"] - config.measured_passband_hz) <= 1e-8 and measured["fmax"] == config.fmax}
         print(json.dumps({"passband_edge_hz": measured["f1db"], "fmax": measured["fmax"]}), flush=True)
-    differences = []
+    differences, authorized_metadata_changes = [], []
     for name, previous in protected_before.items():
         after = sha256(ROOT / name)
         if after != previous or previous != baseline["artifact_sha256"][name]:
+            if name == "config.yaml":
+                identity_preserved = legacy_params_hash(config) == baseline["parameters_hash"]
+                if identity_preserved:
+                    authorized_metadata_changes.append({"path": name,
+                        "baseline_sha256": baseline["artifact_sha256"][name],
+                        "current_sha256": after, "reason": "moved decision settings into the non-feature decision section",
+                        "legacy_frontend_identity_preserved": identity_preserved})
+                    continue
             differences.append(name)
     report["protected_artifacts"] = {"count": len(protected_before), "changed_since_baseline": differences,
+                                      "authorized_metadata_changes": authorized_metadata_changes,
                                       "pass": not differences}
     report["status"] = "PASS" if all(v.get("pass", True) for v in report.values() if isinstance(v, dict)) else "FAIL"
     return report

@@ -33,7 +33,9 @@ frontend:
   clipped_peak: 0.999
   clipped_fraction: 0.01
   manifest_seed: 42
-  decision_interval_s: 0.5
+decision:
+  policy_id: threshold-majority-v1
+  interval_s: 0.5
   smoothing_windows: 3
 cnn_frontend:
   preset: project

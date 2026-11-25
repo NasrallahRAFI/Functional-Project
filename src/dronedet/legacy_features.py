@@ -2,58 +2,62 @@
 
 from __future__ import annotations
 
-import csv
-from pathlib import Path
+import warnings
 from collections.abc import Iterable
+from pathlib import Path
 
 import librosa
 import numpy as np
-import warnings
 
-warnings.warn("dronedet.legacy_features is deprecated; use dronedet.features", DeprecationWarning, stacklevel=2)
+warnings.warn(
+    "dronedet.legacy_features is deprecated; use dronedet.features",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
+from .features import _select_channel, _select_window, fit_length, standardize
 from .legacy_frontend import FrontEnd, FrontEndConfig
-from .resample import resample
 
 
 def centred_window(power: np.ndarray, n_win: int) -> np.ndarray:
     """Take the fixed centred frame window used by validation, test and tabular inputs."""
-    x = np.asarray(power, dtype=np.float32)
-    if x.ndim != 2 or n_win <= 0 or x.shape[1] < n_win:
-        raise ValueError("power must contain at least n_win frames")
-    start = (x.shape[1] - n_win) // 2
-    return x[:, start:start + n_win]
+    return _select_window(power, n_win)
 
 
-def random_training_window(power: np.ndarray, n_win: int, rng: np.random.Generator) -> np.ndarray:
-    x = np.asarray(power, dtype=np.float32)
-    if x.ndim != 2 or n_win <= 0 or x.shape[1] < n_win:
-        raise ValueError("power must contain at least n_win frames")
-    start = int(rng.integers(0, x.shape[1] - n_win + 1))
-    return x[:, start:start + n_win]
+def random_training_window(
+    power: np.ndarray, n_win: int, rng: np.random.Generator
+) -> np.ndarray:
+    return _select_window(power, n_win, rng=rng)
 
 
 def mel_tabular_features(mel_power: np.ndarray, config: FrontEndConfig) -> np.ndarray:
-    """Return the specified 84 level-free MFCC and mel-domain statistics."""
+    """Return the legacy 84-value descriptor.
+
+    This is intentionally not the canonical tabular adapter: it evaluates
+    descriptor frequencies at ``n_mels`` points and retains librosa's default
+    spectral-flatness ``amin`` and power. See W10's caller inventory for why
+    old saved feature values must keep this behavior.
+    """
     power = np.asarray(mel_power, dtype=np.float32)
     if power.ndim != 2 or power.shape[0] != config.n_mels or power.shape[1] == 0:
         raise ValueError("mel_power must have shape (n_mels, nonzero_frames)")
     db = librosa.power_to_db(power, ref=1.0, amin=config.amin, top_db=None)
     mfcc = librosa.feature.mfcc(S=db, n_mfcc=20, dct_type=2, norm="ortho")[1:20]
+    frequencies = _legacy_mel_frequencies(config)
     descriptors = (
-        librosa.feature.spectral_centroid(S=power, freq=librosa.mel_frequencies(
-            n_mels=config.n_mels, fmin=config.fmin, fmax=config.fmax,
-            htk=config.mel_scale == "htk")),
-        librosa.feature.spectral_bandwidth(S=power, freq=librosa.mel_frequencies(
-            n_mels=config.n_mels, fmin=config.fmin, fmax=config.fmax,
-            htk=config.mel_scale == "htk")),
-        librosa.feature.spectral_rolloff(S=power, freq=librosa.mel_frequencies(
-            n_mels=config.n_mels, fmin=config.fmin, fmax=config.fmax,
-            htk=config.mel_scale == "htk")),
+        librosa.feature.spectral_centroid(S=power, freq=frequencies),
+        librosa.feature.spectral_bandwidth(S=power, freq=frequencies),
+        librosa.feature.spectral_rolloff(S=power, freq=frequencies),
         librosa.feature.spectral_flatness(S=power),
     )
-    values = [stat for row in mfcc for stat in (row.mean(), row.std(), row.min(), row.max())]
-    values.extend(stat for descriptor in descriptors for stat in (descriptor.mean(), descriptor.std()))
+    values = [
+        stat for row in mfcc for stat in (row.mean(), row.std(), row.min(), row.max())
+    ]
+    values.extend(
+        stat
+        for descriptor in descriptors
+        for stat in (descriptor.mean(), descriptor.std())
+    )
     output = np.asarray(values, dtype=np.float32)
     if output.shape != (84,) or not np.all(np.isfinite(output)):
         raise ValueError("tabular front end failed to produce 84 finite values")
@@ -62,76 +66,96 @@ def mel_tabular_features(mel_power: np.ndarray, config: FrontEndConfig) -> np.nd
 
 def cache_split_power(
     clips: Iterable[tuple[str, np.ndarray]],
-    *, split: str, output_dir: str | Path, frontend: FrontEnd,
+    *,
+    split: str,
+    output_dir: str | Path,
+    frontend: FrontEnd,
 ) -> tuple[Path, Path]:
-    """Cache each full standardized clip's mel power and write its frame index."""
-    root = Path(output_dir)
-    root.mkdir(parents=True, exist_ok=True)
-    arrays: list[np.ndarray] = []
-    rows: list[dict[str, object]] = []
-    offset = 0
-    for name, audio in clips:
-        power = frontend.power(audio)
-        if power.shape[1] == 0:
-            raise ValueError(f"clip {name!r} is shorter than n_fft")
-        rows.append({"file": name, "start_frame": offset, "n_frames": power.shape[1]})
-        arrays.append(power.T)
-        offset += power.shape[1]
-    if not arrays:
-        raise ValueError("no clips were provided for the power cache")
-    array_path = root / f"{split}.npy"
-    index_path = root / f"{split}.csv"
-    if array_path.exists() or index_path.exists():
-        raise FileExistsError(f"refusing to overwrite cache for split {split!r}")
-    np.save(array_path, np.concatenate(arrays, axis=0).astype(np.float32), allow_pickle=False)
-    with index_path.open("x", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=("file", "start_frame", "n_frames"))
-        writer.writeheader()
-        writer.writerows(rows)
-    return array_path, index_path
+    """Reject the retired cache writer that emitted unbound transposed arrays."""
+    warnings.warn(
+        "legacy_features.cache_split_power is deprecated; use "
+        "dronedet.features.cache_split_power with frozen paths and source_rate",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    raise RuntimeError(
+        "the legacy cache format is retired; use "
+        "dronedet.features.cache_split_power(clips, split=..., output_dir=..., "
+        "config=..., paths=..., source_rate=...)"
+    )
 
 
-def prepare_waveform_window(audio: np.ndarray, config: FrontEndConfig) -> tuple[np.ndarray, bool]:
-    """Apply the project's deterministic short-clip wrap rule and return its silent flag."""
+def prepare_waveform_window(
+    audio: np.ndarray, config: FrontEndConfig
+) -> tuple[np.ndarray, bool]:
+    """Apply the deterministic wrap rule and return its silent flag.
+
+    Current project windows are at least twice ``n_fft`` and use the canonical
+    length checker. Shorter historical windows retain their old half-window
+    threshold because it differs from the current minimum-length rule.
+    """
     if config.clip_length_s is None:
         raise ValueError("clip_length_s awaits the dataset duration audit")
     x = np.asarray(audio, dtype=np.float32)
     if x.ndim != 1 or not np.all(np.isfinite(x)):
         raise ValueError("audio must be finite mono waveform data")
     silent = bool(x.size == 0 or np.all(x == 0))
+    if config.win_samples >= 2 * config.n_fft:
+        return fit_length(x, config), silent
     if x.size < config.win_samples:
         if x.size < config.win_samples / 2:
-            raise ValueError("clip is below half the usable window and must be rejected")
+            raise ValueError(
+                "clip is below half the usable window and must be rejected"
+            )
         x = np.pad(x, (0, config.win_samples - x.size), mode="wrap")
     return x, silent
 
 
-def standardize_audio(audio: np.ndarray, source_rate: int, config: FrontEndConfig) -> tuple[np.ndarray, dict[str, bool]]:
-    """Select the configured channel, resample with soxr HQ, and apply clip rules."""
-    values = np.asarray(audio, dtype=np.float32)
-    if values.ndim == 2:
-        if not 0 <= config.channel < values.shape[1]:
-            raise ValueError("configured channel is absent from the audio")
-        values = values[:, config.channel]
-    if values.ndim != 1 or not np.all(np.isfinite(values)):
-        raise ValueError("audio must be finite mono or frames-by-channels data")
-    flags = FrontEnd.quality_flags(values)
-    if source_rate != config.sample_rate:
-        values = resample(values, source_rate, config.sample_rate, quality=config.resample_quality)
+def standardize_audio(
+    audio: np.ndarray, source_rate: int, config: FrontEndConfig
+) -> tuple[np.ndarray, dict[str, bool]]:
+    """Compatibility adapter to canonical channel selection and resampling."""
+    selected = _select_channel(audio, config.channel)
+    flags = FrontEnd.quality_flags(selected)
+    values = standardize(audio, source_rate, config)
     values, _silent = prepare_waveform_window(values, config)
-    return values.astype(np.float32), flags
+    return values.astype(np.float32, copy=False), {
+        "silent": flags["silent"],
+        "clipped": flags["clipped"],
+    }
+
+
+def _legacy_mel_frequencies(config: FrontEndConfig) -> np.ndarray:
+    return librosa.mel_frequencies(
+        n_mels=config.n_mels,
+        fmin=config.fmin,
+        fmax=config.fmax,
+        htk=config.mel_scale == "htk",
+    )
 
 
 def choose_clip_length(
     durations_by_class: dict[str, Iterable[float]],
-    *, sample_rate: int = 16_000, n_fft: int = 1024, hop: int = 256,
-    candidates: tuple[float, ...] = (0.5, 1.0, 1.5, 2.0), minimum_fraction: float = 0.95,
+    *,
+    sample_rate: int = 16_000,
+    n_fft: int = 1024,
+    hop: int = 256,
+    candidates: tuple[float, ...] = (0.5, 1.0, 1.5, 2.0),
+    minimum_fraction: float = 0.95,
 ) -> dict[str, object]:
     """Apply the brief's per-class 95% usable-window duration rule."""
     if not durations_by_class or sample_rate <= 0 or n_fft <= 0 or hop <= 0:
-        raise ValueError("class duration audit results and valid front-end dimensions are required")
-    values = {name: np.asarray(tuple(durations), dtype=np.float64) for name, durations in durations_by_class.items()}
-    if any(array.size == 0 or not np.all(np.isfinite(array)) or np.any(array < 0) for array in values.values()):
+        raise ValueError(
+            "class duration audit results and valid front-end dimensions are required"
+        )
+    values = {
+        name: np.asarray(tuple(durations), dtype=np.float64)
+        for name, durations in durations_by_class.items()
+    }
+    if any(
+        array.size == 0 or not np.all(np.isfinite(array)) or np.any(array < 0)
+        for array in values.values()
+    ):
         raise ValueError("every class needs finite nonnegative duration measurements")
     report: dict[str, dict[str, float]] = {}
     selected = None
@@ -141,12 +165,21 @@ def choose_clip_length(
             report[str(length)] = {name: 0.0 for name in values}
             continue
         usable = n_fft + (n_win - 1) * hop
-        fractions = {name: float(np.mean(samples * sample_rate >= usable)) for name, samples in values.items()}
+        fractions = {
+            name: float(np.mean(samples * sample_rate >= usable))
+            for name, samples in values.items()
+        }
         report[str(length)] = fractions
         if all(fraction >= minimum_fraction for fraction in fractions.values()):
             selected = float(length)
     if selected is None:
-        raise RuntimeError("even the 0.5 s candidate failed the per-class 95% rule; owner decision required")
+        raise RuntimeError(
+            "even the 0.5 s candidate failed the per-class 95% rule; owner decision required"
+        )
     n_win = 1 + (int(selected * sample_rate) - n_fft) // hop
-    return {"clip_length_s": selected, "n_win": n_win,
-            "win_samples": n_fft + (n_win - 1) * hop, "class_fractions": report}
+    return {
+        "clip_length_s": selected,
+        "n_win": n_win,
+        "win_samples": n_fft + (n_win - 1) * hop,
+        "class_fractions": report,
+    }

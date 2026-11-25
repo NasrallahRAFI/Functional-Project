@@ -17,7 +17,8 @@ import torch
 from sklearn.metrics import f1_score
 import yaml
 
-from dronedet.config import config_hash, load_config, params_hash
+from dronedet.config import (config_hash, legacy_config_hash,
+                             legacy_params_hash, load_config, params_hash)
 from dronedet.features import (centre_window, fix_length, get_window, load_audio,
                                load_cache_index, load_power_cache, mel_power,
                                standardize, to_db)
@@ -259,7 +260,7 @@ def main() -> int:
     torch.set_num_threads(CPU_COUNT)
     torch.use_deterministic_algorithms(True, warn_only=True)
     config = load_config(ROOT / "config.yaml")
-    if config.mode != "global_stats" or params_hash(config) != \
+    if config.mode != "global_stats" or legacy_params_hash(config) != \
             "97544883461de11a1ee51cc17d7028431d6d0ea8f175effc8e63bc18595f28fc":
         raise RuntimeError("B1 must start from the tagged project front end")
     acceptance = json.loads((ROOT / "results/tables/cnn_b1_pcen_acceptance.json").read_text())

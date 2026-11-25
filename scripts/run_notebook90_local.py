@@ -21,7 +21,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src")); sys.path.insert(0, str(ROOT))
-from dronedet.config import config_hash, load_config, params_hash
+from dronedet.config import (config_hash, legacy_config_hash,
+                             legacy_params_hash, load_config, params_hash)
 from dronedet.features import get_window, load_cache_index, load_power_cache, load_tabular
 from dronedet.ledger import sha256_file
 from dronedet.metrics import (group_bootstrap, metrics_at_threshold,
@@ -82,7 +83,7 @@ def _stage_c_package() -> dict:
     config = load_config(ROOT / "config.yaml")
     frozen = _json(ROOT / "results/tables/cnn_frontend_frozen.json")
     stats_path = ROOT / "data/processed/spectrograms/norm_stats_global.npz"
-    if params_hash(config) != frozen.get("params_hash") or sha256_file(stats_path) != frozen.get("statistics_sha256"):
+    if legacy_params_hash(config) != frozen.get("params_hash") or sha256_file(stats_path) != frozen.get("statistics_sha256"):
         raise RuntimeError("Stage C package front-end/statistics hash does not match the freeze")
     metadata = {
         "notebook": "30", "stage": "C", "model": "CNN selected by Stage C",
@@ -118,7 +119,7 @@ def _package_preflight() -> tuple[dict, dict, dict]:
     frozen = _json(ROOT / "results/tables/cnn_frontend_frozen.json")
     if not cnn_frontend or cnn_frontend.get("params_hash") != frozen.get("params_hash"):
         raise RuntimeError("config.yaml CNN front-end block differs from frozen record")
-    if params_hash(config) != frozen.get("params_hash"):
+    if legacy_params_hash(config) != frozen.get("params_hash"):
         raise RuntimeError("resolved CNN front-end hash differs from freeze")
     checks = _json(ROOT / "data/interim/frontend_checks.json")
     if not all(v == "PASS" for v in checks.get("gate_table", {}).values()):
@@ -134,7 +135,7 @@ def _package_preflight() -> tuple[dict, dict, dict]:
         directory = ROOT / "results/models" / key
         metadata = _json(directory / "metadata.json")
         _verify_artifacts(directory, metadata)
-        if metadata.get("lineage_hash") != params_hash(config):
+        if metadata.get("lineage_hash") != legacy_params_hash(config):
             raise RuntimeError(f"{key}: tabular front-end lineage mismatch")
         if metadata.get("tabular_npz_sha256") != {
             "train": sha256_file(ROOT / "data/processed/features_tabular/train.npz"),
@@ -245,7 +246,7 @@ def _load_score_seeds(packages: dict, tab: dict, config, frozen: dict):
     with np.load(ROOT / "data/processed/spectrograms/norm_stats_global.npz", allow_pickle=False) as f:
         stats = {"mean": f["mean"].astype(np.float32), "std": f["std"].astype(np.float32),
                  "clips_excluded": int(f["clips_excluded"])}
-    if config_hash(config, stats) != frozen.get("lineage_hash"):
+    if legacy_config_hash(config, stats) != frozen.get("lineage_hash"):
         raise RuntimeError("CNN statistics lineage mismatch")
     val_cnn = _cnn_windows("val", config, allow_test=False, stats=stats)
     ready["30"] = {}; ready["30_cnn_control"] = {}

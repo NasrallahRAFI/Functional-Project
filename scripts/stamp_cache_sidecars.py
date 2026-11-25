@@ -16,7 +16,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from dronedet.cache_metadata import file_sha256, sidecar_path, verify_cache_sidecar
-from dronedet.config import load_project_config, params_hash
+from dronedet.config import legacy_params_hash, load_project_config
 from dronedet.data_preparation import locate_dataset_root
 from dronedet.features import file_to_power, load_cache_index, load_power_cache, load_tabular, tabular
 
@@ -59,7 +59,7 @@ def main() -> None:
     train_digest = file_sha256(paths["splits"] / "train.csv")
     test_digest = file_sha256(paths["splits"] / "test.csv")
     for path in (paths["spec"] / "mel_power_test.npy", paths["tab"] / "test.npz"):
-        metadata = verify_cache_sidecar(path, frontend_params_hash=params_hash(config),
+        metadata = verify_cache_sidecar(path, frontend_params_hash=legacy_params_hash(config),
                                        train_manifest_sha256=train_digest)
         if metadata.get("split_manifest_sha256") != test_digest:
             raise ValueError("test sidecar split-manifest identity differs")
