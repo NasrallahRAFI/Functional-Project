@@ -29,7 +29,7 @@ The frozen evaluation used a benchmark reused from V1, not a new unseen test. Th
 
 Four saved 10-second FLOAT WAV recordings were replayed through the V2 `LiveWindowBuilder`, frontend, normalization, TorchScript model, frozen threshold, and three-vote smoother. All were 48 kHz mono and about -45.2 to -47.1 dBFS RMS. The 80 analyzed windows scored between -8.256 and -0.905 raw logit; none crossed the frozen threshold (2.82396), so the live decision was consistently no drone. The screenshot's -1.968 raw score lies in this replayed score range.
 
-In the locked benchmark, positive examples had a 5th-percentile raw score of 0.099, substantially above these recordings. The optional validation FAR 0.01 threshold of 1.894 also remains above every recorded score; the FAR 0.05 threshold of -0.221 is still below none of the recording's maximum except it is higher than -0.905. Therefore changing to these pre-evaluated cutoffs would not resolve these recordings. Since we do not know which recordings contain the intended drone sound, this is evidence of a real-environment score mismatch, not proof all four are false negatives. The clips were replayed locally and were not copied into the repository.
+In the locked benchmark, the fifth percentile of drone scores was 0.099. Both alternative validation thresholds, 1.894 at the 1% false-alarm operating point and −0.221 at the 5% operating point, exceed the highest recorded score of −0.905. All 80 windows would therefore still receive negative raw votes at either threshold. The files lack confirmed drone-event labels. They were replayed locally.
 
 ## Start and reproduce
 
