@@ -25,7 +25,7 @@ class MonoCaptureProcessor extends AudioWorkletProcessor {
 
     const channels = inputs[0] || [];
     if (!channels.length || !channels[0].length) {
-      const missingFrames = outputs[0]?.[0]?.length || 128;
+      const missingFrames = outputs[0]?.[0]?.length || 0;
       this.droppedFrames += this.writeAt + missingFrames;
       this.writeAt = 0;
       this.blockStartFrame = null;

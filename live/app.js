@@ -3,7 +3,7 @@ const canvas = $('waveform');
 const ctx = canvas.getContext('2d');
 const CHUNK_SECONDS = 0.5;
 const REQUEST_TIMEOUT_MS = 4000;
-const CAPTURE_VERSION = 'pool-v2';
+const CAPTURE_VERSION = 'pool-v3';
 const SELECTED_V3 = {
   stage: 'ONE_CHANNEL',
   modelSha256: 'f727446758512fc1fd7e2a1f6b81021503a878bf1bffb6560ff54bb634206a1c',
@@ -378,7 +378,12 @@ async function start() {
       state.captureBlocks++;
       const ageSeconds = state.context.currentTime - (block.sourceFrame + samples.length) / state.sampleRate;
       if (ageSeconds > 0.5) {
-        state.captureDrops += samples.length;
+        const staleEndFrame = block.sourceFrame + samples.length;
+        const lostFrames = state.expectedSourceFrame === null
+          ? (block.droppedFrames || 0) + samples.length
+          : Math.max(block.droppedFrames || 0, staleEndFrame - state.expectedSourceFrame);
+        state.captureDrops += lostFrames;
+        state.expectedSourceFrame = staleEndFrame;
         if (!state.gapPending) resetCapture('Discarding delayed audio. Waiting for fresh microphone input.');
         recycle(); return;
       }
