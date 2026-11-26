@@ -23,7 +23,13 @@ The backend already loaded the correct V2 model and statistics. The browser's id
 - Chrome DevTools MCP inspection at desktop 1440 px and mobile 390 px showed the V2 ready state, the correct threshold and cadence, no horizontal overflow, and no console messages. Screenshots and browser observations are saved locally under `results/cnn_v2/frontend_verification/`.
 - The Impeccable detector returned no findings for the monitor HTML and script. Visual review confirmed that model labels and controls remain readable at both sizes.
 
-These are software integration checks. Physical microphone capture and real-world detection accuracy were not measured in this review. No model was retrained or selected using these checks.
+The frozen evaluation used a benchmark reused from V1, not a new unseen test. The four available microphone recordings are real environment checks, but their intended sound labels were not supplied, so they cannot establish a labeled real-world miss rate. No model was retrained or selected using these checks.
+
+## Saved microphone recordings
+
+Four saved 10-second FLOAT WAV recordings were replayed through the V2 `LiveWindowBuilder`, frontend, normalization, TorchScript model, frozen threshold, and three-vote smoother. All were 48 kHz mono and about -45.2 to -47.1 dBFS RMS. The 80 analyzed windows scored between -8.256 and -0.905 raw logit; none crossed the frozen threshold (2.82396), so the live decision was consistently no drone. The screenshot's -1.968 raw score lies in this replayed score range.
+
+In the locked benchmark, positive examples had a 5th-percentile raw score of 0.099, substantially above these recordings. The optional validation FAR 0.01 threshold of 1.894 also remains above every recorded score; the FAR 0.05 threshold of -0.221 is still below none of the recording's maximum except it is higher than -0.905. Therefore changing to these pre-evaluated cutoffs would not resolve these recordings. Since we do not know which recordings contain the intended drone sound, this is evidence of a real-environment score mismatch, not proof all four are false negatives. The clips were replayed locally and were not copied into the repository.
 
 ## Start and reproduce
 
