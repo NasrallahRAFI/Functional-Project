@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "cnn-v4-train-val",
+  "root": "storage/caches/corpus-002/processed",
+  "corpus": "corpus-002",
+  "split": "split-002",
+  "status": "frozen-train-validation-only",
+  "train_manifest_sha256": "6b895c0d6ce420aa7452bed72c06f0db14eb472490ab82bd99de91276ef24d81",
+  "validation_manifest_sha256": "6fc5134f8faa3875e088d7f84fdc3d03debb2de0466cb73c5624410e754430e9",
+  "train_power_sha256": "185d792356b42faae91064cc5ff5c71781915a298050b9cd59b291086f2bebf4",
+  "validation_power_sha256": "55677c271bfe4a52b571b0de7732da3188ea0e84ea5e5a6f2fd0a2c6cfd0c6c5",
+  "normalization": {
+    "policy": "train_stats_eligible_per_band_floor_mask_v1",
+    "eligible_training_rows": 8159,
+    "excluded_training_rows": 87,
+    "sha256": "4dc6820ca53a7965ae1e0264e4bc69e6197bd1f91ce0299e287ddeb71a26d6a4"
+  },
+  "test_cache_created": false
+}
