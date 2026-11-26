@@ -239,6 +239,13 @@ def save_diagnostic_recording(samples, source_rate, session_id, owner_token):
 
 
 class Handler(SimpleHTTPRequestHandler):
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".js": "text/javascript"}
+    request_timeout_seconds = 5
+
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(self.request_timeout_seconds)
+
     def end_headers(self):
         # Reopening the monitor must not reuse a cached V1 page or script.
         self.send_header("Cache-Control", "no-store")
@@ -251,7 +258,7 @@ class Handler(SimpleHTTPRequestHandler):
         LOG.info("%s - %s", self.address_string(), fmt % args)
 
     def _json(self, status: int, payload: dict):
-        body = json.dumps(payload).encode("utf-8")
+        body = json.dumps(payload, allow_nan=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -260,10 +267,11 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _local_host_ok(self) -> bool:
         host = self.headers.get("Host", "")
-        return host == f"127.0.0.1:{self.server.server_port}"
+        return host in {f"127.0.0.1:{self.server.server_port}",
+                        f"localhost:{self.server.server_port}"}
 
     def _same_origin_ok(self) -> bool:
-        return self.headers.get("Origin", "") == f"http://127.0.0.1:{self.server.server_port}"
+        return self._local_host_ok() and self.headers.get("Origin", "") == f"http://{self.headers.get('Host', '')}"
 
     def do_GET(self):
         if not self._local_host_ok():
@@ -347,6 +355,10 @@ class Handler(SimpleHTTPRequestHandler):
             sequence = int(self.headers.get("X-Chunk-Sequence", "-1"))
             if not session_id or len(session_id) > 80 or sequence < 0:
                 raise ValueError("Audio session or sequence metadata is invalid.")
+            if not 8000 <= source_rate <= 192000:
+                raise ValueError("Unsupported microphone sample rate.")
+            if length > source_rate * 2 * 4:
+                raise ValueError("Audio chunk is longer than two seconds.")
             body = self.rfile.read(length)
             if len(body) != length:
                 raise ValueError("Audio request was truncated.")
@@ -357,7 +369,7 @@ class Handler(SimpleHTTPRequestHandler):
                 200, STATE.process(samples, source_rate, session_id, sequence, owner_token,
                                    require_owner=True)
             )
-        except (ValueError, RuntimeError) as exc:
+        except (ValueError, RuntimeError, TimeoutError) as exc:
             return self._json(400, {"error": str(exc)})
         except Exception:
             LOG.exception("Live inference failed")
@@ -374,7 +386,7 @@ def main(argv=None):
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--instance-id", default=uuid.uuid4().hex)
     args = parser.parse_args(argv)
-    if args.host not in {"127.0.0.1", "localhost", "::1"}:
+    if args.host not in {"127.0.0.1", "localhost"}:
         parser.error("the local detector can only bind to loopback")
     if not args.instance_id or len(args.instance_id) > 80:
         parser.error("instance ID must contain 1–80 characters")
