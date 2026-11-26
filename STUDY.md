@@ -6,7 +6,7 @@ The authoritative preparation plan is [DATA_PREPARATION_CNN_V4_0.md](docs/v4/DAT
 
 Included sources: al-emadi-r001 (Binary_Drone_Audio only) and thesis-r001 (Data/Audio only). Salford is explicitly excluded from V4.0. Its original source registration and stored files remain separate from V4 membership.
 
-The prepared data identities are corpus-002 and split-002. See the preparation report and requirement audit for exact counts, gates, hashes, and limitations. The train/validation/test manifests are frozen. Source inventory, DD segmentation, corpus cleanup, and split creation are complete; no frontend cache, statistics fit, training, scoring, or runtime activation was performed.
+The prepared data identities are corpus-002 and split-002. See the [preparation report](reports/DATA_PREPARATION_CNN_V4_0_REPORT.md) and [requirement audit](reports/V4_PREPARATION_REQUIREMENT_AUDIT.md) for exact counts, gates, hashes, and limitations; the canonical generated copies are under the enclosing project's `reports/study-v4/`. The train/validation/test manifests are frozen. Source inventory, DD segmentation, corpus cleanup, and split creation are complete; no frontend cache, statistics fit, training, scoring, or runtime activation was performed.
 
 The plan specifies binary pooling, Al-Emadi cleaning/grouping rules, 1-second dd segments, duplicate checks, source/flag audits, and the frozen group-aware train/validation/test split procedure. It retains the 16 kHz, 64-band, 7,936-sample / (1,64,28) frontend contract. New caches, statistics, models, thresholds and packages are subsequent work outside the preparation plan.
 
