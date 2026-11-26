@@ -26,11 +26,11 @@ function captureHarness() {
   };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'live/audio-capture-worklet.js'), 'utf8'), sandbox);
   const processor = new Processor();
-  const left = new Float32Array(128).fill(0.2), right = new Float32Array(128).fill(0.4);
-  const render = (startFrame) => {
+  const render = (startFrame, frames = 128, missing = false) => {
     sandbox.currentFrame = startFrame;
-    const output = new Float32Array(128).fill(1);
-    processor.process([[left, right]], [[output]]);
+    const output = new Float32Array(frames).fill(1);
+    const left = new Float32Array(frames).fill(0.2), right = new Float32Array(frames).fill(0.4);
+    processor.process([missing ? [] : [left, right]], [[output]]);
     assert.equal(output.every((value) => value === 0), true, 'capture node produces silence to the speakers');
   };
   const recycle = (message) => {
@@ -61,6 +61,36 @@ test('five minutes of capture tolerate delayed buffer recycling without gaps at 
     pending.sort((a, b) => a.due - b.due);
   }
   assert.ok(at > 7000);
+});
+
+test('missing input counts the partial block plus the actual missing quantum size', () => {
+  const { messages, processor, render } = captureHarness();
+  for (let frame = 0; frame < 1024; frame += 128) render(frame);
+  render(1024, 256, true);
+  for (let frame = 1280; frame < 3328; frame += 128) render(frame);
+
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].sourceFrame, 1280);
+  assert.equal(messages[0].droppedFrames, 1280);
+  assert.equal(processor.droppedFrames, 0);
+});
+
+test('pool exhaustion inside a large render quantum drops its remainder safely', () => {
+  const { messages, render, recycle } = captureHarness();
+  let sourceFrame = 0;
+  for (let tick = 0; tick < 35; tick++) {
+    render(sourceFrame, 480);
+    sourceFrame += 480;
+  }
+
+  assert.equal(messages.length, 8);
+  recycle(messages[0]);
+  while (messages.length < 9) {
+    render(sourceFrame, 480);
+    sourceFrame += 480;
+  }
+  assert.equal(messages[8].sourceFrame, 16800);
+  assert.equal(messages[8].droppedFrames, 416);
 });
 
 test('exhausted pool bounds queued blocks and reports a real gap before recovery', () => {
