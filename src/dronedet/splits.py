@@ -81,14 +81,15 @@ def apply_cleaning(m: pd.DataFrame, win_samples: int):
     return m, reps
 
 
-def two_stage_split(pool: pd.DataFrame, seed: int, n_test: int = 7, n_val: int = 6) -> pd.Series:
+def two_stage_split(pool: pd.DataFrame, seed: int, n_test: int = 7, n_val: int = 6,
+                    *, label_column: str = "label") -> pd.Series:
     pool = pool.sort_values("clip_id")
-    y, groups = pool.label.to_numpy(), pool.group.to_numpy()
+    y, groups = pool[label_column].to_numpy(), pool.group.to_numpy()
     first = StratifiedGroupKFold(n_splits=n_test, shuffle=True, random_state=seed)
     rest_idx, test_idx = next(iter(first.split(np.zeros(len(pool)), y, groups)))
     rest = pool.iloc[rest_idx]
     second = StratifiedGroupKFold(n_splits=n_val, shuffle=True, random_state=seed)
-    _, val_idx = next(iter(second.split(np.zeros(len(rest)), rest.label.to_numpy(), rest.group.to_numpy())))
+    _, val_idx = next(iter(second.split(np.zeros(len(rest)), rest[label_column].to_numpy(), rest.group.to_numpy())))
     out = pd.Series("train", index=pool.index)
     out.iloc[test_idx] = "test"
     out.loc[rest.index[val_idx]] = "val"
@@ -113,10 +114,11 @@ def split_gates(m: pd.DataFrame, expected_kept: int = 10623) -> pd.DataFrame:
     return pd.DataFrame(gates)
 
 
-def write_manifest(df: pd.DataFrame, path: Path) -> str:
+def write_manifest(df: pd.DataFrame, path: Path, *, extra_columns: list[str] | None = None) -> str:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    df.sort_values("clip_id")[MANIFEST_COLUMNS].to_csv(path, index=False, encoding="utf-8", lineterminator="\n", float_format="%.8g")
+    columns = MANIFEST_COLUMNS + [c for c in (extra_columns or []) if c not in MANIFEST_COLUMNS]
+    df.sort_values("clip_id")[columns].to_csv(path, index=False, encoding="utf-8", lineterminator="\n", float_format="%.8g")
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 

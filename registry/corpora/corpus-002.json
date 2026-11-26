@@ -1,16 +1,20 @@
 {
   "schema_version": 1,
   "id": "corpus-002",
-  "status": "planned-unbuilt",
+  "status": "prepared-frozen-split",
   "sources": [
     "al-emadi-r001",
     "thesis-r001"
   ],
-  "membership": null,
-  "label_mapping": null,
-  "segmentation": null,
-  "grouping": null,
-  "root": null,
+  "membership": "storage/corpora/corpus-002/manifest_v4_full.csv",
+  "membership_sha256": "2407e2a3f31beebd86134b4423f14a4a3b17b65d64ce9bfaeb01156a064d4a39",
+  "raw_rows": 11794,
+  "manifest_rows": 12604,
+  "retained_rows": 11513,
+  "label_mapping": {"0": "negative: ae unknown; dd HELICOPTER and BACKGROUND", "1": "positive: ae yes_drone; dd DRONE"},
+  "segmentation": "ae: original 16 kHz mono PCM16 files referenced without copying; dd: non-overlapping 16,000-sample float32 WAV clips at 16 kHz",
+  "grouping": "ae: inherited V8 recording/ESC/noise groups; dd: dd:<original stem>",
+  "root": "storage/corpora/corpus-002",
   "excluded_sources": [
     {
       "id": "salford-r001",
@@ -18,5 +22,7 @@
     }
   ],
   "preparation_plan": "workspaces/study-v4/docs/v4/DATA_PREPARATION_CNN_V4_0.md",
-  "planned_root": "storage/corpora/corpus-002"
+  "preparation_plan_sha256": "2bb6e2bc3ad13f5d5ede122982375b27fe851a8a38d04a39f2f6207674f5222d",
+  "split": "split-002",
+  "report": "reports/study-v4/DATA_PREPARATION_CNN_V4_0_REPORT.md"
 }

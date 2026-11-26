@@ -75,6 +75,21 @@ def stats_exclude(silent: bool, near_silent: bool, crop_all_zero: bool) -> bool:
     return bool(silent or near_silent or crop_all_zero)
 
 
+def power_quality_flags(power: np.ndarray, config: FrontEndConfig, *,
+                        silent: bool, near_silent: bool) -> dict[str, bool | int]:
+    """Expose the existing cache-index crop/eligibility definition without fitting statistics."""
+    power = np.asarray(power, dtype=np.float32)
+    if (power.ndim != 2 or power.shape[0] != config.n_mels
+            or power.shape[1] < config.n_win or not np.isfinite(power).all()
+            or np.any(power < 0)):
+        raise ValueError("power must contain valid finite nonnegative mel frames")
+    offset = (power.shape[1] - config.n_win) // 2
+    crop_zero = bool(np.all(centre_window(power, config) == 0))
+    excluded = stats_exclude(silent, near_silent, crop_zero)
+    return {"win_start_frame": offset, "crop_all_zero": crop_zero,
+            "stats_exclude": excluded, "stats_eligible": not excluded}
+
+
 def fix_length(audio: np.ndarray, config: FrontEndConfig) -> tuple[np.ndarray, str]:
     x = np.asarray(audio, dtype=np.float32)
     if x.ndim != 1 or not np.all(np.isfinite(x)):
@@ -298,22 +313,17 @@ def _assemble_power_clips(
         if not np.isfinite(power).all() or np.any(power < 0):
             raise ValueError(f"{clip_id}: power must be finite and nonnegative")
         frames = power.shape[1]
-        offset = (frames - config.n_win) // 2
-        crop_zero = bool(np.all(power[:, offset : offset + config.n_win] == 0))
         silent = bool(row.get("silent", row.get("all_zero", False)))
         near = bool(row["near_silent"])
-        excluded = stats_exclude(silent, near, crop_zero)
+        quality = power_quality_flags(power, config, silent=silent, near_silent=near)
         rows.append(
             {
                 "clip_id": str(clip_id),
                 "start_frame": cursor,
                 "n_frames": frames,
-                "win_start_frame": offset,
                 "silent": silent,
                 "near_silent": near,
-                "crop_all_zero": crop_zero,
-                "stats_exclude": excluded,
-                "stats_eligible": not excluded,
+                **quality,
                 "length_status": status,
             }
         )

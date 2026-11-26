@@ -1,0 +1,46 @@
+seed: 42
+frontend:
+  preset: project
+  sr: 16000
+  channel: 0
+  n_fft: 1024
+  win_length: 1024
+  hop: 256
+  window: hann
+  center: false
+  n_mels: 64
+  fmin: 50.0
+  fmax: 7500.0
+  mel_scale: htk
+  mel_norm: area
+  power: 2.0
+  amin: 1.0e-12
+  top_db: null
+  resample_quality: HQ
+  L: 0.5
+  mode: global_stats
+  measured_passband_hz: 7540.278697934931
+  passband_status: measured
+  pcen_time_constant: 0.4
+  pcen_gain: 0.98
+  pcen_bias: 2.0
+  pcen_power: 0.5
+  pcen_eps: 1.0e-06
+  pcen_input_scale: 2147483648.0
+  gain_range_db:
+  - -12.0
+  - 12.0
+  near_silent_dbfs: -80.0
+  clipped_peak: 0.999
+  clipped_fraction: 0.01
+  manifest_seed: 42
+decision:
+  policy_id: threshold-majority-v1
+  interval_s: 0.5
+  smoothing_windows: 3
+cleaning:
+  near_silent_dbfs: -80.0
+  partial_zero_frac: 0.5
+  clipped_frac: 0.01
+  clipped_abs: 0.999
+  dc_abs: 0.01

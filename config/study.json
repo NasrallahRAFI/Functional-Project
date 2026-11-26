@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "study": "study-v4",
-  "status": "scope-scaffold",
+  "status": "data-prepared-frozen",
   "corpus": "corpus-002",
   "split": "split-002",
-  "data_ready": false,
+  "data_ready": true,
   "selected_release": null,
   "output_root": "runs/study-v4",
   "data_preparation_plan": "docs/v4/DATA_PREPARATION_CNN_V4_0.md",
-  "plan_status": "recorded-not-executed",
+  "plan_status": "executed-passed",
   "included_sources": [
     "al-emadi-r001",
     "thesis-r001"
