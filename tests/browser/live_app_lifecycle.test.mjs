@@ -10,9 +10,15 @@ const selection = JSON.parse(fs.readFileSync(path.join(root, 'config/live_detect
 const readyHealth = () => ({ status: 'ready', application_id: 'local-drone-detector',
   protocol_version: 2, model_version: selection.model_version, seed: selection.seed,
   model_id: selection.model_id, variant: selection.variant, threshold: selection.threshold,
+  stage: selection.stage, validation_eligible: selection.validation_eligible,
+  experimental_activation: selection.experimental_activation,
+  validation_guard_failures: selection.validation_guard_failures,
+  test_access: selection.test_access, run_id: selection.run_id,
+  validation_metrics: selection.validation_metrics || null,
+  final_test_passed: selection.final_test_passed || false,
   checkpoint_sha256: selection.model_sha256, score_kind: selection.score_kind,
   policy_id: selection.policy_id, smoothing_windows: selection.smoothing_windows,
-  window_samples: 7936, cadence_seconds: 0.496 });
+  parameter_count: 23585, threshold_selected: false, window_samples: 7936, cadence_seconds: 0.496 });
 
 function deferred() {
   let resolve;
@@ -25,7 +31,7 @@ test('page hide during session claim releases late ownership and microphone trac
   const makeElement = (id) => ({
     id, textContent: '', dataset: {}, disabled: false, listeners: {},
     addEventListener(name, fn) { this.listeners[name] = fn; },
-    classList: { add() {}, remove() {} },
+    classList: { add() {}, remove() {}, toggle() {} },
     querySelector: () => ({ textContent: '' }),
     getBoundingClientRect: () => ({ width: 320, height: 80 }),
     getContext: () => ({ clearRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {} }),
@@ -91,7 +97,7 @@ test('a score arriving after Stop cannot overwrite the stopped monitor state', a
   const makeElement = (id) => ({
     id, textContent: '', dataset: {}, disabled: false, listeners: {},
     addEventListener(name, fn) { this.listeners[name] = fn; },
-    classList: { add() {}, remove() {} }, querySelector: () => ({ textContent: '' }),
+    classList: { add() {}, remove() {}, toggle() {} }, querySelector: () => ({ textContent: '' }),
     getBoundingClientRect: () => ({ width: 320, height: 80 }),
     getContext: () => ({ clearRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {} }),
   });
@@ -196,11 +202,11 @@ test('a score arriving after Stop cannot overwrite the stopped monitor state', a
 
 test('the browser rejects a wrong artifact, threshold, or decision contract before microphone access', async () => {
   for (const change of [{checkpoint_sha256: '0'.repeat(64)}, {threshold: 0},
-      {protocol_version: 1}, {score_kind: 'probability'}, {smoothing_windows: 1}]) {
+      {protocol_version: 1}, {score_kind: 'probability'}, {policy_id: 'wrong-policy'}]) {
     const elements = new Map();
     const document = {getElementById(id) {
       if (!elements.has(id)) elements.set(id, {textContent: '', dataset: {},
-        addEventListener(name, fn) {this[name] = fn;}, classList: {add() {}, remove() {}},
+        addEventListener(name, fn) {this[name] = fn;}, classList: {add() {}, remove() {}, toggle() {}},
         querySelector: () => ({}), getBoundingClientRect: () => ({width: 320, height: 80}),
         getContext: () => ({clearRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {}})});
       return elements.get(id);
@@ -216,6 +222,6 @@ test('the browser rejects a wrong artifact, threshold, or decision contract befo
     assert.equal(elements.get('systemText').textContent, 'MODEL SERVICE UNAVAILABLE');
     await elements.get('startButton').click();
     assert.equal(microphoneRequests, 0);
-    assert.match(elements.get('message').textContent, /does not match CNN V2.0/);
+    assert.match(elements.get('message').textContent, /does not match the verified local CNN package/);
   }
 });

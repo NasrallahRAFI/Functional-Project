@@ -88,12 +88,12 @@ class LiveDetectorReleaseTests(unittest.TestCase):
     def test_registered_best_checkpoint_is_loaded_and_scores_finitely(self):
         meta = self.detector.health_metadata()
         self.assertEqual((meta["model_id"], meta["stage"], meta["variant"], meta["seed"]),
-                         ("CNN_V2.0", "V2", "depth_4", 42))
+                         ("CNN_V4.0", "A0", "depth_3", 42))
         self.assertEqual(meta["checkpoint_sha256"],
-                         "0e97e3194e42f8fa3a2541e37dcff9fe33cdc1246d5a260ab65c6d157af6f4fb")
-        self.assertEqual(meta["threshold"], 2.823960542678833)
+                         "f4372da59644395c174514944aa6387901ed483f64c137fd1ae4e31c83092049")
+        self.assertIsNone(meta["threshold"])
         self.assertFalse(self.detector.model.training)
-        self.assertEqual(parameter_count(self.detector.model), 60641)
+        self.assertEqual(parameter_count(self.detector.model), 23585)
         score = self.detector.score_window(np.zeros(self.detector.config.win_samples, np.float32))
         self.assertTrue(np.isfinite(score))
 
@@ -117,7 +117,7 @@ class LiveDetectorReleaseTests(unittest.TestCase):
                             'X-Chunk-Sequence': str(seq)})
                     self.assertEqual(status, 200)
                     result = json.loads(body)
-                    if result['status'] not in {'warming_up', 'scored'}:
+                    if result['status'] not in {'score_only'}:
                         continue
                     event = result['window_trace'][-1]
                     start = live.STATE.builder.emitted_starts[-1]
@@ -125,14 +125,12 @@ class LiveDetectorReleaseTests(unittest.TestCase):
                     self.assertAlmostEqual(result['raw_score'], expected, delta=1e-4)
                     self.assertEqual(result['threshold'], self.detector.threshold)
                     self.assertAlmostEqual(event['raw_score'], expected, delta=1e-4)
-                    self.assertEqual(event['raw_vote'], expected >= self.detector.threshold)
+                    self.assertIsNone(event.get('raw_vote'))
                     self.assertEqual(event['votes'], live.STATE.smoother.values)
                     self.assertIsNotNone(event['window_rms_dbfs'])
-                    votes = (votes + [expected >= self.detector.threshold])[-3:]
-                    if len(votes) == 3:
-                        self.assertEqual(result['status'], 'scored')
-                        self.assertEqual(result['drone'], sum(votes) >= 2)
-                        scored += 1
+                    self.assertEqual(result['status'], 'score_only')
+                    self.assertIsNone(result['drone'])
+                    scored += 1
                 self.assertGreaterEqual(scored, 3)
 
     def test_health_static_scope_and_session_ownership(self):
@@ -140,7 +138,7 @@ class LiveDetectorReleaseTests(unittest.TestCase):
         self.assertEqual(status, 200)
         health = json.loads(body)
         self.assertEqual(health["seed"], 42)
-        self.assertEqual(health["model_id"], "CNN_V2.0")
+        self.assertEqual(health["model_id"], "CNN_V4.0")
         self.assertEqual(health["instance_id"], "release-test-instance")
         self.assertEqual(health["checkpoint_sha256"], self.detector.artifact_sha256)
         for path in ('/live/index.html', '/live/app.js'):

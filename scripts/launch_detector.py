@@ -15,7 +15,7 @@ import webbrowser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_URL = "http://127.0.0.1:8765"
+BASE_URL = "http://127.0.0.1:8766"
 URL = f"{BASE_URL}/live/index.html"
 EXPECTED_MODEL = json.loads((ROOT / "config/live_detector.json").read_text(encoding="utf-8"))
 
@@ -79,6 +79,7 @@ def is_ours(value: dict | None) -> bool:
                 and value.get("checkpoint_sha256") == EXPECTED_MODEL["model_sha256"]
                 and value.get("threshold") == EXPECTED_MODEL["threshold"]
                 and value.get("score_kind") == "raw_logit"
+                and value.get("policy_id") == EXPECTED_MODEL["policy_id"]
                 and value.get("stage", EXPECTED_MODEL.get("stage")) == EXPECTED_MODEL.get("stage", value.get("stage"))
                 and value.get("validation_eligible", True) == EXPECTED_MODEL.get("validation_eligible", True)
                 and value.get("experimental_activation", False) == EXPECTED_MODEL.get("experimental_activation", False)
@@ -97,7 +98,7 @@ def open_monitor() -> None:
 
 def port_is_listening() -> bool:
     try:
-        with socket.create_connection(("127.0.0.1", 8765), timeout=0.25):
+        with socket.create_connection(("127.0.0.1", 8766), timeout=0.25):
             return True
     except OSError:
         return False
@@ -107,13 +108,13 @@ def main() -> int:
     existing = health()
     if existing is not None:
         if not is_ours(existing):
-            print("Port 8765 is serving another application. Close it and retry.", file=sys.stderr)
+            print("Port 8766 is serving another application. Close it and retry.", file=sys.stderr)
             return 2
         print("The verified CNN service is already running.")
         open_monitor()
         return 0
     if port_is_listening():
-        print("Port 8765 is occupied by an unrecognized application. Close it and retry.", file=sys.stderr)
+        print("Port 8766 is occupied by an unrecognized application. Close it and retry.", file=sys.stderr)
         return 2
 
     instance_id = uuid.uuid4().hex
@@ -134,7 +135,7 @@ def main() -> int:
             value = health()
             if value is not None:
                 if not is_ours(value) or value.get("instance_id") != instance_id:
-                    print("Port 8765 became occupied by another application.", file=sys.stderr)
+                    print("Port 8766 became occupied by another application.", file=sys.stderr)
                     return 2
                 print("Verified CNN is ready; opening the local monitor.")
                 open_monitor()

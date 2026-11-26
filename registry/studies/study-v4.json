@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "id": "study-v4",
-  "status": "model-trained-frozen",
+  "status": "experimental-live-scores",
   "parent": "study-v3",
   "workspace": "workspaces/study-v4",
   "branch": "study-v4",
@@ -11,7 +11,7 @@
   "evaluations": "evaluations/study-v4",
   "releases": "releases/study-v4",
   "historical_source": null,
-  "scope_note": "CNN V4.0 two-source corpus and split frozen; one D048 A0 CNN trained with seed 42; no tuning, test scoring, threshold, bundle or runtime activation",
+  "scope_note": "Frozen seed-42 A0 CNN active locally for raw scores only; threshold pending, test unaccessed; no new training run",
   "preparation_plan": "workspaces/study-v4/docs/v4/DATA_PREPARATION_CNN_V4_0.md",
   "plan_status": "executed-passed",
   "preparation_report": "reports/study-v4/DATA_PREPARATION_CNN_V4_0_REPORT.md",
@@ -26,5 +26,6 @@
   "supplied_document": {
     "filename": "DATA_PREPARATION_CNN_V4_0_UPDATED_FINAL.md",
     "sha256": "2bb6e2bc3ad13f5d5ede122982375b27fe851a8a38d04a39f2f6207674f5222d"
-  }
+  },
+  "runtime_selection": "registry/runtime-selections/study-v4-score-only.json"
 }

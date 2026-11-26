@@ -49,3 +49,7 @@ The supplied document is preserved verbatim rather than silently amended. The ow
 The supplied introduction refers to phase F audit statistics, while descriptor/shortcut audits are described in phase E. This cross-reference discrepancy has no effect on the implemented numerical rules; no phase or rule has been renumbered. P4-07 is absent from the supplied decision table and no replacement plan decision has been invented.
 
 Prior Al-Emadi test-use history remains applicable to reused source groups. The future V4 report must distinguish a newly frozen split from previously unseen recordings, as required by the project versioning rules.
+
+## Later local monitoring activation
+
+The owner subsequently authorized activation of the frozen A0 seed-42 CNN for raw scores only. V4-LIVE-001 records this separate step. The V4 monitor uses port 8766; no threshold, extra training run or test evaluation was introduced. See reports/V4_LIVE_INTEGRATION_REPORT.md.

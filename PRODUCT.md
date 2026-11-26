@@ -45,3 +45,7 @@ The user requires this brand surface to follow the product lane “premium web p
 - Keep model selection and final test evaluation distinct.
 - Show uncertainty alongside point estimates.
 - Preserve reproducibility metadata and caveats.
+
+## V4 local acoustic monitor
+
+The owner uses the existing web monitor to capture microphone audio locally and inspect CNN V4.0 A0 seed-42 raw logits. One trained model has 23,585 parameters. Its threshold has not been selected, so the monitor issues no binary detection verdict and labels threshold selection pending. Test audio remains locked. The existing brand surface uses the Designs of Desire studio lane and the project's listed anti-references; this task changes model status and readout behavior.

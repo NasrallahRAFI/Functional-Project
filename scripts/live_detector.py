@@ -47,7 +47,10 @@ class LiveState:
             model,
             threshold,
         )
-        self.decision_identity = decision_hash(config, threshold=threshold)
+        self.decision_identity = (
+            decision_hash(config, threshold=threshold) if threshold is not None
+            else "raw-score-only-v1"
+        )
         self.lock = threading.Lock()
         self.source_rate = None
         self.builder = None
@@ -171,6 +174,18 @@ class LiveState:
                     score = float(
                         self.model(torch.from_numpy(features).unsqueeze(0)).item()
                     )
+                if not np.isfinite(score):
+                    raise ValueError("CNN output must be finite")
+                if self.threshold is None:
+                    result = {
+                        "status": "score_only", "score": score, "raw_score": score,
+                        "threshold": None, "drone": None, "votes": [], "votes_required": 0,
+                        "window_rms_dbfs": window_rms_dbfs, "clipped": flags["clipped"],
+                        "generation": self.generation, "recovered": discontinuity,
+                        "recovery_reasons": reasons, "decision_identity": self.decision_identity,
+                    }
+                    window_trace.append(result.copy())
+                    continue
                 decision = self.smoother.push(score, self.threshold)
                 if decision is None:
                     result = {
@@ -239,6 +254,13 @@ def save_diagnostic_recording(samples, source_rate, session_id, owner_token):
 
 
 class Handler(SimpleHTTPRequestHandler):
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".js": "text/javascript"}
+    request_timeout_seconds = 5
+
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(self.request_timeout_seconds)
+
     def end_headers(self):
         # Reopening the monitor must not reuse a cached V1 page or script.
         self.send_header("Cache-Control", "no-store")
@@ -251,7 +273,7 @@ class Handler(SimpleHTTPRequestHandler):
         LOG.info("%s - %s", self.address_string(), fmt % args)
 
     def _json(self, status: int, payload: dict):
-        body = json.dumps(payload).encode("utf-8")
+        body = json.dumps(payload, allow_nan=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -260,10 +282,11 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _local_host_ok(self) -> bool:
         host = self.headers.get("Host", "")
-        return host == f"127.0.0.1:{self.server.server_port}"
+        return host in {f"127.0.0.1:{self.server.server_port}",
+                        f"localhost:{self.server.server_port}"}
 
     def _same_origin_ok(self) -> bool:
-        return self.headers.get("Origin", "") == f"http://127.0.0.1:{self.server.server_port}"
+        return self._local_host_ok() and self.headers.get("Origin", "") == f"http://{self.headers.get('Host', '')}"
 
     def do_GET(self):
         if not self._local_host_ok():
@@ -347,6 +370,10 @@ class Handler(SimpleHTTPRequestHandler):
             sequence = int(self.headers.get("X-Chunk-Sequence", "-1"))
             if not session_id or len(session_id) > 80 or sequence < 0:
                 raise ValueError("Audio session or sequence metadata is invalid.")
+            if not 8000 <= source_rate <= 192000:
+                raise ValueError("Unsupported microphone sample rate.")
+            if length > source_rate * 2 * 4:
+                raise ValueError("Audio chunk is longer than two seconds.")
             body = self.rfile.read(length)
             if len(body) != length:
                 raise ValueError("Audio request was truncated.")
@@ -357,7 +384,7 @@ class Handler(SimpleHTTPRequestHandler):
                 200, STATE.process(samples, source_rate, session_id, sequence, owner_token,
                                    require_owner=True)
             )
-        except (ValueError, RuntimeError) as exc:
+        except (ValueError, RuntimeError, TimeoutError) as exc:
             return self._json(400, {"error": str(exc)})
         except Exception:
             LOG.exception("Live inference failed")
@@ -371,10 +398,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="verify and warm the selected CNN, then exit")
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--port", type=int, default=8766)
     parser.add_argument("--instance-id", default=uuid.uuid4().hex)
     args = parser.parse_args(argv)
-    if args.host not in {"127.0.0.1", "localhost", "::1"}:
+    if args.host not in {"127.0.0.1", "localhost"}:
         parser.error("the local detector can only bind to loopback")
     if not args.instance_id or len(args.instance_id) > 80:
         parser.error("instance ID must contain 1–80 characters")
@@ -392,7 +419,7 @@ def main(argv=None):
     host, port = args.host, args.port
     server = ThreadingHTTPServer((host, port), Handler)
     LOG.info(
-        "Loaded verified %s seed %s from %s; threshold %.8f; validation_eligible=%s experimental=%s",
+        "Loaded verified %s seed %s from %s; threshold %s; validation_eligible=%s experimental=%s",
         detector.model_id,
         SEED,
         ARTIFACT,

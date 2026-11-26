@@ -41,7 +41,7 @@ class LoadedDetector:
     config: FrontEndConfig
     stats: dict[str, np.ndarray]
     model: torch.nn.Module
-    threshold: float
+    threshold: float | None
     seed: int
     artifact: str
     artifact_sha256: str
@@ -86,7 +86,7 @@ class LoadedDetector:
             "validation_guard_failures": list(self.validation_guard_failures),
             "test_access": self.test_access,
             "policy_id": self.policy_id,
-            "smoothing_windows": self.config.smoothing_windows,
+            "smoothing_windows": 0 if self.threshold is None else self.config.smoothing_windows,
             "window_samples": self.config.win_samples,
             "cadence_seconds": round(
                 self.config.hop
@@ -94,6 +94,9 @@ class LoadedDetector:
                 / self.config.sr,
                 6,
             ),
+            "parameter_count": sum(p.numel() for p in self.model.parameters()),
+            "threshold_selected": self.threshold is not None,
+            "run_id": "cnn_a0_seed42" if self.model_id == "CNN_V4.0" else None,
         }
 
 
@@ -102,6 +105,8 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
     root = Path(project_root).resolve()
     manifest_file = Path(manifest_path) if manifest_path else root / "config/live_detector.json"
     manifest = _json(manifest_file)
+    if manifest.get("model_id") == "CNN_V4.0":
+        return _load_v4(root, manifest_file, manifest)
     model_id = manifest.get("model_id")
     model_version = manifest.get("model_version")
     if (manifest.get("schema_version") != 2
@@ -225,4 +230,74 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
         test_access=bool(manifest.get("test_access", False)),
     )
     detector.score_window(np.zeros(config.win_samples, dtype=np.float32))
+    return detector
+
+
+def _load_v4(root: Path, manifest_file: Path, selection: dict) -> LoadedDetector:
+    """Verify the registered local V4 run without reading any split audio/cache."""
+    from .config import load_config, normalization_lineage_hash
+    from .models.cnn import build_cnn, parameter_count
+    base = root.parents[1]
+    if root != base / "workspaces/study-v4":
+        raise ValueError("V4 requires its registered study workspace")
+    registry = base / "repository/registry"
+    binding = _json(registry / "runtime-selections/study-v4-score-only.json")
+    if binding["selection_sha256"] != _sha256(manifest_file):
+        raise ValueError("V4 runtime selection differs from the registry")
+    run_record = _json(registry / "runs/cnn_a0_seed42.json")
+    cache_record = _json(registry / "caches/cnn-v4-train-val.json")
+    run = base / "runs/study-v4/cnn_a0_seed42"
+    if run_record["root"] != run.relative_to(base).as_posix():
+        raise ValueError("V4 run is not registered at the expected location")
+    freeze = _json(run / "freeze.json")
+    provenance = _json(run / "provenance.json")
+    checkpoint = run / "cnn_v4_a0_seed42.pt"
+    config_path = run / "config.yaml"
+    stats_path = base / "storage/caches/corpus-002/processed/spectrograms/norm_stats_global.npz"
+    if (selection.get("schema_version") != 3 or selection.get("model_version") != "4.0"
+            or selection.get("variant") != "depth_3" or selection.get("stage") != "A0"
+            or selection.get("seed") != 42 or selection.get("threshold") is not None
+            or selection.get("policy_id") != "raw-score-only-v1"
+            or selection.get("test_access") is not False
+            or selection.get("experimental_activation") is not True):
+        raise ValueError("V4 must preserve its raw-score-only, before-test contract")
+    if (freeze["status"] != "FROZEN_BEFORE_TEST" or freeze["training_runs"] != 1
+            or freeze["test_audio_opened"] or freeze["test_scored"] or freeze["threshold_selected"]):
+        raise ValueError("V4 training freeze is inconsistent")
+    digest = _sha256(checkpoint)
+    if not digest == selection["model_sha256"] == freeze["checkpoint_sha256"] == run_record["checkpoint_sha256"]:
+        raise ValueError("V4 checkpoint checksum mismatch")
+    if _sha256(run / "freeze.json") != selection["freeze_sha256"]:
+        raise ValueError("V4 freeze checksum mismatch")
+    if _sha256(config_path) != provenance["source_sha256"]["run_config"]:
+        raise ValueError("V4 training frontend configuration changed")
+    if not _sha256(stats_path) == selection["statistics_sha256"] == cache_record["normalization"]["sha256"] == freeze["normalization_record"]["normalization_file_sha256"]:
+        raise ValueError("V4 normalization checksum mismatch")
+    # Recheck the source implementing the training frontend against its provenance.
+    for name, relative in {"features": "features.py", "normalization": "normalization.py",
+                           "cnn_model": "models/cnn.py", "config_module": "config.py"}.items():
+        if _sha256(root / "src/dronedet" / relative) != provenance["source_sha256"][name]:
+            raise ValueError(f"V4 training source changed: {name}")
+    config = load_config(config_path)
+    if (config.sr, config.n_mels, config.n_win, config.win_samples) != (16000, 64, 28, 7936):
+        raise ValueError("V4 frontend geometry changed")
+    with np.load(stats_path, allow_pickle=False) as data:
+        stats = {key: data[key].astype(np.float32) for key in ("mean", "std")}
+    if any(x.shape != (64,) or not np.isfinite(x).all() for x in stats.values()) or np.any(stats["std"] <= 0):
+        raise ValueError("V4 normalization arrays are invalid")
+    if normalization_lineage_hash(config, stats) != selection["frontend_hash"]:
+        raise ValueError("V4 normalized frontend identity changed")
+    torch.set_num_threads(1)
+    model = build_cnn((1, 64, 28), channels=(16, 32, 64), dropout=0.3)
+    saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    model.load_state_dict(saved["state_dict"], strict=True)
+    model.eval()
+    if parameter_count(model) != 23585:
+        raise ValueError("V4 parameter count changed")
+    detector = LoadedDetector(config=config, stats=stats, model=model, threshold=None,
+        seed=42, artifact=checkpoint.relative_to(base).as_posix(), artifact_sha256=digest,
+        model_id="CNN_V4.0", model_version="4.0", stage="A0", variant="depth_3",
+        validation_eligible=False, experimental_activation=True,
+        validation_guard_failures=(), test_access=False, policy_id="raw-score-only-v1")
+    detector.score_window(np.zeros(config.win_samples, np.float32))
     return detector

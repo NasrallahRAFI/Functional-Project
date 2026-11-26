@@ -1,0 +1,2 @@
+# Runtime selection is byte-hashed by the local registry.
+/config/live_detector.json text eol=lf

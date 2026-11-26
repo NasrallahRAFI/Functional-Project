@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "study-v4-score-only",
+  "study": "study-v4",
+  "workspace": "workspaces/study-v4",
+  "run": "cnn_a0_seed42",
+  "corpus": "corpus-002",
+  "split": "split-002",
+  "cache": "cnn-v4-train-val",
+  "mode": "raw-score-only-v1",
+  "selection_sha256": "cf1980f44b085a2d93d2d08d2401615b7689734e6036afc4134b08bc8c92b03a",
+  "threshold_selected": false,
+  "test_access": false
+}

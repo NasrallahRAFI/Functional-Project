@@ -1,0 +1,22 @@
+{
+  "schema_version": 3,
+  "model_id": "CNN_V4.0",
+  "model_version": "4.0",
+  "stage": "A0",
+  "variant": "depth_3",
+  "seed": 42,
+  "run_id": "cnn_a0_seed42",
+  "model_sha256": "f4372da59644395c174514944aa6387901ed483f64c137fd1ae4e31c83092049",
+  "statistics_sha256": "4dc6820ca53a7965ae1e0264e4bc69e6197bd1f91ce0299e287ddeb71a26d6a4",
+  "freeze_sha256": "2fe38119a392c0e221bc11fd034b22120cf1107389f702cfc04f1791bd051fed",
+  "frontend_hash": "028d682f79e0099f265bf9194e11ba3250d16fc8ef5377944e7d7671ab60fdd2",
+  "threshold": null,
+  "score_kind": "raw_logit",
+  "policy_id": "raw-score-only-v1",
+  "smoothing_windows": 0,
+  "interval_seconds": 0.5,
+  "validation_eligible": false,
+  "experimental_activation": true,
+  "validation_guard_failures": [],
+  "test_access": false
+}

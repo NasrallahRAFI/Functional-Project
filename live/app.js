@@ -3,51 +3,31 @@ const canvas = $('waveform');
 const ctx = canvas.getContext('2d');
 const CHUNK_SECONDS = 0.5;
 const REQUEST_TIMEOUT_MS = 4000;
-const CAPTURE_VERSION = 'pool-v2';
+const CAPTURE_VERSION = 'pool-v3';
+const V4_CHECKPOINT = 'f4372da59644395c174514944aa6387901ed483f64c137fd1ae4e31c83092049';
 function isSelectedModel(m) {
-  const common = m?.status === 'ready' && m.application_id === 'local-drone-detector'
-    && m.protocol_version === 2 && m.variant === 'depth_4' && m.seed === 42
-    && m.score_kind === 'raw_logit' && m.policy_id === 'threshold-majority-v1'
-    && m.smoothing_windows === 3 && m.window_samples === 7936 && m.cadence_seconds === 0.496;
-  const v2 = m?.model_id === 'CNN_V2.0' && m.model_version === '2.0'
-    && m.checkpoint_sha256 === '0e97e3194e42f8fa3a2541e37dcff9fe33cdc1246d5a260ab65c6d157af6f4fb'
-    && m.threshold === 2.823960542678833 && m.validation_eligible === true
-    && m.experimental_activation === false;
-  const v3 = m?.model_id === 'CNN_V3.0' && m.model_version === '3.0' && m.stage === 'A1'
-    && m.checkpoint_sha256 === '7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed'
-    && m.threshold === 1.9109516143798828 && m.validation_eligible === false
-    && m.experimental_activation === true && m.test_access === false
-    && Array.isArray(m.validation_guard_failures)
-    && m.validation_guard_failures.includes('clean_recall_at_least_159_of_185')
-    && m.validation_guard_failures.includes('clean_false_positives_at_most_5_of_1325')
-    && m.validation_guard_failures.includes('each_augmented_far_at_most_1pct');
-  return common && (v2 || v3);
+  return m?.status === 'ready' && m.application_id === 'local-drone-detector'
+    && m.protocol_version === 2 && m.model_id === 'CNN_V4.0' && m.model_version === '4.0'
+    && m.stage === 'A0' && m.variant === 'depth_3' && m.seed === 42
+    && m.checkpoint_sha256 === V4_CHECKPOINT && m.parameter_count === 23585
+    && m.score_kind === 'raw_logit' && m.policy_id === 'raw-score-only-v1'
+    && m.threshold === null && m.threshold_selected === false
+    && m.smoothing_windows === 0
+    && m.window_samples === 7936 && m.cadence_seconds === 0.496
+    && m.experimental_activation === true && m.test_access === false;
 }
 function updateModelUI(m) {
-  state.selectedModel = {
-    model_id: m.model_id, model_version: m.model_version, stage: m.stage,
-    variant: m.variant, seed: m.seed, checkpoint_sha256: m.checkpoint_sha256,
-    threshold: m.threshold, validation_eligible: m.validation_eligible,
-    experimental_activation: m.experimental_activation,
-    validation_guard_failures: m.validation_guard_failures || [], test_access: m.test_access ?? false,
-  };
-  const experimental = m.model_id === 'CNN_V3.0';
-  const name = experimental ? 'CNN V3.0 · A1 · depth 4' : 'CNN V2.0 · depth 4';
-  $('systemText').textContent = experimental ? `CNN V3.0 A1 EXPERIMENTAL · SEED ${m.seed}` : `CNN V2.0 READY · SEED ${m.seed}`;
-  $('activeModelLede').textContent = experimental
-    ? 'This local session is running the experimental CNN V3.0 A1 model. It failed its registered validation guards.'
-    : 'A continuous microphone feed, read by the project’s validation-selected CNN V2.0 model.';
-  $('modelStampStatus').textContent = experimental ? 'EXPERIMENTAL · VALIDATION GUARDS FAILED' : 'VALIDATED MODEL';
-  $('modelStampStatus').classList.toggle('experimental-status', experimental);
-  $('activeModelName').textContent = name;
-  $('activeModelDetails').textContent = `Seed ${m.seed} · 60,641 parameters`;
-  $('modelEvidenceActive').textContent = `LIVE MODEL · ${name} · seed ${m.seed}`;
-  $('modelEvidenceStatus').textContent = experimental
-    ? 'Activated experimentally by request despite failed validation: clean recall 157/185; clean false positives 25/1,325; moderate/severe FAR 2.49%/5.21%. Test data remains locked. CNN V2.0 remains available as the validated baseline.'
-    : 'CNN V2.0 is the selected validation baseline. The CNN V3.0 A1 candidate is available only as an experimental, validation-ineligible model.';
-  $('modelEvidenceStatus').classList.toggle('experimental-note', experimental);
-  $('thresholdValue').textContent = Number(m.threshold).toFixed(4);
-  $('cadenceValue').textContent = `${m.cadence_seconds} sec · 3-window majority`;
+  state.selectedModel = m;
+  $('systemText').textContent = 'CNN V4.0 · LIVE SCORES';
+  $('activeModelLede').textContent = 'Listen with the trained V4.0 CNN. View live acoustic scores while detection threshold selection is pending.';
+  $('modelStampStatus').textContent = 'EXPERIMENTAL · THRESHOLD PENDING';
+  $('modelStampStatus').classList.add('experimental-status');
+  $('activeModelName').textContent = 'CNN V4.0 · A0';
+  $('activeModelDetails').textContent = 'Seed 42 · 23,585 parameters';
+  $('modelEvidenceActive').textContent = 'LIVE MODEL · V4.0 A0 · seed 42';
+  $('modelEvidenceStatus').textContent = 'Training complete. No detection threshold or test evaluation. Raw logits are not probabilities. Test audio remains locked.';
+  $('thresholdValue').textContent = 'Pending selection';
+  $('cadenceValue').textContent = `${m.cadence_seconds} sec · raw scores`;
 }
 const state = {
   active: false, epoch: 0, stream: null, context: null, source: null,
@@ -97,6 +77,11 @@ function render(data, requestMs) {
     $('result').dataset.state = 'idle'; $('resultOverline').textContent = data.reason === 'quiet' ? 'LOW INPUT LEVEL' : 'LISTENING';
     $('resultText').textContent = 'Standing by'; $('resultNote').textContent = 'Quiet input is not counted as a negative prediction.';
     $('scoreValue').textContent = '—';
+  } else if (data.status === 'score_only') {
+    $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'LIVE CNN SCORE';
+    $('resultText').textContent = Number(data.raw_score).toFixed(3);
+    $('resultNote').textContent = 'Raw logit · threshold pending · no detection verdict';
+    $('scoreValue').textContent = Number(data.raw_score).toFixed(3);
   } else if (data.status === 'warming_up' || data.status === 'buffering') {
     $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'WARMING UP';
     $('resultText').textContent = 'Checking recent windows';
@@ -271,7 +256,7 @@ async function sendAudio() {
       window_rms_dbfs: result.window_rms_dbfs ?? null,
       raw_logit: result.raw_score ?? null, threshold: result.threshold ?? null,
       raw_vote: result.raw_vote ?? null, votes: result.votes ?? [],
-      votes_required: result.votes_required ?? 3, drone: result.drone ?? null,
+      votes_required: result.votes_required ?? 0, drone: result.drone ?? null,
       generation: result.generation ?? data.generation ?? null,
       recovered: Boolean(result.recovered || data.recovered),
       recovery_reasons: result.recovery_reasons || data.recovery_reasons || [],
@@ -361,7 +346,12 @@ async function start() {
       state.captureBlocks++;
       const ageSeconds = state.context.currentTime - (block.sourceFrame + samples.length) / state.sampleRate;
       if (ageSeconds > 0.5) {
-        state.captureDrops += samples.length;
+        const staleEndFrame = block.sourceFrame + samples.length;
+        const lostFrames = state.expectedSourceFrame === null
+          ? (block.droppedFrames || 0) + samples.length
+          : Math.max(block.droppedFrames || 0, staleEndFrame - state.expectedSourceFrame);
+        state.captureDrops += lostFrames;
+        state.expectedSourceFrame = staleEndFrame;
         if (!state.gapPending) resetCapture('Discarding delayed audio. Waiting for fresh microphone input.');
         recycle(); return;
       }
@@ -385,7 +375,7 @@ async function start() {
     $('micDot').classList.add('on'); $('micLabel').textContent = 'MICROPHONE LIVE'; $('latency').textContent = 'BUILDING FIRST DECISION';
     $('sampleRate').textContent = `${state.sampleRate.toLocaleString()} Hz`; $('result').dataset.state = 'idle';
     $('resultOverline').textContent = 'CAPTURING AUDIO'; $('resultText').textContent = 'Listening';
-    $('resultNote').textContent = 'Three votes need at least 1.488 seconds of clear audio; quiet input takes longer.';
+    $('resultNote').textContent = 'Preparing the first 0.496-second window. Quiet input is shown as standby.';
     $('startButton').querySelector('span:last-child').textContent = 'Monitoring'; $('stopButton').disabled = false;
     setMessage('Listening continuously. Audio is saved only when you press Record 10 seconds.');
   } catch (error) {

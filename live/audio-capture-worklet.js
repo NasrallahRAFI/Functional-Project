@@ -25,7 +25,8 @@ class MonoCaptureProcessor extends AudioWorkletProcessor {
 
     const channels = inputs[0] || [];
     if (!channels.length || !channels[0].length) {
-      this.droppedFrames += 128;
+      const missingFrames = outputs[0]?.[0]?.length || 0;
+      this.droppedFrames += this.writeAt + missingFrames;
       this.writeAt = 0;
       this.blockStartFrame = null;
       return true;
@@ -41,6 +42,15 @@ class MonoCaptureProcessor extends AudioWorkletProcessor {
     }
 
     for (let frame = 0; frame < frames; frame++) {
+      if (!this.block) {
+        this.block = this.freeBlocks.pop();
+        if (!this.block) {
+          this.droppedFrames += frames - frame;
+          this.writeAt = 0;
+          this.blockStartFrame = null;
+          return true;
+        }
+      }
       if (this.writeAt === 0) this.blockStartFrame = currentFrame + frame;
       let mixed = 0;
       for (const channel of channels) mixed += channel[frame] || 0;

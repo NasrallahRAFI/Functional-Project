@@ -11,13 +11,12 @@ import scripts.launch_detector as launcher
 
 def ready_health():
     return {
-        "status": "ready", "protocol_version": 2,
-        "instance_id": "test-instance",
-        "application_id": "local-drone-detector", "model_id": "CNN_V2.0",
-        "model_version": "2.0", "stage": "V2", "variant": "depth_4",
-        "seed": 42, "threshold": 2.823960542678833,
-        "checkpoint_sha256": launcher.EXPECTED_MODEL["model_sha256"], "score_kind": "raw_logit",
+        **launcher.EXPECTED_MODEL,
+        "status": "ready", "protocol_version": 2, "instance_id": "test-instance",
+        "application_id": "local-drone-detector",
+        "checkpoint_sha256": launcher.EXPECTED_MODEL["model_sha256"],
     }
+
 
 
 class LauncherFlowTests(unittest.TestCase):
