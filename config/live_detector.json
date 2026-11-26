@@ -1,15 +1,24 @@
 {
   "schema_version": 2,
-  "model_id": "CNN_V2.0",
-  "model_version": "2.0",
-  "package_path": "runtime/assets/CNN_V2.0",
-  "model_sha256": "0e97e3194e42f8fa3a2541e37dcff9fe33cdc1246d5a260ab65c6d157af6f4fb",
+  "model_id": "CNN_V3.0",
+  "model_version": "3.0",
+  "stage": "A1",
+  "package_path": "runtime/assets/CNN_V3.0",
+  "model_sha256": "7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed",
   "variant": "depth_4",
   "seed": 42,
-  "threshold": 2.823960542678833,
+  "threshold": 1.9109516143798828,
   "score_kind": "raw_logit",
   "policy_id": "threshold-majority-v1",
   "smoothing_windows": 3,
   "interval_seconds": 0.5,
-  "frontend_hash": "dab196aee59c482e2938d90ea0c55d33eb5606f8aa04d11ff8d441fb6cd31678"
+  "frontend_hash": "dab196aee59c482e2938d90ea0c55d33eb5606f8aa04d11ff8d441fb6cd31678",
+  "validation_eligible": false,
+  "experimental_activation": true,
+  "validation_guard_failures": [
+    "clean_recall_at_least_159_of_185",
+    "clean_false_positives_at_most_5_of_1325",
+    "each_augmented_far_at_most_1pct"
+  ],
+  "test_access": false
 }

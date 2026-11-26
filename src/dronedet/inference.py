@@ -1,4 +1,4 @@
-"""Verified inference for the explicitly selected CNN V2.0 frontend package."""
+"""Verified local inference for the explicitly selected CNN V2/V3 package."""
 from __future__ import annotations
 
 import hashlib
@@ -49,6 +49,10 @@ class LoadedDetector:
     model_version: str
     stage: str
     variant: str
+    validation_eligible: bool = True
+    experimental_activation: bool = False
+    validation_guard_failures: tuple[str, ...] = ()
+    test_access: bool = False
     policy_id: str = "threshold-majority-v1"
 
     def score_window(self, window: np.ndarray) -> float:
@@ -64,7 +68,7 @@ class LoadedDetector:
         with torch.inference_mode():
             output = self.model(batch)
         if output.shape != (1,) or not torch.isfinite(output).all():
-            raise RuntimeError("invalid CNN V2.0 output")
+            raise RuntimeError(f"invalid {self.model_id} output")
         return float(output.item())
 
     def health_metadata(self) -> dict:
@@ -77,6 +81,10 @@ class LoadedDetector:
             "checkpoint_sha256": self.artifact_sha256,
             "threshold": self.threshold,
             "score_kind": "raw_logit",
+            "validation_eligible": self.validation_eligible,
+            "experimental_activation": self.experimental_activation,
+            "validation_guard_failures": list(self.validation_guard_failures),
+            "test_access": self.test_access,
             "policy_id": self.policy_id,
             "smoothing_windows": self.config.smoothing_windows,
             "window_samples": self.config.win_samples,
@@ -90,42 +98,75 @@ class LoadedDetector:
 
 
 def load_detector(project_root: str | Path, manifest_path: str | Path | None = None) -> LoadedDetector:
-    """Load and verify the selected V2 package; never fall back to a V1 model."""
+    """Load and verify the explicitly selected V2 baseline or V3 package."""
     root = Path(project_root).resolve()
     manifest_file = Path(manifest_path) if manifest_path else root / "config/live_detector.json"
     manifest = _json(manifest_file)
-    if (manifest.get("schema_version") != 2 or manifest.get("model_id") != "CNN_V2.0"
-            or manifest.get("model_version") != "2.0"):
-        raise ValueError("live detector must explicitly select CNN V2.0")
+    model_id = manifest.get("model_id")
+    model_version = manifest.get("model_version")
+    if (manifest.get("schema_version") != 2
+            or model_id not in {"CNN_V2.0", "CNN_V3.0"}
+            or model_version != {"CNN_V2.0": "2.0", "CNN_V3.0": "3.0"}.get(model_id)):
+        raise ValueError("live detector must explicitly select CNN V2.0 or CNN V3.0")
+    if model_id == "CNN_V3.0":
+        expected_failures = {
+            "clean_recall_at_least_159_of_185",
+            "clean_false_positives_at_most_5_of_1325",
+            "each_augmented_far_at_most_1pct",
+        }
+        actual_failures = set(manifest.get("validation_guard_failures", []))
+        if (manifest.get("validation_eligible") is not False
+                or manifest.get("experimental_activation") is not True
+                or manifest.get("test_access") is not False
+                or actual_failures != expected_failures):
+            raise ValueError("CNN V3.0 requires an explicit experimental selection with its failed guards and locked test state recorded")
     if manifest.get("score_kind") != "raw_logit" or manifest.get("variant") != "depth_4":
-        raise ValueError("unsupported CNN V2.0 score space or architecture")
+        raise ValueError(f"unsupported {model_id} score space or architecture")
 
     package = _inside(root, manifest["package_path"], label="model package")
     package_manifest_path = package / "PACKAGE_MANIFEST.json"
     package_manifest = _json(package_manifest_path)
     members = package_manifest.get("files")
     if not isinstance(members, list) or not members:
-        raise ValueError("CNN V2.0 package manifest is empty or invalid")
+        raise ValueError(f"{model_id} package manifest is empty or invalid")
+    if package_manifest.get("model_id", model_id) != model_id:
+        raise ValueError("package manifest model identity differs from live selection")
+    if model_id == "CNN_V3.0" and (
+        package_manifest.get("validation_eligible") is not False
+        or package_manifest.get("experimental_activation") is not True
+        or package_manifest.get("test_access") is not False
+        or set(package_manifest.get("validation_guard_failures", [])) != expected_failures
+    ):
+        raise ValueError("CNN V3.0 package does not bind its experimental status and failed guards")
     for entry in members:
         relative = str(entry.get("path", ""))
         path = _inside(package, relative, label="package member")
         if not path.is_file() or path.stat().st_size != int(entry["size"]) or _sha256(path) != entry["sha256"]:
-            raise ValueError(f"CNN V2.0 package checksum mismatch: {relative}")
+            raise ValueError(f"{model_id} package checksum mismatch: {relative}")
 
     metadata_path = package / "model_metadata.json"
     metadata = _json(metadata_path)
     model_path = _inside(package, metadata["model_file"], label="model")
     model_digest = _sha256(model_path)
     if model_digest != metadata["model_sha256"] or model_digest != manifest["model_sha256"]:
-        raise ValueError("CNN V2.0 model digest differs from metadata or live selection")
-    if metadata.get("package") != "CNN V2.0" or metadata.get("parameter_count") != 60641:
-        raise ValueError("CNN V2.0 package metadata does not describe the selected model")
+        raise ValueError(f"{model_id} model digest differs from metadata or live selection")
+    if metadata.get("package") != model_id.replace("_", " ") or metadata.get("parameter_count") != 60641:
+        raise ValueError(f"{model_id} package metadata does not describe the selected model")
     if metadata.get("architecture", {}).get("channels") != [16, 32, 64, 64]:
-        raise ValueError("CNN V2.0 channel layout differs from the selected depth_4 model")
+        raise ValueError(f"{model_id} channel layout differs from the selected depth_4 model")
     if manifest.get("threshold") != metadata.get("validation_threshold"):
-        raise ValueError("live threshold differs from the validation-frozen V2 threshold")
+        raise ValueError("live threshold differs from the package validation threshold")
     if manifest.get("seed") != metadata.get("training_seed"):
-        raise ValueError("live seed differs from CNN V2.0 training metadata")
+        raise ValueError(f"live seed differs from {model_id} training metadata")
+    if metadata.get("stage") != manifest.get("stage", metadata.get("stage")):
+        raise ValueError("live stage differs from package metadata")
+    if model_id == "CNN_V3.0":
+        if (metadata.get("validation_eligible") is not False
+                or metadata.get("experimental_activation") is not True
+                or metadata.get("test_access") is not False
+                or set(metadata.get("validation_guard_failures", [])) != expected_failures
+                or set(metadata.get("validation_guard_failures", [])) != actual_failures):
+            raise ValueError("CNN V3.0 metadata does not preserve its validation-ineligible experimental status")
 
     params = _json(package / metadata["frontend_config_file"])
     params.pop("_identity_schema", None)
@@ -133,33 +174,33 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
     config = FrontEndConfig(**params)
     config.validate()
     if config.n_mels != 64 or config.n_win != 28 or config.win_samples != 7936:
-        raise ValueError("CNN V2.0 frontend dimensions differ from the selected input contract")
+        raise ValueError(f"{model_id} frontend dimensions differ from the selected input contract")
     if (manifest.get("policy_id") != "threshold-majority-v1"
             or int(manifest.get("smoothing_windows", 0)) != config.smoothing_windows
             or float(manifest.get("interval_seconds", -1)) != config.decision_interval_s):
-        raise ValueError("live decision settings differ from the CNN V2.0 runtime frontend")
+        raise ValueError(f"live decision settings differ from the {model_id} runtime frontend")
     stats_path = package / metadata["normalization_file"]
     with np.load(stats_path, allow_pickle=False) as archive:
         if set(archive.files) != {"mean", "std"}:
-            raise ValueError("CNN V2.0 normalization package must contain mean and std only")
+            raise ValueError(f"{model_id} normalization package must contain mean and std only")
         stats = {key: archive[key].astype(np.float32, copy=False) for key in ("mean", "std")}
     if any(value.shape != (64,) or not np.isfinite(value).all() for value in stats.values()):
-        raise ValueError("CNN V2.0 normalization vectors are malformed")
+        raise ValueError(f"{model_id} normalization vectors are malformed")
     if np.any(stats["std"] <= 0):
-        raise ValueError("CNN V2.0 normalization standard deviations must be positive")
+        raise ValueError(f"{model_id} normalization standard deviations must be positive")
     frontend_check = verify_bundle(package, config)
     if frontend_check.get("hash") != manifest.get("frontend_hash"):
-        raise ValueError("CNN V2.0 frontend hash differs from the live model selection")
+        raise ValueError(f"{model_id} frontend hash differs from the live model selection")
     if any(not value.get("verified") for value in frontend_check["normalized_outputs"].values()):
-        raise ValueError("CNN V2.0 runtime frontend goldens failed verification")
+        raise ValueError(f"{model_id} runtime frontend goldens failed verification")
 
     model = torch.jit.load(str(model_path), map_location="cpu")
     model.eval()
     if not hasattr(model, "parameters") or sum(int(p.numel()) for p in model.parameters()) != 60641:
-        raise ValueError("loaded TorchScript model does not contain 60,641 parameters")
+        raise ValueError(f"loaded {model_id} TorchScript model does not contain 60,641 parameters")
     threshold = float(metadata["validation_threshold"])
     if not np.isfinite(threshold):
-        raise ValueError("CNN V2.0 validation threshold is not finite")
+        raise ValueError(f"{model_id} validation threshold is not finite")
     detector = LoadedDetector(
         config=config,
         stats=stats,
@@ -168,10 +209,14 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
         seed=int(metadata["training_seed"]),
         artifact=str(model_path.relative_to(root)),
         artifact_sha256=model_digest,
-        model_id="CNN_V2.0",
-        model_version="2.0",
-        stage="V2",
+        model_id=model_id,
+        model_version=model_version,
+        stage=str(metadata.get("stage", "V2")),
         variant="depth_4",
+        validation_eligible=bool(manifest.get("validation_eligible", True)),
+        experimental_activation=bool(manifest.get("experimental_activation", False)),
+        validation_guard_failures=tuple(manifest.get("validation_guard_failures", [])),
+        test_access=bool(manifest.get("test_access", False)),
     )
     detector.score_window(np.zeros(config.win_samples, dtype=np.float32))
     return detector

@@ -1,8 +1,8 @@
 # CNN V3.0 implementation plan
 
-Date: 26 November 2026. Status: final planning specification. Archive creation, restore testing, V3 implementation, training, evaluation and deployment are pending.
+Date: 26 November 2026. Status: the user-requested A1-only training and frontend wiring are complete. A1 seed 42 failed frozen validation eligibility, and the user explicitly authorized local experimental activation despite those failures. CNN V3.0 A1 is active in the local live detector with experimental status exposed in the UI and API; CNN V2.0 remains the validated baseline. No A2 or later augmentation rungs were run. Test data remains locked and the final evaluator was not run. Remaining experiment-plan items are deferred beyond the user's current scope.
 
-Improve robustness to phone playback, rooms, microphone noise and low recording levels using the existing binary corpus. Preserve a complete, restorable V2 baseline first. Start with waveform augmentation and the existing CNN; allow saved training derivatives, frontend changes, fine-tuning and architecture changes through separately logged experiments. A successful simulation result does not establish performance on new microphones, rooms or drone types.
+Improve robustness to phone playback, rooms, microphone noise and low recording levels using the existing binary corpus. Preserve a complete, restorable V2 baseline first. Keep the selected CNN V2 depth_4 architecture fixed and study channel-robust augmentation on that single architecture. Do not run an architecture grid or combinatorial hyperparameter search in this phase. A successful simulation result does not establish performance on new microphones, rooms or drone types.
 
 Canonical plan: `Functional Project/docs/CNN_V3_0_IMPLEMENTATION_PLAN.md`. Identical reading copy: `Project documents/Models/Implementation plan CNN V3.0.md`. All repository paths below are relative to **Functional Project**, the Git root, rather than its parent workspace. This plan supersedes the supplied proposed V3 plan. Section 12 explains the changes.
 
@@ -252,8 +252,6 @@ Each row has an explicit parent and adds one named group. These are grouped abla
 | B1 | Best eligible A configuration | Window DC removal |
 | B2 | Same A parent; also test B1+B2 only if registered | Scalar per-window log-mel mean subtraction |
 | B3 | Registered A/B parent | Train-only re-estimation of normalization statistics, including paired with/without B2 if registered |
-| C1 | Finalist with unchanged tensor topology | V2-weight warm start versus fresh initialization |
-| C2 | Best eligible A/B/C1 configuration | Optional small registered architecture or recipe grid, one factor/group at a time |
 
 Record the parent when it is chosen. If a later rung fails, do not silently continue as if it improved the chain; subsequent rows branch from the best eligible configuration as stated. All candidates use the same frozen evaluation suite. Keep optional extensions bounded to the configurations written before their results are inspected.
 
@@ -265,7 +263,7 @@ Use the V2 architecture and recipe for the main A ladder: batch 64, AdamW 1e-3, 
 
 Run seed 42 for screening. Refit up to two eligible finalists with seeds 42, 43 and 44 under the identical recipe, report mean/std, and retain fixed seed 42 as the deployable seed. Rank finalized configurations by mean selection score under the guards, with seed-42 eligibility also required. Do not choose a lucky seed or add an ensemble. V2's historical benchmark remains a one-seed reference; distinguish that from V3's seed-variance assessment.
 
-Use from-scratch initialization as the controlled default for frontend ablations. **A changed frontend does not make a warm start mathematically meaningless.** Where weight shapes remain compatible, C1 may compare adaptation of V2 weights with a fresh model using the identical V3 frontend and statistics. Reset optimizer/scheduler state for fine-tuning; document BatchNorm state treatment, use all layers trainable by default, and start with a preregistered lower learning rate such as 1e-4. Any LR comparison is itself part of the registered grid. Staging mild-to-full augmentation or freezing layers is optional C2 work, not an unlogged adjustment.
+Keep the existing depth_4 architecture fixed throughout CNN V3.0. V2-weight fine-tuning, architecture changes, and recipe grids are deferred beyond this implementation; they are not part of the current experiment set.
 
 ### 7.3 Frontend contracts
 
@@ -380,6 +378,41 @@ Stage V3 beside V2 and retain a rollback configuration. Activate it only after p
 | State one explicit weighted-pool F1 rule and numeric validation guards | V2 selected maximum F1, not a primary FAR target; the proposal combined inconsistent rules and left its clean-validation constraint unspecified |
 | Keep test acceptance separate from selection, with numeric counts and a new lock | A failed final test must be reported without using it to choose another candidate; historical test reuse remains disclosed |
 | Add source-group bootstrap pairing and continuous decision metrics | Repeated augmented clips are correlated, and clip F1 alone does not assess the live gate/smoother behavior |
-| Retain optional extensions and stronger real-world evaluation as bounded work | Broad fine-tuning is allowed, while architecture/codec/storage choices and new recording sessions remain separately justified |
+| Retain optional extensions and stronger real-world evaluation as bounded work | Architecture search and fine-tuning are deferred; optional codec/storage choices and new recording sessions remain separately justified |
 
 The archive, rules and measurements above make V3 reviewable without claiming that augmentation will fix the phone test. Implementation is complete only when the corresponding gates have evidence; finalizing this plan does not mark those gates as passed.
+
+**Execution update — validation suite ready.** All deterministic severity views and frozen CNN_V2.0 reference scores are complete; see the decision log for manifest hash, per-condition recall and the weighted pooled baseline. The clean reference matches A0a. The suite scorer's manifest-path case was corrected and all member hashes were checked during scoring. Proceed to full A0b raw-loader parity and no-augmentation control before A0c.
+
+**Execution update — raw/cache parity gate passed.** Four validation clips covering both labels matched V2 cached tensors at 12 aligned offsets within the registered 1e-4 tensor and logit tolerances, with identical threshold votes. The A0b raw waveform seed-42 control is now training under the original clean-validation stopping rule.
+
+
+
+**Execution hold — A0b reproduction gate failed.** The raw-loader checkpoint’s clean F1 is close to A0a, but its selected-threshold decision counts exceed the preregistered one-TP/one-FP difference limit; at the frozen V2 threshold it also differs materially. Frontend parity checks passed on multiple validation and training examples. The discrepancy is under investigation. Do not start channel augmentation experiments until the raw/cached control is resolved.
+
+
+**A0b discrepancy follow-up.** Full-clip feature extraction rebuilt from all raw training WAVs is bitwise identical to the frozen V2 training cache (7,607 clips; shape 64×457,897; SHA-256 `19cf9927de7d795d03544998bf18fefefc9369644b581094f43fafcb1c4afb62`). The corrected A0b retry uses this raw-derived cache and the exact A0a training code, crop offsets and gain draws. Epoch 1 matches A0a exactly; final reproduction-gate status is pending.
+
+
+**Execution update — A0b gate resolved.** Rebuilding full-clip mel power from all raw train WAVs yielded a bitwise match to frozen V2 power. Training with this verified raw-derived cache and the exact A0a recipe produced an identical 31-epoch history and identical checkpoint state tensors. A0b now passes the reproduction guard. The earlier crop-first attempt is retained as an excluded numerical-path diagnostic. Continue to A0c.
+
+**Execution update — A0c complete.** The no-augmentation weighted-monitor control used the clean/severity loss weights and stopped at epoch 9 with epoch 1 selected. Its weighted validation F1 is 0.7148; clean false positives (38) and severe FAR (4.60%) fail candidate guards. This establishes the fixed-monitor control baseline; proceed to the registered gain/channel augmentation recipe on the same depth_4 CNN.
+
+**Execution update — prefit calibration passed.** The severe A4 stress recipe passed the training-only spectral survival gate on all 967 train positives: 100% retain at least 1% relative normalized energy in the model band; fifth percentile is 0.728. A 20-positive/20-negative A4 listening montage, clip index and spectrogram contact sheet are prepared. Human review remains required before A1.
+
+**Prefit review-pack correction.** Removed per-sample peak normalization because it changed the registered gain augmentation. Regenerated the review montage with one shared playback attenuation; reran severe positive spectral-survival calibration against the updated augmentation code, still PASS. Use the current files at the recorded review paths; they supersede the earlier pack with the same filenames.
+
+**Execution update — near-silent nuisance handling.** The combined background/floor SNR limiter now applies to every nonzero waveform, including near-silent train positives, with exact-zero signals handled separately. Regression check passes. Severe survival still passes on all 967 positives (fifth percentile 0.730; minimum 0.448), and the review pack has been regenerated against the final augmentation rule.
+
+
+**Execution update — SNR calibration passed.** On 100 train positives and 100 train negatives with the admitted training-negative donor bank, all 162 channel-branch samples met the minimum added-noise SNR within floating-point tolerance; the clean V2-recipe branch bypassed noise as registered. Human review of the regenerated A4 listening pack remains the final prefit gate for A1.
+
+**Scope amendment — user approved A1 and limited follow-on work.** Human review of the current A4 training-only montage and spectrograms was approved before A1 fitting. Complete the resumed A1 seed-42 run, then stop augmentation training; do not run A2 or later rungs or add architecture/recipe combinations. Wire the resulting A1 package through the local live detector and browser UI. Keep V2 selected if A1 fails validation eligibility or the locked final acceptance gate; do not present an ineligible A1 model as deployed. The A1 run resumes from its checkpoint after epoch 2.
+
+**A1 seed-42 result — COMPLETE, NOT ELIGIBLE.** Resumed the saved run after epoch 2; it stopped after epoch 10 with best epoch 2 and weighted validation loss `0.55378383398056`. The selected weighted-F1 threshold is `1.9109516143798828` (weighted F1 `0.7302052786`). Clean recall is 157/185 (guard requires at least 159) and clean false positives are 25/1,325 (guard allows at most 5). Mild FAR is 0.91%, moderate FAR 2.49%, and severe FAR 5.21%; moderate and severe exceed the 1% per-condition guard. The augmented mean recall gain and maximum per-severity recall-drop guard pass. Overall candidate eligibility is false. Test access is false; no final test evaluation was run. Per the user's scope, do not continue to A2 or refit other seeds. Keep V2 selected in the live app and surface A1's non-selection and failed guards in its UI.
+
+**Frontend wiring — COMPLETE; local experimental activation authorized.** The user explicitly chose to activate A1 experimentally despite its failed validation guards. `config/live_detector.json`, the V3 inference loader, launcher health identity and browser UI now select CNN_V3.0 A1 seed 42, threshold `1.9109516143798828`, model SHA-256 `7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed`. The API and UI identify the selection as experimental and validation-ineligible, display the guard failures, and state that test data remains locked. CNN V2.0 remains identified as the validated baseline. The unchanged V2-compatible frontend, 0.496-second decision cadence and three-window smoother remain in use. `scripts/live_detector.py --check`, `/api/health`, launcher ownership check, JavaScript syntax, Python compilation and rendered Impeccable detection passed. At 390 px, the page has no horizontal overflow; mobile DOM geometry confirms the longer model and eligibility note wrap within the viewport. Desktop and mobile screenshots are `runtime/screenshots/cnn-v3-a1/experimental-desktop.png` and `experimental-mobile.png`. The test split was not accessed and no final test evaluation was run.
+
+
+
+**User decision — experimental activation.** After being shown A1’s failed guards, the user explicitly selected “Activate A1 experimentally despite the failed guards.” This overrides the prior plan’s default to keep V2 active, but does not change A1’s validation eligibility: it remains false. The local detector now selects A1 with visible experimental and failed-validation status; no general performance claim is made. Test remains locked, and the next augmentation rung remains out of scope.

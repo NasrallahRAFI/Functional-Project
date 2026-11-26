@@ -1,4 +1,4 @@
-"""Local browser service for continuous inference with frozen CNN V2.0."""
+"""Local browser service for continuous inference with the explicitly selected CNN package."""
 
 from __future__ import annotations
 
@@ -392,10 +392,13 @@ def main(argv=None):
     host, port = args.host, args.port
     server = ThreadingHTTPServer((host, port), Handler)
     LOG.info(
-        "Loaded verified CNN V2.0 seed %s from %s; threshold %.8f",
+        "Loaded verified %s seed %s from %s; threshold %.8f; validation_eligible=%s experimental=%s",
+        detector.model_id,
         SEED,
         ARTIFACT,
         THRESHOLD,
+        detector.validation_eligible,
+        detector.experimental_activation,
     )
     LOG.info("Listening at http://%s:%s", host, port)
     try:

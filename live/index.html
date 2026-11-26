@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101a18">
   <title>Drone acoustic monitor</title>
-  <link rel="stylesheet" href="/live/styles.css">
+  <link rel="stylesheet" href="/live/styles.css?v=cnn-v3-a1">
 </head>
 <body>
   <main class="shell">
@@ -20,9 +20,9 @@
     <section class="intro" aria-labelledby="pageTitle">
       <div class="intro-copy">
         <h1 id="pageTitle">Listen for<br><em>what’s overhead.</em></h1>
-      <p class="lede">A continuous microphone feed, read by the project’s frozen CNN V2.0 model.</p>
+      <p class="lede" id="activeModelLede">Checking the local model selection…</p>
       </div>
-      <div class="model-stamp"><span class="stamp-rule"></span><span>FROZEN MODEL</span><strong>CNN V2.0 <i>·</i> depth 4</strong><small>Seed 42 · 60,641 parameters</small></div>
+      <div class="model-stamp"><span class="stamp-rule"></span><span id="modelStampStatus">CHECKING MODEL</span><strong id="activeModelName">CNN detector</strong><small id="activeModelDetails">Waiting for local model metadata.</small></div>
     </section>
 
     <section class="monitor" aria-label="Live drone detection">
@@ -65,9 +65,12 @@
     <footer class="footnote">
       <div><p><strong>About this readout</strong><br>The model compares each half-second sound window with its validation-frozen score threshold. Quiet input is shown as standby.</p></div>
       <div><p><strong>Local by design</strong><br>Audio is captured through this computer’s microphone and processed by its local Python service. Sound from a phone or speakers must be audible to that microphone; headphone audio is not captured.</p></div>
-      <span class="evidence-note">Validation-selected CNN V2.0 · depth 4 · seed 42</span>
+      <div class="model-evidence" aria-label="Active model and validation status">
+        <span class="evidence-note" id="modelEvidenceActive">Checking selected model…</span>
+        <span class="candidate-note" id="modelEvidenceStatus" role="status">The local detector reports its active model and validation status here.</span>
+      </div>
     </footer>
   </main>
-  <script src="/live/app.js?v=cnn-v2" defer></script>
+  <script src="/live/app.js?v=cnn-v3-a1-exp1" defer></script>
 </body>
 </html>

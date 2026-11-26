@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 data/
 results/
+runtime/
 data/raw/
 *.npy
 *.npz

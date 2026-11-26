@@ -78,7 +78,12 @@ def is_ours(value: dict | None) -> bool:
                 and value.get("seed") == EXPECTED_MODEL["seed"]
                 and value.get("checkpoint_sha256") == EXPECTED_MODEL["model_sha256"]
                 and value.get("threshold") == EXPECTED_MODEL["threshold"]
-                and value.get("score_kind") == "raw_logit")
+                and value.get("score_kind") == "raw_logit"
+                and value.get("stage", EXPECTED_MODEL.get("stage")) == EXPECTED_MODEL.get("stage", value.get("stage"))
+                and value.get("validation_eligible", True) == EXPECTED_MODEL.get("validation_eligible", True)
+                and value.get("experimental_activation", False) == EXPECTED_MODEL.get("experimental_activation", False)
+                and value.get("validation_guard_failures", []) == EXPECTED_MODEL.get("validation_guard_failures", [])
+                and value.get("test_access", False) == EXPECTED_MODEL.get("test_access", False))
 
 
 def open_monitor() -> None:
