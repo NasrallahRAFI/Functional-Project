@@ -325,4 +325,4 @@ Before the training run, commit the V2 protocol, preparation/model code and requ
 - [x] Validation threshold and model/data identities frozen.
 - [x] One V2 test pass and honest benchmark report complete.
 - [x] One self-contained CNN V2.0 export verified.
-- [ ] Task-only implementation and results documentation committed and pushed.
+- [x] Task-only implementation and results documentation committed and pushed.

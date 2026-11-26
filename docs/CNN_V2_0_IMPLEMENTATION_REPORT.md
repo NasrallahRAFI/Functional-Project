@@ -6,7 +6,7 @@
 
 ## Status
 
-The implementation gates C0–C12 were completed on the current Windows CPU environment. The task-specific code and report still need a final scoped commit and push (C13). Generated datasets, checkpoints, score rows, and the V1 archive are local artifacts and are excluded from Git.
+The implementation gates C0–C13 were completed on the current Windows CPU environment. The task-specific code and report were committed and pushed to the existing GitHub remote. Generated datasets, checkpoints, score rows, and the V1 archive are local artifacts and are excluded from Git.
 
 | Gate | Result | Evidence |
 |---|---|---|
@@ -23,7 +23,7 @@ The implementation gates C0–C12 were completed on the current Windows CPU envi
 | C10 freeze | Pass | Raw-logit validation threshold and identities written before V2 test inference |
 | C11 evaluation | Pass | One scoring pass, 1,506 saved score rows, complete lock, 1,000 group-bootstrap draws |
 | C12 export | Pass | One TorchScript CNN plus frontend/statistics bundle; golden, parity, fresh-process, and clean-environment checks pass |
-| C13 delivery | Pending | Scoped report/code commit and GitHub push remain |
+| C13 delivery | Pass | Task-only commit `0832cfb` pushed to `origin/main` |
 
 ## V1 archive
 
