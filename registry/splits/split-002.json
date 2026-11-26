@@ -4,5 +4,7 @@
   "status": "planned-unbuilt",
   "corpus": "corpus-002",
   "root": null,
-  "files": []
+  "files": [],
+  "planned_root": "storage/splits/split-002",
+  "preparation_plan": "workspaces/study-v4/docs/v4/DATA_PREPARATION_CNN_V4_0.md"
 }

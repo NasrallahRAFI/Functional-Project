@@ -4,12 +4,19 @@
   "status": "planned-unbuilt",
   "sources": [
     "al-emadi-r001",
-    "thesis-r001",
-    "salford-r001"
+    "thesis-r001"
   ],
   "membership": null,
   "label_mapping": null,
   "segmentation": null,
   "grouping": null,
-  "root": null
+  "root": null,
+  "excluded_sources": [
+    {
+      "id": "salford-r001",
+      "reason": "Excluded by revised V4.0 plan: reliable segment-level class labels are not supplied; activity/energy does not establish drone identity."
+    }
+  ],
+  "preparation_plan": "workspaces/study-v4/docs/v4/DATA_PREPARATION_CNN_V4_0.md",
+  "planned_root": "storage/corpora/corpus-002"
 }

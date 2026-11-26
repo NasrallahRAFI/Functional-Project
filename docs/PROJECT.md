@@ -24,7 +24,7 @@ Layout established 26 November 2026 by owner instruction. The catalog checkout i
 
 ## Study status
 
-V1 is the historical multi-model study. V2 is the frozen CNN baseline. V3 is current development; its deployed A1 model is explicitly experimental and validation-ineligible. V4 has been proposed with three source datasets and a new corpus/split; membership, label mapping, segmentation, grouping, split assignments and preprocessing are not implemented by this migration.
+V1 is the historical multi-model study. V2 is the frozen CNN baseline. V3 is current development; its deployed A1 model is explicitly experimental and validation-ineligible. V4.0 now has a recorded preparation plan using Al-Emadi binary audio and Drone-detection-dataset audio. Salford is explicitly excluded. The authoritative plan is workspaces/study-v4/docs/v4/DATA_PREPARATION_CNN_V4_0.md, with current-layout bindings in that workspace's docs/v4/specification.md. Corpus membership, generated clips and split assignments remain unbuilt; the plan update does not execute preparation.
 
 Original scientific decisions remain in docs/history/original_context/PROJECT_CONTEXT_V8.md. Each study names its authoritative plan. The combined-source V4 scope supersedes the one-source restriction for V4 only; no numerical data budget or new scoring protocol is invented here.
 
