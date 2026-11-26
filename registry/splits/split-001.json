@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "split-001",
+  "status": "existing-frozen",
+  "corpus": "corpus-001",
+  "root": "storage/splits/split-001",
+  "files": [
+    {
+      "path": "FROZEN.txt",
+      "sha256": "fb034a5a2cd2c38238a25c9b67313cf647494827c4d87a814c1cc5f9a3789ae5",
+      "bytes": 554
+    },
+    {
+      "path": "test.csv",
+      "sha256": "350356a0b89a84bf6cf77fc4a1ffa36dea662151fbd5d79e66989cdfeec14848",
+      "bytes": 363832
+    },
+    {
+      "path": "train.csv",
+      "sha256": "60b14ff205bdd4e950ae0642d5ae886c8b8c4c291cabfedc26ee936d9a3e1afc",
+      "bytes": 1845208
+    },
+    {
+      "path": "val.csv",
+      "sha256": "c1c0170fddbd6dfa4d3095eab12abef6572ac45036278ba79cc4c71794dc23fc",
+      "bytes": 363006
+    }
+  ]
+}

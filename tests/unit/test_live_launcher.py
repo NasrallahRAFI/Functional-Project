@@ -10,12 +10,18 @@ import scripts.launch_detector as launcher
 
 
 def ready_health():
+    selected = launcher.EXPECTED_MODEL
     return {
         "status": "ready", "protocol_version": 2,
         "instance_id": "test-instance",
-        "application_id": "local-drone-detector", "model_id": "CNN_V2.0",
-        "model_version": "2.0", "stage": "V2", "variant": "depth_4",
-        "seed": 42, "threshold": 2.823960542678833,
+        "application_id": "local-drone-detector", "model_id": selected["model_id"],
+        "model_version": selected["model_version"], "stage": selected.get("stage", "V2"),
+        "variant": selected["variant"],
+        "seed": selected["seed"], "threshold": selected["threshold"],
+        "validation_eligible": selected.get("validation_eligible", True),
+        "experimental_activation": selected.get("experimental_activation", False),
+        "validation_guard_failures": selected.get("validation_guard_failures", []),
+        "test_access": selected.get("test_access", False),
         "checkpoint_sha256": launcher.EXPECTED_MODEL["model_sha256"], "score_kind": "raw_logit",
     }
 
@@ -69,6 +75,14 @@ class LauncherFlowTests(unittest.TestCase):
     def test_wrong_checkpoint_identity_is_not_attached(self):
         health = ready_health()
         health["checkpoint_sha256"] = "0" * 64
+        self.assertFalse(launcher.is_ours(health))
+
+    def test_different_model_or_experimental_status_is_not_attached(self):
+        health = ready_health()
+        health["model_id"] = "unselected-model"
+        self.assertFalse(launcher.is_ours(health))
+        health = ready_health()
+        health["experimental_activation"] = not health["experimental_activation"]
         self.assertFalse(launcher.is_ours(health))
 
     def test_failed_browser_open_prints_the_local_url(self):

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "corpus-001",
+  "status": "existing-reviewed-corpus",
+  "sources": [
+    "al-emadi-r001"
+  ],
+  "root": "storage/corpora/corpus-001",
+  "inventory": "storage/corpora/corpus-001/preparation-evidence/inventory.csv",
+  "membership": "storage/corpora/corpus-001/preparation-evidence/manifest_with_split.csv",
+  "historical_manifest_sha256": "2371a488ea1b06b6effc622dcfc345da0be744c3650e25320ae113334f46f7a2",
+  "raw_rows": 11704,
+  "retained_rows": 10623,
+  "labels": {
+    "0": "unknown",
+    "1": "yes_drone"
+  },
+  "grouping": "preserved original membership/group metadata"
+}

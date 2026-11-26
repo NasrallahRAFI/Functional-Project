@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "corpus-002",
+  "status": "planned-unbuilt",
+  "sources": [
+    "al-emadi-r001",
+    "thesis-r001",
+    "salford-r001"
+  ],
+  "membership": null,
+  "label_mapping": null,
+  "segmentation": null,
+  "grouping": null,
+  "root": null
+}

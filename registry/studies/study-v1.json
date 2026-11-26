@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "study-v1",
+  "status": "historical",
+  "parent": null,
+  "workspace": null,
+  "branch": null,
+  "corpus": "corpus-001",
+  "split": "split-001",
+  "runs": "runs/study-v1",
+  "evaluations": "evaluations/study-v1",
+  "releases": "releases/study-v1",
+  "historical_source": null,
+  "scope_note": "historical identities retained",
+  "artifact_archive": "archive/legacy/Models V1.0.zip",
+  "source_provenance": "Original complete V1 source snapshot not established; artifact-only archive retained"
+}

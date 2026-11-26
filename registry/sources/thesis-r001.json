@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "thesis-r001",
+  "source": "drone-detection-thesis",
+  "url": "https://github.com/DroneDetectionThesis/Drone-detection-dataset",
+  "root": "storage/sources/drone-detection-thesis/thesis-r001",
+  "original": "storage/sources/drone-detection-thesis/thesis-r001/original",
+  "inventory": "storage/sources/drone-detection-thesis/thesis-r001/checksums/files.csv",
+  "inventory_sha256": "edbeb52e2120597f3f21e771a6155bbf7f9a8d2b413fea42f9fa3a1b31150b27",
+  "files": 1396,
+  "bytes": 357150001,
+  "revision_provenance": "local content snapshot; upstream revision/version not established"
+}

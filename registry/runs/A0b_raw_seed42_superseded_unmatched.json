@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "A0b_raw_seed42_superseded_unmatched",
+  "study": "study-v3",
+  "root": "runs/study-v3/experiments/A0b_raw_seed42_superseded_unmatched",
+  "corpus": "corpus-001",
+  "split": "split-001",
+  "provenance": "legacy run; consult original records; missing source/environment facts are not reconstructed",
+  "records": []
+}
