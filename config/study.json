@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "study": "study-v4",
-  "status": "data-prepared-frozen",
+  "status": "model-trained-frozen",
   "corpus": "corpus-002",
   "split": "split-002",
   "data_ready": true,
@@ -9,6 +9,10 @@
   "output_root": "runs/study-v4",
   "data_preparation_plan": "docs/v4/DATA_PREPARATION_CNN_V4_0.md",
   "plan_status": "executed-passed",
+  "training_run": "cnn_a0_seed42",
+  "training_runs": 1,
+  "model_searches": 0,
+  "test_scored": false,
   "included_sources": [
     "al-emadi-r001",
     "thesis-r001"

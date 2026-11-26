@@ -14,7 +14,7 @@ This two-source revision supersedes the earlier three-source V4 scaffold. V4.0 i
 - Cleaning/audits: decoded float32 SHA-256 duplicate checks, cross-class duplicate STOP, the specified silence rule, descriptor/flag summaries and source-only shortcut audit. The weak_positive flag retains its supplied definition and keeps flagged positives.
 - Splitting: fixed seed from the project configuration; class|source strata; two-stage StratifiedGroupKFold with 7 folds then 6; pinned groups stay in train. G-GRP, G-DUP, G-FRAC, G-POS and G-STR remain exactly as supplied. Failed gates or contradicted expected facts require the plan's STOP procedure.
 - Frontend smoke check: training split only; 20 clips per included source; finite (1,64,28) windows. The frontend's numerical contract is retained.
-- Deliverables: standardized dd clips, full manifest, three split manifests, audit files, environment/license records and a preparation report. Caches, fitted statistics, model training, thresholds, packages and final scoring are subsequent work.
+- Preparation deliverables are complete and frozen. After preparation, only train/validation caches and train-eligible normalization were built, followed by one D048 A0 CNN training run using seed 42 and the fixed D049 recipe. No search, extra run, threshold selection, test access, bundle, or runtime activation was performed; details are recorded in `reports/V4_CNN_TRAINING_REPORT.md`.
 
 ## Paths in the current layout
 
