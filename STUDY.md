@@ -18,4 +18,6 @@ Live monitor: run `start_detector.bat` from this workspace, or open http://127.0
 
 Supplemental threshold analysis: [V4_MUSAN_NOISE_SUPPLEMENT.md](reports/V4_MUSAN_NOISE_SUPPLEMENT.md). MUSAN is external negative-only evidence, not a replacement for representative 24-hour live ambience. Threshold remains pending.
 
+Current working point: [V4_PROVISIONAL_THRESHOLD.md](reports/V4_PROVISIONAL_THRESHOLD.md) records logit 5.00 as a provisional candidate from current false-alarm evidence. It is not active; the live monitor remains raw-score-only while ambient exposure and recall requirements are unresolved.
+
 Live monitor: run `start_detector.bat` from this workspace, or open http://127.0.0.1:8766/live/index.html once the service is ready. It reports raw logits only, with threshold pending. See docs/v4/decisions/V4-LIVE-001.md.
