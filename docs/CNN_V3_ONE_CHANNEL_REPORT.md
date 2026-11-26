@@ -32,6 +32,8 @@ The verified package is `releases/study-v3/ONE_CHANNEL_seed42/`. It contains the
 
 At the owner's request, the exact candidate is mounted locally through `runtime/assets/CNN_V3.0_ONE_CHANNEL`. The live page and API label it experimental and validation-ineligible, name its two failed clean guards, and identify CNN V2.0 as the validated baseline. The 0.496-second cadence and three-window majority remain unchanged. No final-test acceptance claim is made.
 
+The owner has explicitly frozen the runtime smoothing policy at `N = 3` (decision V3-011). The system thresholds each independent CNN window score and uses a strict majority of the latest three votes. Prior votes do not enter the CNN as model inputs. Keep this policy unchanged unless the owner explicitly revises the decision; three fresh contiguous windows take approximately 1.488 seconds at the current cadence.
+
 ## Verification
 
 - Workspace registry/layout check: pass.
