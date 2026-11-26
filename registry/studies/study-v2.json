@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "study-v2",
+  "status": "frozen-baseline",
+  "parent": "study-v1",
+  "workspace": null,
+  "branch": null,
+  "corpus": "corpus-001",
+  "split": "split-001",
+  "runs": "runs/study-v2",
+  "evaluations": "evaluations/study-v2",
+  "releases": "releases/study-v2",
+  "historical_source": "archive/legacy/CNN_V2.0_source_20261126.zip",
+  "scope_note": "historical identities retained"
+}

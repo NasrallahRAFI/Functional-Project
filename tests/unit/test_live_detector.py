@@ -87,17 +87,26 @@ class LiveDetectorReleaseTests(unittest.TestCase):
 
     def test_registered_best_checkpoint_is_loaded_and_scores_finitely(self):
         meta = self.detector.health_metadata()
+        selected = json.loads((ROOT / "config/live_detector.json").read_text(encoding="utf-8"))
         self.assertEqual((meta["model_id"], meta["stage"], meta["variant"], meta["seed"]),
-                         ("CNN_V2.0", "V2", "depth_4", 42))
+                         (selected["model_id"], selected.get("stage", "V2"), "depth_4", 42))
+        known_releases = {
+            "CNN_V2.0": ("0e97e3194e42f8fa3a2541e37dcff9fe33cdc1246d5a260ab65c6d157af6f4fb", 2.823960542678833),
+            "CNN_V3.0": ("7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed", 1.9109516143798828),
+        }
+        digest, threshold = known_releases[selected["model_id"]]
         self.assertEqual(meta["checkpoint_sha256"],
-                         "0e97e3194e42f8fa3a2541e37dcff9fe33cdc1246d5a260ab65c6d157af6f4fb")
-        self.assertEqual(meta["threshold"], 2.823960542678833)
+                         digest)
+        self.assertEqual(meta["threshold"], threshold)
+        self.assertEqual(meta["experimental_activation"], selected.get("experimental_activation", False))
+        self.assertEqual(meta["validation_eligible"], selected.get("validation_eligible", True))
+        self.assertEqual(meta["validation_guard_failures"], selected.get("validation_guard_failures", []))
         self.assertFalse(self.detector.model.training)
         self.assertEqual(parameter_count(self.detector.model), 60641)
         score = self.detector.score_window(np.zeros(self.detector.config.win_samples, np.float32))
         self.assertTrue(np.isfinite(score))
 
-    def test_http_scores_match_direct_v2_inference_at_browser_sample_rates(self):
+    def test_http_scores_match_selected_inference_at_browser_sample_rates(self):
         # Independent offline resampling and explicit slices catch serving-path
         # preprocessing drift, wrong weights/statistics, and threshold changes.
         for rate in (16000, 44100, 48000):
@@ -140,7 +149,7 @@ class LiveDetectorReleaseTests(unittest.TestCase):
         self.assertEqual(status, 200)
         health = json.loads(body)
         self.assertEqual(health["seed"], 42)
-        self.assertEqual(health["model_id"], "CNN_V2.0")
+        self.assertEqual(health["model_id"], self.detector.model_id)
         self.assertEqual(health["instance_id"], "release-test-instance")
         self.assertEqual(health["checkpoint_sha256"], self.detector.artifact_sha256)
         for path in ('/live/index.html', '/live/app.js'):

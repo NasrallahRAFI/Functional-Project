@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "study-v4",
+  "status": "scope-scaffold",
+  "parent": "study-v3",
+  "workspace": "workspaces/study-v4",
+  "branch": "study-v4",
+  "corpus": "corpus-002",
+  "split": "split-002",
+  "runs": "runs/study-v4",
+  "evaluations": "evaluations/study-v4",
+  "releases": "releases/study-v4",
+  "historical_source": null,
+  "scope_note": "V4 membership/split/processing not built"
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "cnn-v2-existing",
+  "root": "storage/caches/cnn-v2-existing",
+  "corpus": "corpus-001",
+  "split": "split-001",
+  "ready_manifest": "DATASET_READY.json",
+  "ready_manifest_sha256": "b8aaec3e871e63d665726a878051c10fff79aa9ee3efbc716dccf8e349f04af3",
+  "identity": "existing ready-manifest content and lineage hashes; unchanged"
+}

@@ -308,7 +308,9 @@ def load_project_config(path: str | Path) -> dict[str, Any]:
         raw = yaml.safe_load(stream)
     profile = "colab" if "google.colab" in __import__("sys").modules else "local"
     selected = {key: Path(value) for key, value in raw["paths"][profile].items()}
-    root = selected["project_root"]
+    # A local checkout owns its paths; copying a historical YAML into another
+    # worktree must never send writes back to its former absolute project root.
+    root = path.resolve().parent if profile == "local" else selected["project_root"]
     return {
         **raw,
         "P": {
