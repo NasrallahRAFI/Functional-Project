@@ -5,6 +5,8 @@ const CHUNK_SECONDS = 0.5;
 const REQUEST_TIMEOUT_MS = 4000;
 const CAPTURE_VERSION = 'pool-v3';
 const V4_CHECKPOINT = 'f4372da59644395c174514944aa6387901ed483f64c137fd1ae4e31c83092049';
+const PROVISIONAL_THRESHOLD = -3.0;
+const PROVISIONAL_VOTE_COUNT = 3;
 function isSelectedModel(m) {
   return m?.status === 'ready' && m.application_id === 'local-drone-detector'
     && m.protocol_version === 2 && m.model_id === 'CNN_V4.0' && m.model_version === '4.0'
@@ -18,16 +20,16 @@ function isSelectedModel(m) {
 }
 function updateModelUI(m) {
   state.selectedModel = m;
-  $('systemText').textContent = 'CNN V4.0 · LIVE SCORES';
-  $('activeModelLede').textContent = 'Listen with the trained V4.0 CNN. View live acoustic scores while detection threshold selection is pending.';
-  $('modelStampStatus').textContent = 'EXPERIMENTAL · THRESHOLD PENDING';
+  $('systemText').textContent = 'CNN V4.0 · PROVISIONAL';
+  $('activeModelLede').textContent = 'Live drone/no-drone labels use provisional logit −3.00 and a three-window majority, based on one short ambient recording.';
+  $('modelStampStatus').textContent = 'PROVISIONAL · AMBIENT-ONLY';
   $('modelStampStatus').classList.add('experimental-status');
   $('activeModelName').textContent = 'CNN V4.0 · A0';
   $('activeModelDetails').textContent = 'Seed 42 · 23,585 parameters';
   $('modelEvidenceActive').textContent = 'LIVE MODEL · V4.0 A0 · seed 42';
-  $('modelEvidenceStatus').textContent = 'Training complete. No detection threshold or test evaluation. Raw logits are not probabilities. Test audio remains locked.';
-  $('thresholdValue').textContent = 'Pending selection';
-  $('cadenceValue').textContent = `${m.cadence_seconds} sec · raw scores`;
+  $('modelEvidenceStatus').textContent = 'Provisional client-side decision at logit −3.00. Ambient sample: 9.4 minutes; false-alarm rate is not established. Validation negatives crossed this threshold frequently. Raw logits are not probabilities; test remains locked.';
+  $('thresholdValue').textContent = '−3.00 · provisional';
+  $('cadenceValue').textContent = `${m.cadence_seconds} sec · 2 of 3 windows`;
 }
 const state = {
   active: false, epoch: 0, stream: null, context: null, source: null,
@@ -40,7 +42,36 @@ const state = {
   recording: null, savingRecording: false,
   trace: [], captureSettings: null, sessionStartedAt: 0, selectedModel: null,
   samplesSourceFrame: null, ambientLogActive: false, ambientLogWindows: 0,
+  provisionalVotes: [],
 };
+
+function resetProvisionalVotes() {
+  state.provisionalVotes = [];
+}
+
+function consumeProvisionalDecision(data) {
+  if (data.recovered) resetProvisionalVotes();
+  const windows = Array.isArray(data.window_trace) && data.window_trace.length
+    ? data.window_trace : [data];
+  let decision = null;
+  for (const window of windows) {
+    if (window.recovered) resetProvisionalVotes();
+    if (window.status !== 'score_only' || !Number.isFinite(window.raw_score)) {
+      resetProvisionalVotes();
+      decision = null;
+      continue;
+    }
+    state.provisionalVotes.push(window.raw_score >= PROVISIONAL_THRESHOLD);
+    state.provisionalVotes = state.provisionalVotes.slice(-PROVISIONAL_VOTE_COUNT);
+    if (state.provisionalVotes.length < PROVISIONAL_VOTE_COUNT) {
+      decision = { ready: false, votes: state.provisionalVotes.length };
+      continue;
+    }
+    const drone = state.provisionalVotes.filter(Boolean).length >= 2;
+    decision = { ready: true, drone, votes: state.provisionalVotes.length };
+  }
+  return decision;
+}
 
 function drawWave() {
   const box = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
@@ -69,24 +100,34 @@ function showError(title, note) {
 }
 function render(data, requestMs) {
   $('latency').textContent = `LAST READ · ${Math.round(requestMs)} ms`;
+  const provisionalDecision = consumeProvisionalDecision(data);
   if (data.recovered) {
     $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'AUDIO RESET';
-    $('resultText').textContent = 'Rebuilding recent window';
-    $('resultNote').textContent = 'A capture gap was detected. Waiting for fresh contiguous audio.';
+    $('resultText').textContent = 'Rebuilding recent windows';
+    $('resultNote').textContent = 'A capture gap was detected. The provisional vote was reset; fresh audio is needed.';
   }
   if (data.status === 'standby') {
     $('result').dataset.state = 'idle'; $('resultOverline').textContent = data.reason === 'quiet' ? 'LOW INPUT LEVEL' : 'LISTENING';
-    $('resultText').textContent = 'Standing by'; $('resultNote').textContent = 'Quiet input is not counted as a negative prediction.';
+    $('resultText').textContent = 'Standing by'; $('resultNote').textContent = 'No label during quiet input; it is not counted as a no-drone vote.';
     $('scoreValue').textContent = '—';
   } else if (data.status === 'score_only') {
-    $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'LIVE CNN SCORE';
-    $('resultText').textContent = Number(data.raw_score).toFixed(3);
-    $('resultNote').textContent = 'Raw logit · threshold pending · no detection verdict';
-    $('scoreValue').textContent = Number(data.raw_score).toFixed(3);
+    const score = Number(data.raw_score);
+    $('scoreValue').textContent = score.toFixed(3);
+    if (!provisionalDecision?.ready) {
+      $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'PROVISIONAL · WARMING UP';
+      $('resultText').textContent = 'Checking recent windows';
+      $('resultNote').textContent = `${provisionalDecision?.votes || 0}/3 windows · logit threshold −3.00 · labels are provisional`;
+    } else {
+      $('result').dataset.state = provisionalDecision.drone ? 'drone' : 'clear';
+      $('resultOverline').textContent = provisionalDecision.drone ? 'PROVISIONAL DRONE PATTERN' : 'PROVISIONAL NO-DRONE PATTERN';
+      $('resultText').textContent = provisionalDecision.drone ? 'Drone detected · provisional' : 'No drone detected · provisional';
+      $('resultNote').textContent = `Raw logit ${score.toFixed(3)} · threshold −3.00 · 2 of 3 windows · not validated for field use`;
+    }
   } else if (data.status === 'warming_up' || data.status === 'buffering') {
     $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'WARMING UP';
+    resetProvisionalVotes();
     $('resultText').textContent = 'Checking recent windows';
-    $('resultNote').textContent = data.status === 'buffering' ? 'Building a fresh contiguous audio window.' : `Decision votes ${data.votes_received}/3`;
+    $('resultNote').textContent = data.status === 'buffering' ? 'Building a fresh contiguous audio window.' : 'Rebuilding fresh audio before the provisional vote.';
     $('scoreValue').textContent = Number.isFinite(data.raw_score) ? Number(data.raw_score).toFixed(3) : '—';
   } else if (data.status === 'scored') {
     $('result').dataset.state = data.drone ? 'drone' : 'clear';
@@ -101,6 +142,7 @@ function stop({ preserveMessage = false } = {}) {
   const sessionId = state.sessionId, ownerToken = state.ownerToken;
   const hadAmbientLog = state.ambientLogActive;
   state.ambientLogActive = false;
+  resetProvisionalVotes();
   state.epoch++; state.active = false; state.sessionId = null;
   state.expectedSourceFrame = null; state.samplesSourceFrame = null; state.gapPending = false;
   state.ownerToken = null;
@@ -130,6 +172,7 @@ function stop({ preserveMessage = false } = {}) {
 function resetCapture(reason) {
   cancelRecording('Recording cancelled after an audio gap. Nothing was saved; try again when capture is stable.');
   state.revision++; state.resets++;
+  resetProvisionalVotes();
   state.recentResets.push(performance.now());
   if (state.recentResets.length > 8) state.recentResets.shift();
   state.samples = new Float32Array(0);
@@ -312,6 +355,7 @@ async function start() {
     if (epoch !== state.epoch) { device.getTracks().forEach((track) => track.stop()); return; }
     state.stream = device;
     state.trace = [];
+    resetProvisionalVotes();
     state.sessionStartedAt = performance.now();
     state.captureSettings = device.getAudioTracks()[0]?.getSettings?.() || {};
     $('traceButton').disabled = true;

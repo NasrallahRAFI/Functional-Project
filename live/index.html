@@ -44,8 +44,8 @@
       </div>
       <div class="monitor-foot">
         <div class="score"><span>RAW CNN LOGIT</span><strong id="scoreValue">—</strong></div>
-        <div class="threshold"><span>DETECTION THRESHOLD</span><strong id="thresholdValue">Pending selection</strong></div>
-        <div class="decision"><span>SCORE CADENCE</span><strong id="cadenceValue">—</strong></div>
+        <div class="threshold"><span>PROVISIONAL THRESHOLD</span><strong id="thresholdValue">−3.00 · provisional</strong></div>
+        <div class="decision"><span>DECISION CADENCE</span><strong id="cadenceValue">0.496 sec · 2 of 3 windows</strong></div>
       </div>
       <div class="controls">
         <button class="start-button" id="startButton" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 3v8m-4-4v4a4 4 0 0 0 8 0V7M6 17h8"/></svg></span><span>Start monitoring</span></button>
@@ -72,7 +72,7 @@
     </section>
 
     <footer class="footnote">
-      <div><p><strong>About this readout</strong><br>CNN V4.0 displays one raw logit per sound window. No detection threshold has been selected, so no drone/no-drone verdict is issued. Quiet input is shown as standby.</p></div>
+      <div><p><strong>About this readout</strong><br>Drone/no-drone labels use a provisional −3.00 raw-logit threshold and a two-of-three window majority. The threshold comes from one 9.4-minute ambient-only recording; false-alarm performance is not established, and validation negatives often crossed it. Labels are provisional. Quiet input is standby.</p></div>
       <div><p><strong>Local by design</strong><br>Audio is captured through this computer’s microphone and processed by its local Python service. Sound from a phone or speakers must be audible to that microphone; headphone audio is not captured.</p></div>
       <div class="model-evidence" aria-label="Active model and validation status">
         <span class="evidence-note" id="modelEvidenceActive">Checking selected model…</span>

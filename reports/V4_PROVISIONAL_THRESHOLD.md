@@ -1,7 +1,7 @@
 # V4 provisional threshold candidate
 
 Date: 2026-11-26
-Status: **PROVISIONAL AMBIENT-ONLY CANDIDATE — NOT ACTIVE**
+Status: **PROVISIONAL CLIENT-SIDE LABEL — NOT VALIDATED**
 Candidate: **raw logit −3.00**
 False-alarm target under consideration: **at most 1 alarm per hour**
 
@@ -9,7 +9,7 @@ False-alarm target under consideration: **at most 1 alarm per hour**
 
 Per the user's direction, this candidate is based only on the current ambient-only recording. Its highest observed raw logit was −3.148. On the existing 0.25-logit grid, −3.00 is the lowest value above that maximum; there were no score crossings at −3.00 in this recording. This is a provisional reference from one short session, not a certified operating threshold. MUSAN results were excluded from this selection.
 
-The V4 frontend and runtime remain in raw-score-only, threshold-pending mode. No verdict threshold was activated, and no test data was accessed. The validation recall floor is met at this provisional candidate, but its high validation-negative clip rate and the short ambient exposure leave the false-alarm requirement unmet.
+The frontend now applies this provisional threshold locally to raw logits and displays a two-of-three drone/no-drone label. The Python detector service remains raw-score-only with no selected deployment threshold. No test data was accessed. The validation recall floor is met at this provisional candidate, but its high validation-negative clip rate and the short ambient exposure leave the false-alarm requirement unmet.
 
 ## Evidence available
 
@@ -37,6 +37,6 @@ The five-crop clip maximum is an optimistic validation summary and is not a dire
 
 This candidate is useful only as a provisional reference while ambient collection continues. The short ambient log does not materially tighten the false-alarm bound, and its missing identity hashes prevent strict replay. No MUSAN result was used to select this candidate.
 
-Before any threshold is activated, correct the logger identity fields, collect at least 24 hours of representative ambient-only scores (including relevant engine and vehicle noise), replay the completed logs through the production `VoteSmoother`, and report validation recall at the resulting false-alarm candidate. If recall remains below 80%, retain the failure finding rather than lowering the false-alarm target. Test audio remains locked until the operating point is frozen.
+Before replacing this provisional frontend label with a validated operating point, correct the logger identity fields, collect at least 24 hours of representative ambient-only scores (including relevant engine and vehicle noise), replay the completed logs through the production `VoteSmoother`, and report validation recall at the resulting false-alarm candidate. If recall remains below 80%, retain the failure finding rather than lowering the false-alarm target. Test audio remains locked until the operating point is frozen.
 
 Source artifacts and detailed per-window outputs remain under ignored local storage and are not published.
