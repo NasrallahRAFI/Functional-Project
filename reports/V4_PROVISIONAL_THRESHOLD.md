@@ -1,8 +1,8 @@
 # V4 provisional threshold candidate
 
-Date: 2026-11-26  
-Status: **PROVISIONAL CANDIDATE — NOT ACTIVE**  
-Candidate: **raw logit 5.00**  
+Date: 2026-11-26
+Status: **PROVISIONAL CANDIDATE — NOT ACTIVE**
+Candidate: **raw logit 5.00**
 False-alarm target under consideration: **at most 1 alarm per hour**
 
 ## Decision record
