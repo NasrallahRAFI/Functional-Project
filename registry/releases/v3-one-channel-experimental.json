@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "v3-one-channel-experimental",
+  "study": "study-v3",
+  "root": "releases/study-v3/ONE_CHANNEL_seed42",
+  "manifest": "PACKAGE_MANIFEST.json",
+  "manifest_sha256": "46810bfd245b929c8a88aee9bf235272e4918298c16080a88f7b025c56cf143a",
+  "experimental": true,
+  "validation_eligible": false,
+  "test_access": false
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "ONE_CHANNEL_seed42",
+  "study": "study-v3",
+  "status": "completed-validation-ineligible",
+  "root": "runs/study-v3/experiments/ONE_CHANNEL_seed42",
+  "corpus": "corpus-001",
+  "split": "split-001",
+  "baseline_cache": "cnn-v2-existing",
+  "config": "workspaces/study-v3/config/cnn_v3_one_channel.yaml",
+  "seed": 42,
+  "architecture": "V2 depth_4 fixed",
+  "validation_eligible": false,
+  "run_record": "runs/study-v3/experiments/ONE_CHANNEL_seed42/run_record.json",
+  "checkpoint_sha256": "615694d0c3af6b3ca2d410826e7719ce70cf38bb776e893b946c2e8862ba00c7",
+  "test_access": false,
+  "records": ["run_record.json"]
+}
