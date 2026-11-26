@@ -1,10 +1,16 @@
 {
   "schema_version": 1,
   "id": "split-002",
-  "status": "planned-unbuilt",
+  "status": "frozen",
   "corpus": "corpus-002",
-  "root": null,
-  "files": [],
-  "planned_root": "storage/splits/split-002",
+  "root": "storage/splits/split-002",
+  "files": [
+    {"path": "FROZEN.json", "sha256": "2ca091336fb55ffa20c3fb4c95bcd0bbabb760c693d82921d654bb46e2bf9f15", "bytes": 659},
+    {"path": "train.csv", "sha256": "6b895c0d6ce420aa7452bed72c06f0db14eb472490ab82bd99de91276ef24d81", "bytes": 6940345, "rows": 8246},
+    {"path": "val.csv", "sha256": "6fc5134f8faa3875e088d7f84fdc3d03debb2de0466cb73c5624410e754430e9", "bytes": 1369700, "rows": 1631},
+    {"path": "test.csv", "sha256": "11606d8fb9d597d579b53c996980422d2cb8ecec7dc2df9eca776dd775da813c", "bytes": 1375433, "rows": 1636}
+  ],
+  "full_manifest_sha256": "2407e2a3f31beebd86134b4423f14a4a3b17b65d64ce9bfaeb01156a064d4a39",
+  "seed": 42,
   "preparation_plan": "workspaces/study-v4/docs/v4/DATA_PREPARATION_CNN_V4_0.md"
 }

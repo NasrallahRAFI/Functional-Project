@@ -8,7 +8,7 @@ Layout established 26 November 2026 by owner instruction. The catalog checkout i
 |---|---|
 | repository/ | Versioned catalog, governance, source reports, registry and templates |
 | workspaces/study-v3/ | Active V3 code, plan, decisions, tests and launchers |
-| workspaces/study-v4/ | Separate V4 scope scaffold, without inherited output mounts |
+| workspaces/study-v4/ | Separate V4 study workspace; corpus-002/split-002 prepared and frozen |
 | storage/sources/ | Exact imported source revisions, documentation and SHA-256 inventories |
 | storage/corpora/ | Corpus membership, cleaning/group records and preparation evidence |
 | storage/splits/ | Frozen split manifests and their identities |
@@ -24,7 +24,7 @@ Layout established 26 November 2026 by owner instruction. The catalog checkout i
 
 ## Study status
 
-V1 is the historical multi-model study. V2 is the frozen CNN baseline. V3 is current development; its deployed A1 model is explicitly experimental and validation-ineligible. V4.0 now has a recorded preparation plan using Al-Emadi binary audio and Drone-detection-dataset audio. Salford is explicitly excluded. The authoritative plan is workspaces/study-v4/docs/v4/DATA_PREPARATION_CNN_V4_0.md, with current-layout bindings in that workspace's docs/v4/specification.md. Corpus membership, generated clips and split assignments remain unbuilt; the plan update does not execute preparation.
+V1 is the historical multi-model study. V2 is the frozen CNN baseline. V3 is current development; its deployed A1 model is explicitly experimental and validation-ineligible. V4.0 has completed data preparation using Al-Emadi binary audio and Drone-detection-dataset audio. Salford is explicitly excluded. The authoritative plan is workspaces/study-v4/docs/v4/DATA_PREPARATION_CNN_V4_0.md. The prepared corpus and frozen split are registered as corpus-002 and split-002; detailed results and requirement evidence are recorded in reports/study-v4/.
 
 Original scientific decisions remain in docs/history/original_context/PROJECT_CONTEXT_V8.md. Each study names its authoritative plan. The combined-source V4 scope supersedes the one-source restriction for V4 only; no numerical data budget or new scoring protocol is invented here.
 

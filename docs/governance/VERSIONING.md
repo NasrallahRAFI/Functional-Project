@@ -2,7 +2,7 @@
 
 A study version identifies code, source membership, split, frontend, training protocol, evaluation and runtime policy. It is broader than network architecture.
 
-Source revisions, corpora, splits, derived builds, caches, runs and releases have independent identifiers. V2 and V3 explicitly share corpus-001/split-001 and baseline cache dependencies. V4 has reserved identifiers corpus-002/split-002 with status planned; no empty manifest is presented as a completed dataset.
+Source revisions, corpora, splits, derived builds, caches, runs and releases have independent identifiers. V2 and V3 explicitly share corpus-001/split-001 and baseline cache dependencies. V4 uses corpus-002/split-002, prepared and frozen under the revised two-source plan. Its audio, generated DD clips, and manifests remain local; the registry stores identities, status, and digests.
 
 Record every execution in a new run directory. Record parent run, exact code commit or working-source snapshot, resolved configuration, environment, seed and dependency identities. Completed runs and releases are immutable; a corrected or resumed execution receives a new identifier with its parent recorded. Existing legacy runs keep their historical names and records; missing provenance is marked unknown rather than manufactured.
 
