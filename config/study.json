@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "study": "study-v4",
+  "status": "scope-scaffold",
+  "corpus": "corpus-002",
+  "split": "split-002",
+  "data_ready": false,
+  "selected_release": null,
+  "output_root": "runs/study-v4"
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "A0c_weighted_monitor_seed42",
+  "study": "study-v3",
+  "root": "runs/study-v3/experiments/A0c_weighted_monitor_seed42",
+  "corpus": "corpus-001",
+  "split": "split-001",
+  "provenance": "legacy run; consult original records; missing source/environment facts are not reconstructed",
+  "records": [
+    "freeze.json"
+  ]
+}

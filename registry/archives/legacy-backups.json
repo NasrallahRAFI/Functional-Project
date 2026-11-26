@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "legacy-backups",
+  "root": "archive/legacy",
+  "archives": [
+    {
+      "path": "archive/legacy/CNN_V2.0_artifacts_20261126.zip",
+      "sha256": "66e476892b1d5a62824b70d8ffbc97c435f7d12ed015c41893ce6290b9268782",
+      "bytes": 183955327
+    },
+    {
+      "path": "archive/legacy/CNN_V2.0_diagnostics_private_20261126.zip",
+      "sha256": "9edc3a0857573fcdb1178c5adf0fe39c240c756c6f19dec41f8f0636213a8112",
+      "bytes": 9780642
+    },
+    {
+      "path": "archive/legacy/CNN_V2.0_source_20261126.zip",
+      "sha256": "7b19f1f008284b39121a3afac8732b253be1293861511577ba4382c1197a8409",
+      "bytes": 2763639
+    },
+    {
+      "path": "archive/legacy/DroneAudioDataset_binary_frozen_20261126.zip",
+      "sha256": "c63135826472d19a0670451537b00f13658c3514452511cdce5b6209c806542a",
+      "bytes": 388721665
+    },
+    {
+      "path": "archive/legacy/Models V1.0.zip",
+      "sha256": "850505edefc10395567fda536a98263cade20d0fa00f208d42d162d12b11caa0",
+      "bytes": 1847016558
+    }
+  ]
+}

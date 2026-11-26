@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "id": "v2-deployed",
+  "study": "study-v2",
+  "root": "releases/study-v2/deployed-snapshot",
+  "manifest": "PACKAGE_MANIFEST.json",
+  "manifest_sha256": "8c65fbab7192885cf5a26f40849b9cd74c2ba3d6ced67ab466a2f642959d3003",
+  "experimental": false
+}

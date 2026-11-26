@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "study-v3",
+  "status": "active-experimental",
+  "parent": "study-v2",
+  "workspace": "workspaces/study-v3",
+  "branch": "cnn-v3",
+  "corpus": "corpus-001",
+  "split": "split-001",
+  "runs": "runs/study-v3",
+  "evaluations": "evaluations/study-v3",
+  "releases": "releases/study-v3",
+  "historical_source": null,
+  "scope_note": "historical identities retained"
+}

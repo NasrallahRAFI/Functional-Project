@@ -1,0 +1,202 @@
+kind,old_path,new_path
+move-complete,Functional Project/.agents,workspaces/study-v3/.agents
+move-complete,Functional Project/.codex,workspaces/study-v3/.codex
+move-complete,Functional Project/.gitignore,workspaces/study-v3/.gitignore
+move-complete,Functional Project/.impeccable,workspaces/study-v3/.impeccable
+move-complete,Functional Project/.pytest_cache,workspaces/study-v3/.pytest_cache
+move-complete,Functional Project/.ruff_cache,workspaces/study-v3/.ruff_cache
+move-complete,Functional Project/.venv,workspaces/study-v3/.venv
+move-complete,Functional Project/archive,workspaces/study-v3/archive
+move-complete,Functional Project/config,workspaces/study-v3/config
+move-complete,Functional Project/config.yaml,workspaces/study-v3/config.yaml
+move-complete,Functional Project/config.yaml.pre_followupB,workspaces/study-v3/config.yaml.pre_followupB
+move-complete,Functional Project/data,workspaces/study-v3/data
+move-complete,Functional Project/DATA_PREPARATION_AUDIT_2026-11-25.md,workspaces/study-v3/DATA_PREPARATION_AUDIT_2026-11-25.md
+move-complete,Functional Project/demo,workspaces/study-v3/demo
+move-complete,Functional Project/DESIGN.md,workspaces/study-v3/DESIGN.md
+move-complete,Functional Project/docs,workspaces/study-v3/docs
+move-complete,Functional Project/live,workspaces/study-v3/live
+move-complete,Functional Project/notebooks,workspaces/study-v3/notebooks
+move-complete,Functional Project/PRODUCT.md,workspaces/study-v3/PRODUCT.md
+move-complete,Functional Project/requirements-cnn-v2.txt,workspaces/study-v3/requirements-cnn-v2.txt
+move-complete,Functional Project/requirements-dev.txt,workspaces/study-v3/requirements-dev.txt
+move-complete,Functional Project/requirements-live.txt,workspaces/study-v3/requirements-live.txt
+move-complete,Functional Project/requirements.txt,workspaces/study-v3/requirements.txt
+move-complete,Functional Project/results,workspaces/study-v3/results
+move-complete,Functional Project/runtime,workspaces/study-v3/runtime
+move-complete,Functional Project/scratch_3a.py,workspaces/study-v3/scratch_3a.py
+move-complete,Functional Project/scripts,workspaces/study-v3/scripts
+move-complete,Functional Project/src,workspaces/study-v3/src
+move-complete,Functional Project/start_detector.bat,workspaces/study-v3/start_detector.bat
+move-complete,Functional Project/tests,workspaces/study-v3/tests
+junction,Functional Project/.agents,workspaces/study-v3/.agents
+junction,Functional Project/.codex,workspaces/study-v3/.codex
+junction,Functional Project/.impeccable,workspaces/study-v3/.impeccable
+junction,Functional Project/.pytest_cache,workspaces/study-v3/.pytest_cache
+junction,Functional Project/.ruff_cache,workspaces/study-v3/.ruff_cache
+junction,Functional Project/.venv,workspaces/study-v3/.venv
+junction,Functional Project/archive,workspaces/study-v3/archive
+junction,Functional Project/config,workspaces/study-v3/config
+junction,Functional Project/data,workspaces/study-v3/data
+junction,Functional Project/demo,workspaces/study-v3/demo
+junction,Functional Project/docs,workspaces/study-v3/docs
+junction,Functional Project/live,workspaces/study-v3/live
+junction,Functional Project/notebooks,workspaces/study-v3/notebooks
+junction,Functional Project/results,workspaces/study-v3/results
+junction,Functional Project/runtime,workspaces/study-v3/runtime
+junction,Functional Project/scripts,workspaces/study-v3/scripts
+junction,Functional Project/src,workspaces/study-v3/src
+junction,Functional Project/tests,workspaces/study-v3/tests
+move-complete,workspaces/study-v3/archive/CNN_V2.0_artifacts_20261126.zip,archive/legacy/CNN_V2.0_artifacts_20261126.zip
+move-complete,workspaces/study-v3/archive/CNN_V2.0_artifacts_20261126.zip.sha256,archive/legacy/CNN_V2.0_artifacts_20261126.zip.sha256
+move-complete,workspaces/study-v3/archive/CNN_V2.0_backup_set_20261126.json,archive/legacy/CNN_V2.0_backup_set_20261126.json
+move-complete,workspaces/study-v3/archive/CNN_V2.0_diagnostics_private_20261126.zip,archive/legacy/CNN_V2.0_diagnostics_private_20261126.zip
+move-complete,workspaces/study-v3/archive/CNN_V2.0_diagnostics_private_20261126.zip.sha256,archive/legacy/CNN_V2.0_diagnostics_private_20261126.zip.sha256
+move-complete,workspaces/study-v3/archive/CNN_V2.0_recovered_provenance,archive/legacy/CNN_V2.0_recovered_provenance
+move-complete,workspaces/study-v3/archive/CNN_V2.0_source_20261126.zip,archive/legacy/CNN_V2.0_source_20261126.zip
+move-complete,workspaces/study-v3/archive/CNN_V2.0_source_20261126.zip.sha256,archive/legacy/CNN_V2.0_source_20261126.zip.sha256
+move-complete,workspaces/study-v3/archive/CNN_V2_restore_validation_20261126,archive/restore_checks/CNN_V2_restore_validation_20261126
+move-complete,workspaces/study-v3/archive/DroneAudioDataset_binary_frozen_20261126.zip,archive/legacy/DroneAudioDataset_binary_frozen_20261126.zip
+move-complete,workspaces/study-v3/archive/DroneAudioDataset_binary_frozen_20261126.zip.sha256,archive/legacy/DroneAudioDataset_binary_frozen_20261126.zip.sha256
+move-complete,workspaces/study-v3/archive/Models V1.0.zip,archive/legacy/Models V1.0.zip
+move-complete,workspaces/study-v3/archive/Models V1.0.zip.sha256,archive/legacy/Models V1.0.zip.sha256
+junction,workspaces/study-v3/archive,archive/legacy
+junction,archive/legacy/CNN_V2_restore_validation_20261126,archive/restore_checks/CNN_V2_restore_validation_20261126
+move-complete,workspaces/study-v3/data/interim,storage/corpora/corpus-001/preparation-evidence
+junction,workspaces/study-v3/data/interim,storage/corpora/corpus-001/preparation-evidence
+move-complete,workspaces/study-v3/data/processed/splits,storage/splits/split-001
+junction,workspaces/study-v3/data/processed/splits,storage/splits/split-001
+move-complete,workspaces/study-v3/data/processed/features_tabular,storage/caches/v1-existing/features_tabular
+junction,workspaces/study-v3/data/processed/features_tabular,storage/caches/v1-existing/features_tabular
+move-complete,workspaces/study-v3/data/processed/spectrograms,storage/caches/v1-existing/spectrograms
+junction,workspaces/study-v3/data/processed/spectrograms,storage/caches/v1-existing/spectrograms
+move-complete,workspaces/study-v3/data/processed/golden,storage/caches/v1-existing/golden
+junction,workspaces/study-v3/data/processed/golden,storage/caches/v1-existing/golden
+move-complete,workspaces/study-v3/results/cnn_v2/data,storage/caches/cnn-v2-existing
+junction,local/compatibility/study-v3/results/cnn_v2/data,storage/caches/cnn-v2-existing
+move-complete,workspaces/study-v3/results/cnn_v2/evaluation,evaluations/study-v2/original
+junction,local/compatibility/study-v3/results/cnn_v2/evaluation,evaluations/study-v2/original
+move-complete,workspaces/study-v3/results/cnn_v2/export,releases/study-v2/export
+junction,local/compatibility/study-v3/results/cnn_v2/export,releases/study-v2/export
+move-complete,workspaces/study-v3/results/cnn_v2/frontend_verification,runs/study-v2/verification
+junction,local/compatibility/study-v3/results/cnn_v2/frontend_verification,runs/study-v2/verification
+move-complete,workspaces/study-v3/results/cnn_v2/pytest-tmp,local/scratch/cnn-v2-pytest
+junction,local/compatibility/study-v3/results/cnn_v2/pytest-tmp,local/scratch/cnn-v2-pytest
+move-complete,workspaces/study-v3/results/cnn_v2/training,runs/study-v2/legacy-training
+junction,local/compatibility/study-v3/results/cnn_v2/training,runs/study-v2/legacy-training
+move-complete,workspaces/study-v3/results/cnn_v2/verify_frontend_browser.py,local/diagnostics/cnn-v2/verify_frontend_browser.py
+move-complete,workspaces/study-v3/results/cnn_v3/calibration,runs/study-v3/preparation/calibration
+junction,local/compatibility/study-v3/results/cnn_v3/calibration,runs/study-v3/preparation/calibration
+move-complete,workspaces/study-v3/results/cnn_v3/experiments,runs/study-v3/experiments
+junction,local/compatibility/study-v3/results/cnn_v3/experiments,runs/study-v3/experiments
+move-complete,workspaces/study-v3/results/cnn_v3/prepared,storage/caches/v3-raw-train
+junction,local/compatibility/study-v3/results/cnn_v3/prepared,storage/caches/v3-raw-train
+move-complete,workspaces/study-v3/results/cnn_v3/records,runs/study-v3/preparation/records
+junction,local/compatibility/study-v3/results/cnn_v3/records,runs/study-v3/preparation/records
+move-complete,workspaces/study-v3/results/cnn_v3/review,runs/study-v3/preparation/review
+junction,local/compatibility/study-v3/results/cnn_v3/review,runs/study-v3/preparation/review
+move-complete,workspaces/study-v3/results/cnn_v3/validation_suite,storage/derived/v3-validation-suite
+junction,local/compatibility/study-v3/results/cnn_v3/validation_suite,storage/derived/v3-validation-suite
+move-complete,workspaces/study-v3/results/audit-cnn.png,local/diagnostics/legacy-results/audit-cnn.png
+move-complete,workspaces/study-v3/results/audit-diagnostics-wait.png,local/diagnostics/legacy-results/audit-diagnostics-wait.png
+move-complete,workspaces/study-v3/results/audit-diagnostics.png,local/diagnostics/legacy-results/audit-diagnostics.png
+move-complete,workspaces/study-v3/results/audit-methodology.png,local/diagnostics/legacy-results/audit-methodology.png
+move-complete,workspaces/study-v3/results/audit-overview.png,local/diagnostics/legacy-results/audit-overview.png
+move-complete,workspaces/study-v3/results/cards,runs/study-v1/legacy-model-study/cards
+junction,local/compatibility/study-v3/results/cards,runs/study-v1/legacy-model-study/cards
+move-complete,workspaces/study-v3/results/chrome-profile-mobile,local/browser_profiles/chrome-profile-mobile
+move-complete,workspaces/study-v3/results/chrome-profile-mobile-check,local/browser_profiles/chrome-profile-mobile-check
+move-complete,workspaces/study-v3/results/chrome-profile-mobile-final-24nov,local/browser_profiles/chrome-profile-mobile-final-24nov
+move-complete,workspaces/study-v3/results/chrome-profile-report-v2,local/browser_profiles/chrome-profile-report-v2
+move-complete,workspaces/study-v3/results/dashboard-console.txt,local/diagnostics/legacy-results/dashboard-console.txt
+move-complete,workspaces/study-v3/results/dashboard-desktop-final.png,local/diagnostics/legacy-results/dashboard-desktop-final.png
+move-complete,workspaces/study-v3/results/dashboard-desktop.png,local/diagnostics/legacy-results/dashboard-desktop.png
+move-complete,workspaces/study-v3/results/dashboard-dom.html,local/diagnostics/legacy-results/dashboard-dom.html
+move-complete,workspaces/study-v3/results/dashboard-mobile-final.png,local/diagnostics/legacy-results/dashboard-mobile-final.png
+move-complete,workspaces/study-v3/results/dashboard-mobile.png,local/diagnostics/legacy-results/dashboard-mobile.png
+move-complete,workspaces/study-v3/results/dashboard_inline.js,local/diagnostics/legacy-results/dashboard_inline.js
+move-complete,workspaces/study-v3/results/figures,runs/study-v1/legacy-model-study/figures
+junction,local/compatibility/study-v3/results/figures,runs/study-v1/legacy-model-study/figures
+move-complete,workspaces/study-v3/results/model-cnn-detail-desktop.png,local/diagnostics/legacy-results/model-cnn-detail-desktop.png
+move-complete,workspaces/study-v3/results/model-cnn-detail-mobile.png,local/diagnostics/legacy-results/model-cnn-detail-mobile.png
+move-complete,workspaces/study-v3/results/model-detail-charts-desktop.png,local/diagnostics/legacy-results/model-detail-charts-desktop.png
+move-complete,workspaces/study-v3/results/model-report-desktop.png,local/diagnostics/legacy-results/model-report-desktop.png
+move-complete,workspaces/study-v3/results/model-report-mobile.png,local/diagnostics/legacy-results/model-report-mobile.png
+move-complete,workspaces/study-v3/results/model-ribbon-active-desktop.png,local/diagnostics/legacy-results/model-ribbon-active-desktop.png
+move-complete,workspaces/study-v3/results/models,runs/study-v1/legacy-model-study/models
+junction,local/compatibility/study-v3/results/models,runs/study-v1/legacy-model-study/models
+move-complete,workspaces/study-v3/results/models-access-desktop.png,local/diagnostics/legacy-results/models-access-desktop.png
+move-complete,workspaces/study-v3/results/models-access-mobile.png,local/diagnostics/legacy-results/models-access-mobile.png
+move-complete,workspaces/study-v3/results/models-compare-desktop.png,local/diagnostics/legacy-results/models-compare-desktop.png
+move-complete,workspaces/study-v3/results/models-compare-mobile.png,local/diagnostics/legacy-results/models-compare-mobile.png
+move-complete,workspaces/study-v3/results/models-ribbon-desktop.png,local/diagnostics/legacy-results/models-ribbon-desktop.png
+move-complete,workspaces/study-v3/results/models-ribbon-mobile.png,local/diagnostics/legacy-results/models-ribbon-mobile.png
+move-complete,workspaces/study-v3/results/model_comparison_dashboard.html,local/diagnostics/legacy-results/model_comparison_dashboard.html
+move-complete,workspaces/study-v3/results/tables,runs/study-v1/legacy-model-study/tables
+junction,local/compatibility/study-v3/results/tables,runs/study-v1/legacy-model-study/tables
+junction,workspaces/study-v3/results,local/compatibility/study-v3/results
+move-complete,workspaces/study-v3/runtime/assets,local/runtime/study-v3/assets
+move-complete,workspaces/study-v3/runtime/clean-venv,local/environments/legacy-clean
+junction,local/runtime/study-v3/clean-venv,local/environments/legacy-clean
+move-complete,workspaces/study-v3/runtime/diagnostics,local/diagnostics/detector
+junction,local/runtime/study-v3/diagnostics,local/diagnostics/detector
+move-complete,workspaces/study-v3/runtime/logs,local/logs/detector
+junction,local/runtime/study-v3/logs,local/logs/detector
+move-complete,workspaces/study-v3/runtime/recordings,local/private_recordings/detector
+junction,local/runtime/study-v3/recordings,local/private_recordings/detector
+move-complete,workspaces/study-v3/runtime/screenshots,local/screenshots/screenshots
+junction,local/runtime/study-v3/screenshots,local/screenshots/screenshots
+move-complete,workspaces/study-v3/runtime/screenshots-after-lifecycle,local/screenshots/screenshots-after-lifecycle
+junction,local/runtime/study-v3/screenshots-after-lifecycle,local/screenshots/screenshots-after-lifecycle
+move-complete,workspaces/study-v3/runtime/screenshots-final,local/screenshots/screenshots-final
+junction,local/runtime/study-v3/screenshots-final,local/screenshots/screenshots-final
+move-complete,workspaces/study-v3/runtime/screenshots-mic-copy,local/screenshots/screenshots-mic-copy
+junction,local/runtime/study-v3/screenshots-mic-copy,local/screenshots/screenshots-mic-copy
+move-complete,workspaces/study-v3/runtime/screenshots-pool-v2,local/screenshots/screenshots-pool-v2
+junction,local/runtime/study-v3/screenshots-pool-v2,local/screenshots/screenshots-pool-v2
+move-complete,workspaces/study-v3/runtime/screenshots-rebuild-message,local/screenshots/screenshots-rebuild-message
+junction,local/runtime/study-v3/screenshots-rebuild-message,local/screenshots/screenshots-rebuild-message
+move-complete,workspaces/study-v3/runtime/screenshots-recording,local/screenshots/screenshots-recording
+junction,local/runtime/study-v3/screenshots-recording,local/screenshots/screenshots-recording
+junction,workspaces/study-v3/runtime,local/runtime/study-v3
+move-complete,local/runtime/study-v3/assets/bundle,releases/study-v1/deployed-snapshot/bundle
+junction,local/runtime/study-v3/assets/bundle,releases/study-v1/deployed-snapshot/bundle
+move-complete,local/runtime/study-v3/assets/CNN_V2.0,releases/study-v2/deployed-snapshot
+junction,local/runtime/study-v3/assets/CNN_V2.0,releases/study-v2/deployed-snapshot
+move-complete,local/runtime/study-v3/assets/CNN_V3.0,releases/study-v3/A1-experimental
+junction,local/runtime/study-v3/assets/CNN_V3.0,releases/study-v3/A1-experimental
+move-complete,local/runtime/study-v3/assets/manifest.json,releases/study-v1/deployed-snapshot/manifest.json
+move-complete,local/runtime/study-v3/assets/metadata,releases/study-v1/deployed-snapshot/metadata
+junction,local/runtime/study-v3/assets/metadata,releases/study-v1/deployed-snapshot/metadata
+move-complete,local/runtime/study-v3/assets/models,releases/study-v1/deployed-snapshot/models
+junction,local/runtime/study-v3/assets/models,releases/study-v1/deployed-snapshot/models
+move-complete,workspaces/study-v3/.venv,local/environments/study-v3
+junction,workspaces/study-v3/.venv,local/environments/study-v3
+move-complete,workspaces/study-v3/.pytest_cache,local/scratch/.pytest_cache
+move-complete,workspaces/study-v3/.ruff_cache,local/scratch/.ruff_cache
+move-complete,workspaces/study-v3/config.yaml.pre_followupB,local/scratch/pre-migration/config.yaml.pre_followupB
+move-complete,workspaces/study-v3/scratch_3a.py,local/scratch/pre-migration/scratch_3a.py
+move-complete,workspaces/study-v3/tests/unit/test_dsp_frontend.py.pre_followupB,local/scratch/pre-migration/test_dsp_frontend.py.pre_followupB
+move-complete,workspaces/study-v3/tests/unit/test_dsp_frontend.py.pre_followupC,local/scratch/pre-migration/test_dsp_frontend.py.pre_followupC
+move-complete,Drone Acoustic Detection-prototype-wsu-wang,external/wsu-wang-prototype
+move-complete,explore_out,runs/source-exploration/al-emadi
+move-complete,Project documents/Data,archive/legacy/project-documents-original/Data
+junction,Project documents/Data,archive/legacy/project-documents-original/Data
+move-complete,Project documents/Front end,archive/legacy/project-documents-original/Front end
+junction,Project documents/Front end,archive/legacy/project-documents-original/Front end
+move-complete,Project documents/Models,archive/legacy/project-documents-original/Models
+junction,Project documents/Models,archive/legacy/project-documents-original/Models
+move-complete,Project documents/Outside generated code,archive/legacy/project-documents-original/Outside generated code
+junction,Project documents/Outside generated code,archive/legacy/project-documents-original/Outside generated code
+move-complete,Project documents/Project report,archive/legacy/project-documents-original/Project report
+junction,Project documents/Project report,archive/legacy/project-documents-original/Project report
+move-complete,Project documents/PROJECT_CONTEXT_V8.md,archive/legacy/project-documents-original/PROJECT_CONTEXT_V8.md
+move-complete,archive/legacy/project-documents-original/Project report,reports/study-v1/original-model-report
+junction,archive/legacy/project-documents-original/Project report,reports/study-v1/original-model-report
+junction,workspaces/study-v3/.pytest_cache,local/scratch/.pytest_cache
+junction,workspaces/study-v3/.ruff_cache,local/scratch/.ruff_cache
+junction,workspaces/study-v3/data/raw/DroneAudioDataset-master,storage/sources/al-emadi/al-emadi-r001/original
+move-complete,runs/study-v1/legacy-model-study/tables/test_scores.csv,evaluations/study-v1/original/test_scores.csv
+move-complete,runs/study-v1/legacy-model-study/tables/test_scored.lock,evaluations/study-v1/original/test_scored.lock
+move-complete,runs/study-v1/legacy-model-study/tables/run_report_notebook90_local.json,evaluations/study-v1/original/run_report_notebook90_local.json
+move-complete,local/diagnostics/legacy-results/model_comparison_dashboard.html,reports/study-v1/legacy-dashboard/model_comparison_dashboard.html

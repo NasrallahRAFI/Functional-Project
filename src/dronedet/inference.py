@@ -123,7 +123,13 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
     if manifest.get("score_kind") != "raw_logit" or manifest.get("variant") != "depth_4":
         raise ValueError(f"unsupported {model_id} score space or architecture")
 
-    package = _inside(root, manifest["package_path"], label="model package")
+    try:
+        package = _inside(root, manifest["package_path"], label="model package")
+    except ValueError:
+        # The workspace registry binds relocated releases to the exact selected
+        # package. Individual package-member boundaries remain unchanged.
+        from .workspace import resolve_registered_package
+        package = resolve_registered_package(root, manifest["package_path"], manifest_file)
     package_manifest_path = package / "PACKAGE_MANIFEST.json"
     package_manifest = _json(package_manifest_path)
     members = package_manifest.get("files")
@@ -207,7 +213,7 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
         model=model,
         threshold=threshold,
         seed=int(metadata["training_seed"]),
-        artifact=str(model_path.relative_to(root)),
+        artifact=str(Path(manifest["package_path"]) / metadata["model_file"]),
         artifact_sha256=model_digest,
         model_id=model_id,
         model_version=model_version,

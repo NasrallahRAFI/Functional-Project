@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "al-emadi-r001",
+  "source": "al-emadi",
+  "url": "https://github.com/saraalemadi/DroneAudioDataset",
+  "root": "storage/sources/al-emadi/al-emadi-r001",
+  "original": "storage/sources/al-emadi/al-emadi-r001/original",
+  "inventory": "storage/sources/al-emadi/al-emadi-r001/checksums/files.csv",
+  "inventory_sha256": "d2879e4a6572833706c2b50197daa0164ecdb24398eda7ade031a47f25073e99",
+  "files": 23410,
+  "bytes": 768050825,
+  "revision_provenance": "local content snapshot; upstream revision/version not established"
+}

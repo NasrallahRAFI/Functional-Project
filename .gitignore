@@ -10,3 +10,10 @@ data/raw/
 *.npy
 *.npz
 *.wav
+
+# Workspace migration: local compatibility mounts and private/transient state.
+/archive/
+/local/
+/registry/local/
+*.pre_*
+.ruff_cache/

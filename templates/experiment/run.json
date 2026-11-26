@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "study": null,
+  "run_id": null,
+  "parent_run": null,
+  "code_commit": null,
+  "working_snapshot": null,
+  "corpus": null,
+  "split": null,
+  "cache": null,
+  "frontend_identity": null,
+  "normalization_identity": null,
+  "resolved_config_sha256": null,
+  "environment": null,
+  "seed": null,
+  "status": "template"
+}

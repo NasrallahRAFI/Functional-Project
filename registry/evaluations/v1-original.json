@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "id": "v1-original",
+  "study": "study-v1",
+  "root": "evaluations/study-v1/original",
+  "lock": "test_scored.lock",
+  "lock_sha256": "d5e873780440d09fc54a9845c1b34a496d485afe44b2c7b329e811191252b7d4",
+  "note": "Original scoring records preserved; table paths are NTFS hard-link views"
+}

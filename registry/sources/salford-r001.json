@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "salford-r001",
+  "source": "salford-dronenoise",
+  "url": "https://doi.org/10.17866/rd.salford.22133411",
+  "root": "storage/sources/salford-dronenoise/salford-r001",
+  "original": "storage/sources/salford-dronenoise/salford-r001/original",
+  "inventory": "storage/sources/salford-dronenoise/salford-r001/checksums/files.csv",
+  "inventory_sha256": "0c7d8e642d0adab3ba6fa0995d9f665e23101c3ea60a606aff8727621022a47f",
+  "files": 175,
+  "bytes": 742123543,
+  "revision_provenance": "local content snapshot; upstream revision/version not established"
+}

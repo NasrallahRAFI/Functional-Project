@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "id": "study-v3",
+  "root": "local/compatibility/study-v3",
+  "views": [
+    {
+      "view": "workspaces/study-v3/archive",
+      "target": "archive/legacy"
+    },
+    {
+      "view": "workspaces/study-v3/data/interim",
+      "target": "storage/corpora/corpus-001/preparation-evidence"
+    },
+    {
+      "view": "workspaces/study-v3/data/processed/splits",
+      "target": "storage/splits/split-001"
+    },
+    {
+      "view": "workspaces/study-v3/data/processed/features_tabular",
+      "target": "storage/caches/v1-existing/features_tabular"
+    },
+    {
+      "view": "workspaces/study-v3/data/processed/spectrograms",
+      "target": "storage/caches/v1-existing/spectrograms"
+    },
+    {
+      "view": "workspaces/study-v3/data/processed/golden",
+      "target": "storage/caches/v1-existing/golden"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v2/data",
+      "target": "storage/caches/cnn-v2-existing"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v2/evaluation",
+      "target": "evaluations/study-v2/original"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v2/export",
+      "target": "releases/study-v2/export"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v2/frontend_verification",
+      "target": "runs/study-v2/verification"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v2/pytest-tmp",
+      "target": "local/scratch/cnn-v2-pytest"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v2/training",
+      "target": "runs/study-v2/legacy-training"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v3/calibration",
+      "target": "runs/study-v3/preparation/calibration"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v3/experiments",
+      "target": "runs/study-v3/experiments"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v3/prepared",
+      "target": "storage/caches/v3-raw-train"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v3/records",
+      "target": "runs/study-v3/preparation/records"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v3/review",
+      "target": "runs/study-v3/preparation/review"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cnn_v3/validation_suite",
+      "target": "storage/derived/v3-validation-suite"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/cards",
+      "target": "runs/study-v1/legacy-model-study/cards"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/figures",
+      "target": "runs/study-v1/legacy-model-study/figures"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/models",
+      "target": "runs/study-v1/legacy-model-study/models"
+    },
+    {
+      "view": "local/compatibility/study-v3/results/tables",
+      "target": "runs/study-v1/legacy-model-study/tables"
+    },
+    {
+      "view": "workspaces/study-v3/results",
+      "target": "local/compatibility/study-v3/results"
+    },
+    {
+      "view": "local/runtime/study-v3/clean-venv",
+      "target": "local/environments/legacy-clean"
+    },
+    {
+      "view": "local/runtime/study-v3/diagnostics",
+      "target": "local/diagnostics/detector"
+    },
+    {
+      "view": "local/runtime/study-v3/logs",
+      "target": "local/logs/detector"
+    },
+    {
+      "view": "local/runtime/study-v3/recordings",
+      "target": "local/private_recordings/detector"
+    },
+    {
+      "view": "local/runtime/study-v3/screenshots",
+      "target": "local/screenshots/screenshots"
+    },
+    {
+      "view": "local/runtime/study-v3/screenshots-after-lifecycle",
+      "target": "local/screenshots/screenshots-after-lifecycle"
+    },
+    {
+      "view": "local/runtime/study-v3/screenshots-final",
+      "target": "local/screenshots/screenshots-final"
+    },
+    {
+      "view": "local/runtime/study-v3/screenshots-mic-copy",
+      "target": "local/screenshots/screenshots-mic-copy"
+    },
+    {
+      "view": "local/runtime/study-v3/screenshots-pool-v2",
+      "target": "local/screenshots/screenshots-pool-v2"
+    },
+    {
+      "view": "local/runtime/study-v3/screenshots-rebuild-message",
+      "target": "local/screenshots/screenshots-rebuild-message"
+    },
+    {
+      "view": "local/runtime/study-v3/screenshots-recording",
+      "target": "local/screenshots/screenshots-recording"
+    },
+    {
+      "view": "workspaces/study-v3/runtime",
+      "target": "local/runtime/study-v3"
+    },
+    {
+      "view": "local/runtime/study-v3/assets/bundle",
+      "target": "releases/study-v1/deployed-snapshot/bundle"
+    },
+    {
+      "view": "local/runtime/study-v3/assets/CNN_V2.0",
+      "target": "releases/study-v2/deployed-snapshot"
+    },
+    {
+      "view": "local/runtime/study-v3/assets/CNN_V3.0",
+      "target": "releases/study-v3/A1-experimental"
+    },
+    {
+      "view": "local/runtime/study-v3/assets/metadata",
+      "target": "releases/study-v1/deployed-snapshot/metadata"
+    },
+    {
+      "view": "local/runtime/study-v3/assets/models",
+      "target": "releases/study-v1/deployed-snapshot/models"
+    },
+    {
+      "view": "workspaces/study-v3/.venv",
+      "target": "local/environments/study-v3"
+    },
+    {
+      "view": "workspaces/study-v3/.pytest_cache",
+      "target": "local/scratch/.pytest_cache"
+    },
+    {
+      "view": "workspaces/study-v3/.ruff_cache",
+      "target": "local/scratch/.ruff_cache"
+    },
+    {
+      "view": "workspaces/study-v3/data/raw/DroneAudioDataset-master",
+      "target": "storage/sources/al-emadi/al-emadi-r001/original"
+    }
+  ],
+  "note": "Legacy script views; dependencies must not be regenerated from V3. Restore payloads before recreating views."
+}

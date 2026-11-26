@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "id": "v3-a1-experimental",
+  "study": "study-v3",
+  "root": "releases/study-v3/A1-experimental",
+  "manifest": "PACKAGE_MANIFEST.json",
+  "manifest_sha256": "023acdbecb0a9d03385189ad6f811b863beeee7e117fde70a7d8a2318e65d073",
+  "experimental": true
+}

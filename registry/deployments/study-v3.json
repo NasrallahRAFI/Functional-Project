@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "study-v3",
+  "study": "study-v3",
+  "workspace": "workspaces/study-v3",
+  "release": "v3-a1-experimental",
+  "selection_sha256": "a1596fbb059546de5c7b7a355cd90c9d36309b7cb4834c159d8c94eeb306919d",
+  "package_view": "runtime/assets/CNN_V3.0",
+  "model_sha256": "7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed",
+  "threshold": 1.9109516143798828,
+  "experimental_activation": true,
+  "validation_eligible": false,
+  "test_access": false
+}
