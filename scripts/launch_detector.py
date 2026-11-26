@@ -15,9 +15,13 @@ import webbrowser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from frontend_identity import FRONTEND_FILES, frontend_sha256, frontend_sha256_from_sources
+
 BASE_URL = "http://127.0.0.1:8766"
 URL = f"{BASE_URL}/live/index.html"
 EXPECTED_MODEL = json.loads((ROOT / "config/live_detector.json").read_text(encoding="utf-8"))
+EXPECTED_FRONTEND_SHA256 = frontend_sha256(ROOT / "live")
 
 
 def attach_kill_on_close_job(process: subprocess.Popen) -> object:
@@ -67,6 +71,26 @@ def health() -> dict | None:
         return None
 
 
+def frontend_matches(value: dict | None) -> bool:
+    if not value:
+        return False
+    reported = value.get("frontend_sha256")
+    if reported is not None:
+        return reported == EXPECTED_FRONTEND_SHA256
+    # Older same-CNN servers may not report a build digest. Hash their actual
+    # served files before reuse; cache headers are bypassed by urllib here.
+    try:
+        sources = {}
+        for name in FRONTEND_FILES:
+            with urllib.request.urlopen(f"{BASE_URL}/live/{name}", timeout=2) as response:
+                if response.status != 200:
+                    return False
+                sources[name] = response.read()
+        return frontend_sha256_from_sources(sources) == EXPECTED_FRONTEND_SHA256
+    except (OSError, urllib.error.URLError, TimeoutError):
+        return False
+
+
 def is_ours(value: dict | None) -> bool:
     return bool(value and value.get("status") == "ready"
                 and value.get("protocol_version") == 2
@@ -77,6 +101,7 @@ def is_ours(value: dict | None) -> bool:
                 and value.get("variant") == EXPECTED_MODEL["variant"]
                 and value.get("seed") == EXPECTED_MODEL["seed"]
                 and value.get("checkpoint_sha256") == EXPECTED_MODEL["model_sha256"]
+                and frontend_matches(value)
                 and value.get("threshold") == EXPECTED_MODEL["threshold"]
                 and value.get("score_kind") == "raw_logit"
                 and value.get("policy_id") == EXPECTED_MODEL["policy_id"]
@@ -108,7 +133,13 @@ def main() -> int:
     existing = health()
     if existing is not None:
         if not is_ours(existing):
-            print("Port 8766 is serving another application. Close it and retry.", file=sys.stderr)
+            same_cnn = (existing.get("application_id") == "local-drone-detector"
+                        and existing.get("model_id") == EXPECTED_MODEL["model_id"]
+                        and existing.get("checkpoint_sha256") == EXPECTED_MODEL["model_sha256"])
+            if same_cnn and existing.get("frontend_sha256") != EXPECTED_FRONTEND_SHA256:
+                print("A V4 service with a different or unverifiable frontend build is already running on port 8766. Close that service, then run start_detector.bat again.", file=sys.stderr)
+            else:
+                print("Port 8766 is serving another application or CNN build. Close it and retry.", file=sys.stderr)
             return 2
         print("The verified CNN service is already running.")
         open_monitor()

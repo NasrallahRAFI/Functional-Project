@@ -32,6 +32,7 @@ from demo.run_demo import (
 from dronedet.config import decision_hash
 from dronedet.features import clip_flags, mel_power, transform
 from dronedet.inference import load_detector as load_verified_detector
+from frontend_identity import frontend_sha256
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 LOG = logging.getLogger("dronedet.live")
@@ -430,6 +431,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "application_id": "local-drone-detector",
                     "protocol_version": 2,
                     "instance_id": INSTANCE_ID,
+                    "frontend_sha256": frontend_sha256(ROOT / "live"),
                     **MODEL_INFO,
                 },
             )
@@ -577,7 +579,8 @@ def main(argv=None):
     )
     MODEL_INFO = detector.health_metadata()
     if args.check:
-        print(json.dumps({"status": "ready", **detector.health_metadata()}))
+        print(json.dumps({"status": "ready", "frontend_sha256": frontend_sha256(ROOT / "live"),
+                          **detector.health_metadata()}))
         return 0
     INSTANCE_ID = args.instance_id
     STATE = LiveState(CONFIG, STATS, MODEL, THRESHOLD)
