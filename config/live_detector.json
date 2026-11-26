@@ -2,12 +2,12 @@
   "schema_version": 2,
   "model_id": "CNN_V3.0",
   "model_version": "3.0",
-  "stage": "A1",
-  "package_path": "runtime/assets/CNN_V3.0",
-  "model_sha256": "7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed",
+  "stage": "ONE_CHANNEL",
+  "package_path": "runtime/assets/CNN_V3.0_ONE_CHANNEL",
+  "model_sha256": "f727446758512fc1fd7e2a1f6b81021503a878bf1bffb6560ff54bb634206a1c",
   "variant": "depth_4",
   "seed": 42,
-  "threshold": 1.9109516143798828,
+  "threshold": 1.7455270290374756,
   "score_kind": "raw_logit",
   "policy_id": "threshold-majority-v1",
   "smoothing_windows": 3,
@@ -17,8 +17,9 @@
   "experimental_activation": true,
   "validation_guard_failures": [
     "clean_recall_at_least_159_of_185",
-    "clean_false_positives_at_most_5_of_1325",
-    "each_augmented_far_at_most_1pct"
+    "clean_false_positives_at_most_5_of_1325"
   ],
-  "test_access": false
+  "test_access": false,
+  "final_test_passed": false,
+  "run_id": "ONE_CHANNEL_seed42"
 }

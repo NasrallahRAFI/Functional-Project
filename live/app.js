@@ -4,6 +4,11 @@ const ctx = canvas.getContext('2d');
 const CHUNK_SECONDS = 0.5;
 const REQUEST_TIMEOUT_MS = 4000;
 const CAPTURE_VERSION = 'pool-v2';
+const SELECTED_V3 = {
+  stage: 'ONE_CHANNEL',
+  modelSha256: 'f727446758512fc1fd7e2a1f6b81021503a878bf1bffb6560ff54bb634206a1c',
+  threshold: 1.7455270290374756,
+};
 function isSelectedModel(m) {
   const common = m?.status === 'ready' && m.application_id === 'local-drone-detector'
     && m.protocol_version === 2 && m.variant === 'depth_4' && m.seed === 42
@@ -13,14 +18,13 @@ function isSelectedModel(m) {
     && m.checkpoint_sha256 === '0e97e3194e42f8fa3a2541e37dcff9fe33cdc1246d5a260ab65c6d157af6f4fb'
     && m.threshold === 2.823960542678833 && m.validation_eligible === true
     && m.experimental_activation === false;
-  const v3 = m?.model_id === 'CNN_V3.0' && m.model_version === '3.0' && m.stage === 'A1'
-    && m.checkpoint_sha256 === '7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed'
-    && m.threshold === 1.9109516143798828 && m.validation_eligible === false
-    && m.experimental_activation === true && m.test_access === false
-    && Array.isArray(m.validation_guard_failures)
-    && m.validation_guard_failures.includes('clean_recall_at_least_159_of_185')
-    && m.validation_guard_failures.includes('clean_false_positives_at_most_5_of_1325')
-    && m.validation_guard_failures.includes('each_augmented_far_at_most_1pct');
+  const v3 = m?.model_id === 'CNN_V3.0' && m.model_version === '3.0'
+    && m.stage === SELECTED_V3.stage
+    && m.checkpoint_sha256 === SELECTED_V3.modelSha256
+    && m.threshold === SELECTED_V3.threshold
+    && m.validation_eligible === (m.validation_guard_failures?.length === 0)
+    && typeof m.experimental_activation === 'boolean' && m.test_access === false
+    && Array.isArray(m.validation_guard_failures);
   return common && (v2 || v3);
 }
 function updateModelUI(m) {
@@ -30,21 +34,34 @@ function updateModelUI(m) {
     threshold: m.threshold, validation_eligible: m.validation_eligible,
     experimental_activation: m.experimental_activation,
     validation_guard_failures: m.validation_guard_failures || [], test_access: m.test_access ?? false,
+    run_id: m.run_id || null, validation_metrics: m.validation_metrics || null,
+    final_test_passed: m.final_test_passed === true,
   };
-  const experimental = m.model_id === 'CNN_V3.0';
-  const name = experimental ? 'CNN V3.0 · A1 · depth 4' : 'CNN V2.0 · depth 4';
-  $('systemText').textContent = experimental ? `CNN V3.0 A1 EXPERIMENTAL · SEED ${m.seed}` : `CNN V2.0 READY · SEED ${m.seed}`;
-  $('activeModelLede').textContent = experimental
-    ? 'This local session is running the experimental CNN V3.0 A1 model. It failed its registered validation guards.'
+  const candidate = m.model_id === 'CNN_V3.0';
+  const stage = String(m.stage || 'baseline').replaceAll('_', ' ');
+  const experimental = Boolean(m.experimental_activation);
+  const name = candidate ? `CNN V3.0 · ${stage} · depth 4` : 'CNN V2.0 · depth 4';
+  const clean = m.validation_metrics?.condition_metrics?.clean;
+  const cleanSummary = clean ? `Clean validation: ${clean.tp}/${clean.tp + clean.fn} detected, ${clean.fp}/1,325 false alarms.` : '';
+  const severity = m.validation_metrics?.condition_metrics || {};
+  const farSummary = ['mild', 'moderate', 'severe'].filter((key) => severity[key])
+    .map((key) => `${key} FAR ${(100 * severity[key].false_alarm_rate).toFixed(2)}%`).join(' · ');
+  $('systemText').textContent = candidate
+    ? `CNN V3.0 ${stage.toUpperCase()}${experimental ? ' EXPERIMENTAL' : ' ACTIVE'} · SEED ${m.seed}`
+    : `CNN V2.0 READY · SEED ${m.seed}`;
+  $('activeModelLede').textContent = candidate
+    ? `This local session is running the ${stage} CNN V3.0 candidate. ${experimental ? 'Its activation is experimental.' : 'Its recorded acceptance gates passed.'}`
     : 'A continuous microphone feed, read by the project’s validation-selected CNN V2.0 model.';
-  $('modelStampStatus').textContent = experimental ? 'EXPERIMENTAL · VALIDATION GUARDS FAILED' : 'VALIDATED MODEL';
+  $('modelStampStatus').textContent = candidate
+    ? (experimental ? (m.validation_eligible ? 'EXPERIMENTAL · FINAL GATE PENDING' : 'EXPERIMENTAL · VALIDATION GUARDS FAILED') : 'ACCEPTANCE GATES PASSED')
+    : 'VALIDATED MODEL';
   $('modelStampStatus').classList.toggle('experimental-status', experimental);
   $('activeModelName').textContent = name;
   $('activeModelDetails').textContent = `Seed ${m.seed} · 60,641 parameters`;
   $('modelEvidenceActive').textContent = `LIVE MODEL · ${name} · seed ${m.seed}`;
-  $('modelEvidenceStatus').textContent = experimental
-    ? 'Activated experimentally by request despite failed validation: clean recall 157/185; clean false positives 25/1,325; moderate/severe FAR 2.49%/5.21%. Test data remains locked. CNN V2.0 remains available as the validated baseline.'
-    : 'CNN V2.0 is the selected validation baseline. The CNN V3.0 A1 candidate is available only as an experimental, validation-ineligible model.';
+  $('modelEvidenceStatus').textContent = candidate
+    ? `${m.validation_eligible ? 'Validation guards passed.' : `Validation guards failed: ${(m.validation_guard_failures || []).join(', ')}.`} ${cleanSummary} ${farSummary}. ${m.final_test_passed ? 'The declared final test acceptance gate passed.' : (m.test_access ? 'The final test evaluation accessed held-out data.' : 'Final test data remains locked; no held-out data was accessed.') } CNN V2.0 remains the validated baseline.`
+    : 'CNN V2.0 is the selected validation baseline. A CNN V3.0 candidate is available in the project release records.';
   $('modelEvidenceStatus').classList.toggle('experimental-note', experimental);
   $('thresholdValue').textContent = Number(m.threshold).toFixed(4);
   $('cadenceValue').textContent = `${m.cadence_seconds} sec · 3-window majority`;

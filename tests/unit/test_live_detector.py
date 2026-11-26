@@ -90,14 +90,8 @@ class LiveDetectorReleaseTests(unittest.TestCase):
         selected = json.loads((ROOT / "config/live_detector.json").read_text(encoding="utf-8"))
         self.assertEqual((meta["model_id"], meta["stage"], meta["variant"], meta["seed"]),
                          (selected["model_id"], selected.get("stage", "V2"), "depth_4", 42))
-        known_releases = {
-            "CNN_V2.0": ("0e97e3194e42f8fa3a2541e37dcff9fe33cdc1246d5a260ab65c6d157af6f4fb", 2.823960542678833),
-            "CNN_V3.0": ("7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed", 1.9109516143798828),
-        }
-        digest, threshold = known_releases[selected["model_id"]]
-        self.assertEqual(meta["checkpoint_sha256"],
-                         digest)
-        self.assertEqual(meta["threshold"], threshold)
+        self.assertEqual(meta["checkpoint_sha256"], selected["model_sha256"])
+        self.assertEqual(meta["threshold"], selected["threshold"])
         self.assertEqual(meta["experimental_activation"], selected.get("experimental_activation", False))
         self.assertEqual(meta["validation_eligible"], selected.get("validation_eligible", True))
         self.assertEqual(meta["validation_guard_failures"], selected.get("validation_guard_failures", []))

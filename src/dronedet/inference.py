@@ -54,6 +54,9 @@ class LoadedDetector:
     validation_guard_failures: tuple[str, ...] = ()
     test_access: bool = False
     policy_id: str = "threshold-majority-v1"
+    run_id: str | None = None
+    validation_metrics: dict | None = None
+    final_test_passed: bool = False
 
     def score_window(self, window: np.ndarray) -> float:
         audio = np.asarray(window, dtype=np.float32)
@@ -85,6 +88,9 @@ class LoadedDetector:
             "experimental_activation": self.experimental_activation,
             "validation_guard_failures": list(self.validation_guard_failures),
             "test_access": self.test_access,
+            "run_id": self.run_id,
+            "validation_metrics": self.validation_metrics,
+            "final_test_passed": self.final_test_passed,
             "policy_id": self.policy_id,
             "smoothing_windows": self.config.smoothing_windows,
             "window_samples": self.config.win_samples,
@@ -109,17 +115,14 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
             or model_version != {"CNN_V2.0": "2.0", "CNN_V3.0": "3.0"}.get(model_id)):
         raise ValueError("live detector must explicitly select CNN V2.0 or CNN V3.0")
     if model_id == "CNN_V3.0":
-        expected_failures = {
-            "clean_recall_at_least_159_of_185",
-            "clean_false_positives_at_most_5_of_1325",
-            "each_augmented_far_at_most_1pct",
-        }
         actual_failures = set(manifest.get("validation_guard_failures", []))
-        if (manifest.get("validation_eligible") is not False
-                or manifest.get("experimental_activation") is not True
-                or manifest.get("test_access") is not False
-                or actual_failures != expected_failures):
-            raise ValueError("CNN V3.0 requires an explicit experimental selection with its failed guards and locked test state recorded")
+        eligible = manifest.get("validation_eligible") is True
+        experimental = manifest.get("experimental_activation") is True
+        final_test_passed = manifest.get("final_test_passed") is True
+        if ((eligible and actual_failures) or (not eligible and not actual_failures)
+                or (not experimental and not (eligible and final_test_passed))
+                or manifest.get("test_access") is not False):
+            raise ValueError("CNN V3.0 selection must preserve its validation result, experimental status, and training test-access record")
     if manifest.get("score_kind") != "raw_logit" or manifest.get("variant") != "depth_4":
         raise ValueError(f"unsupported {model_id} score space or architecture")
 
@@ -130,6 +133,9 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
         # package. Individual package-member boundaries remain unchanged.
         from .workspace import resolve_registered_package
         package = resolve_registered_package(root, manifest["package_path"], manifest_file)
+    if not package.is_dir():
+        from .workspace import resolve_registered_package
+        package = resolve_registered_package(root, manifest["package_path"], manifest_file)
     package_manifest_path = package / "PACKAGE_MANIFEST.json"
     package_manifest = _json(package_manifest_path)
     members = package_manifest.get("files")
@@ -138,12 +144,12 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
     if package_manifest.get("model_id", model_id) != model_id:
         raise ValueError("package manifest model identity differs from live selection")
     if model_id == "CNN_V3.0" and (
-        package_manifest.get("validation_eligible") is not False
-        or package_manifest.get("experimental_activation") is not True
+        package_manifest.get("validation_eligible") != manifest.get("validation_eligible")
+        or package_manifest.get("experimental_activation") != manifest.get("experimental_activation")
         or package_manifest.get("test_access") is not False
-        or set(package_manifest.get("validation_guard_failures", [])) != expected_failures
+        or set(package_manifest.get("validation_guard_failures", [])) != actual_failures
     ):
-        raise ValueError("CNN V3.0 package does not bind its experimental status and failed guards")
+        raise ValueError("CNN V3.0 package status differs from the live selection")
     for entry in members:
         relative = str(entry.get("path", ""))
         path = _inside(package, relative, label="package member")
@@ -167,12 +173,12 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
     if metadata.get("stage") != manifest.get("stage", metadata.get("stage")):
         raise ValueError("live stage differs from package metadata")
     if model_id == "CNN_V3.0":
-        if (metadata.get("validation_eligible") is not False
-                or metadata.get("experimental_activation") is not True
+        if (metadata.get("validation_eligible") != manifest.get("validation_eligible")
+                or metadata.get("experimental_activation") != manifest.get("experimental_activation")
                 or metadata.get("test_access") is not False
-                or set(metadata.get("validation_guard_failures", [])) != expected_failures
-                or set(metadata.get("validation_guard_failures", [])) != actual_failures):
-            raise ValueError("CNN V3.0 metadata does not preserve its validation-ineligible experimental status")
+                or set(metadata.get("validation_guard_failures", [])) != actual_failures
+                or metadata.get("final_test_passed", False) != final_test_passed):
+            raise ValueError("CNN V3.0 metadata does not preserve the live selection status")
 
     params = _json(package / metadata["frontend_config_file"])
     params.pop("_identity_schema", None)
@@ -223,6 +229,9 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
         experimental_activation=bool(manifest.get("experimental_activation", False)),
         validation_guard_failures=tuple(manifest.get("validation_guard_failures", [])),
         test_access=bool(manifest.get("test_access", False)),
+        run_id=metadata.get("run_id"),
+        validation_metrics=metadata.get("validation_metrics"),
+        final_test_passed=bool(metadata.get("final_test_passed", False)),
     )
     detector.score_window(np.zeros(config.win_samples, dtype=np.float32))
     return detector

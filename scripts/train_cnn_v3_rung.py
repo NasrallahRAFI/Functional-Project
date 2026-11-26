@@ -106,11 +106,14 @@ def load_suite(root: Path):
 
 
 def train(rung: str, seed: int, config_path: Path) -> dict:
-    if rung not in {"A1","A2","A3","A4"}: raise ValueError("rung must be A1, A2, A3, or A4")
+    if rung not in {"A1","A2","A3","A4","ONE_CHANNEL"}: raise ValueError("unknown registered CNN V3 run")
     cp=config_path.resolve(); doc=yaml.safe_load(cp.read_text(encoding="utf-8"))
     root=cp.parent.parent; fe=config_from_mapping(doc["frontend"])
     data=root/"results/cnn_v2/data"
-    out=root/"results/cnn_v3"/"experiments"/f"{rung}_seed{seed}"
+    run_id = f"{rung}_seed{seed}" if rung != "ONE_CHANNEL" else "ONE_CHANNEL_seed42"
+    configured_output = doc.get("run_output_dir")
+    out = (Path(configured_output) if configured_output else root/"results/cnn_v3"/"experiments"/run_id)
+    if not out.is_absolute(): out = (root.parent.parent / out).resolve()
     out.mkdir(parents=True,exist_ok=True)
     train_manifest=pd.read_csv(data/"manifests/train.csv",keep_default_na=False)
     val_manifest=pd.read_csv(data/"manifests/val.csv",keep_default_na=False)
@@ -129,7 +132,7 @@ def train(rung: str, seed: int, config_path: Path) -> dict:
         hp_hz=(150.0,600.0),lp_hz=(3500.0,7500.0),eq_max_gain_db=6.0,
         rt60_s=(0.2,1.0),drr_db=(-5.0,10.0),noise_snr_db=tuple(base["background_snr_db"]),
         floor_dbfs=tuple(base["microphone_floor_dbfs"]),minimum_positive_snr_db=float(base["minimum_added_snr_db"]))
-    noise_bank=noise_bank_for_training(root,raw_root,train_manifest,fe,seed) if rung in {"A3","A4"} else NoiseBank()
+    noise_bank=noise_bank_for_training(root,raw_root,train_manifest,fe,seed) if rung in {"A3","A4","ONE_CHANNEL"} else NoiseBank()
     augmenter=ChannelAugment(noise_bank,augment_config)
     train_ds=RawWaveformDataset(split="train",raw_root=raw_root,manifest=train_manifest,config=fe,
         mean=mean,std=std,seed=seed,augment=augmenter,channel_enabled=True,v2_gain_db=None)
@@ -152,7 +155,7 @@ def train(rung: str, seed: int, config_path: Path) -> dict:
                   Path(__file__).resolve().parents[1]/"src/dronedet/models/cnn.py",
                   Path(__file__).resolve().parents[1]/"results/cnn_v3/records/requirements-v3-environment.txt"]
     source_hashes={p.name:sha(p) for p in source_files}
-    identity={"run_id":f"{rung}_seed{seed}","config_sha256":sha(cp),"augmentation_config_sha256":augment_config.sha256,
+    identity={"run_id":run_id,"config_sha256":sha(cp),"augmentation_config_sha256":augment_config.sha256,
         "source_hashes":source_hashes,"train_manifest_sha256":sha(data/"manifests/train.csv"),
         "val_manifest_sha256":sha(data/"manifests/val.csv"),"normalization_sha256":sha(data/"normalization_stats.npz"),
         "dependency_lock_sha256":sha(root/"results/cnn_v3/records/requirements-v3-environment.txt"),
@@ -174,20 +177,28 @@ def train(rung: str, seed: int, config_path: Path) -> dict:
         raise FileExistsError(f"run directory has artifacts but no resumable checkpoint: {out}")
     ytrain=train_manifest.label.to_numpy(dtype=np.float32)
     started=time.perf_counter()
-    stop_reason="weighted_validation_patience_8" if stale>=int(doc["training"]["early_stopping_patience"]) else "maximum_epoch_limit"
+    step_cap = int(doc["training"].get("optimizer_step_cap", 12_000))
+    steps_done = sum(int(np.ceil(len(train_ds)/int(doc["training"]["batch_size"]))) for _ in history)
+    stop_reason="weighted_validation_patience_8" if stale>=int(doc["training"]["early_stopping_patience"]) else ("optimizer_step_cap" if steps_done>=step_cap else "maximum_epoch_limit")
     epoch_range=(range(start_epoch,int(doc["training"]["max_epochs"]))
                  if stale<int(doc["training"]["early_stopping_patience"]) else ())
     for epoch in epoch_range:
+        if steps_done >= step_cap:
+            stop_reason="optimizer_step_cap"; break
         train_ds.set_epoch(epoch); model.train()
         order=np.random.default_rng(seed*1_000_003+epoch).permutation(len(train_ds))
-        loss_sum=0.0
-        for off in range(0,len(order),64):
-            ids=order[off:off+64]
+        loss_sum=0.0; epoch_examples=0
+        batch_size=int(doc["training"]["batch_size"])
+        for off in range(0,len(order),batch_size):
+            if steps_done >= step_cap:
+                stop_reason="optimizer_step_cap"; break
+            ids=order[off:off+batch_size]
             batch=[train_ds[int(i)] for i in ids]
             xb=torch.stack([b["x"] for b in batch]); yb=torch.from_numpy(ytrain[ids])
             optimizer.zero_grad(set_to_none=True); logits=model(xb); loss=criterion(logits,yb)
-            loss.backward(); optimizer.step(); loss_sum+=float(loss.detach())*len(ids)
-        train_loss=loss_sum/len(train_ds); model.eval(); losses={}
+            loss.backward(); optimizer.step(); loss_sum+=float(loss.detach())*len(ids); epoch_examples+=len(ids)
+            steps_done += 1
+        train_loss=loss_sum/max(1,epoch_examples); model.eval(); losses={}
         with torch.inference_mode():
             for name,x in val_x.items():
                 out_logits=model(x)
@@ -211,6 +222,8 @@ def train(rung: str, seed: int, config_path: Path) -> dict:
         print(f"{rung} seed={seed} epoch={epoch+1} train_loss={train_loss:.6f} weighted_val_loss={val_loss:.6f} best={best_epoch}",flush=True)
         if stale>=int(doc["training"]["early_stopping_patience"]):
             stop_reason="weighted_validation_patience_8"; break
+        if steps_done>=step_cap:
+            stop_reason="optimizer_step_cap"; break
     if best_state is None: raise RuntimeError("no eligible model checkpoint")
     model.load_state_dict(best_state); model.eval()
     with torch.inference_mode(): logits={name:model(x).cpu().numpy().astype(np.float64).reshape(-1) for name,x in val_x.items()}
@@ -235,12 +248,12 @@ def train(rung: str, seed: int, config_path: Path) -> dict:
         "mean_augmented_recall_gain_at_least_5pp":recall_gain>=0.05,
         "no_severity_recall_more_than_3pp_below_v2":all(v<=0.03 for v in severity_drops.values())}
     eligible=all(guards.values())
-    ckpt=out/f"cnn_v3_{rung.lower()}_seed{seed}.pt"
+    ckpt=out/("cnn_v3_one_channel_seed42.pt" if rung=="ONE_CHANNEL" else f"cnn_v3_{rung.lower()}_seed{seed}.pt")
     torch.save({"state_dict":best_state,"architecture":{"channels":[16,32,64,64],"kernel_size":3,
         "pool":[2,2],"head":"global_average","dropout":.3},"parameter_count":60641,"seed":seed,
         "best_epoch":best_epoch},ckpt)
-    parents={"A1":"A0c_weighted_monitor_seed42","A2":"A1_seed42","A3":"A2_seed42","A4":"A3_seed42"}
-    record={"status":"FROZEN_BEFORE_TEST","run_id":f"{rung}_seed{seed}","parent":parents[rung],
+    parents={"A1":"A0c_weighted_monitor_seed42","A2":"A1_seed42","A3":"A2_seed42","A4":"A3_seed42","ONE_CHANNEL":"A0c_weighted_monitor_seed42; A1 is historical comparison only"}
+    record={"status":"FROZEN_BEFORE_TEST","run_id":run_id,"parent":parents[rung],
         "architecture":"V2 depth_4 fixed","seed":seed,"rung":rung,"augmentation_config":augment_config.__dict__,
         "augmentation_config_sha256":augment_config.sha256,"noise_donors":noise_records,
         "best_epoch":best_epoch,"best_weighted_validation_loss":best_loss,"stop_reason":stop_reason,
@@ -255,7 +268,7 @@ def train(rung: str, seed: int, config_path: Path) -> dict:
         "optimizer":{"name":"AdamW","learning_rate":1e-3,"weight_decay":1e-2},
         "loss":{"name":"BCEWithLogitsLoss","positive_weight":nneg/npos},
         "scheduler":{"name":"ReduceLROnPlateau","factor":0.5,"patience":3},
-        "batch_size":64,"max_epochs":int(doc["training"]["max_epochs"]),
+        "batch_size":int(doc["training"]["batch_size"]),"optimizer_steps":steps_done,"optimizer_step_cap":step_cap,"max_epochs":int(doc["training"]["max_epochs"]),
         "early_stopping_patience":int(doc["training"]["early_stopping_patience"]),
         "environment":{"python":platform.python_version(),"platform":platform.platform(),
             "torch":torch.__version__,"numpy":np.__version__,

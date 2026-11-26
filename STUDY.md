@@ -7,7 +7,7 @@ Decisions: docs/CNN_V3_0_DECISION_LOG.md. Original global context: docs/history/
 
 Data: corpus-001 and split-001. Registered sources: Al-Emadi binary membership only. V2 cache and frozen V2 release are explicit baseline dependencies. Imported thesis and Salford data are registered source material; they do not enter V3 training.
 
-Current detector selection is the A1 seed-42 experimental package. Its selection records `validation_eligible=false`, its three failed guards, and `test_access=false`. Relocation does not promote this model or alter its threshold.
+Current detector selection is the `ONE_CHANNEL_seed42` seed-42 experimental package. It failed the clean recall and clean false-positive validation guards, so it is validation-ineligible; no final test evaluation was run. CNN V2 remains the validated baseline. See [the V3 one-run report](docs/CNN_V3_ONE_CHANNEL_REPORT.md) and the active runtime selection record.
 
 Canonical outputs, relative to the enclosing project folder:
 

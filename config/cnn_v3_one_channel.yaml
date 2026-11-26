@@ -1,0 +1,153 @@
+version: CNN_V3.0
+parent_version: CNN_V2.0
+seed: 42
+device: cpu
+threads: 4
+raw_root: data/raw/DroneAudioDataset-master
+environment_override: DRONE_AUDIO_DATASET_ROOT
+reference_splits: data/processed/splits
+reference_manifest: data/interim/manifest_with_split.csv
+reference_split_hashes:
+  train: 60b14ff205bdd4e950ae0642d5ae886c8b8c4c291cabfedc26ee936d9a3e1afc
+  val: c1c0170fddbd6dfa4d3095eab12abef6572ac45036278ba79cc4c71794dc23fc
+  test: 350356a0b89a84bf6cf77fc4a1ffa36dea662151fbd5d79e66989cdfeec14848
+output_root: results/cnn_v3
+frontend:
+  preset: project
+  sr: 16000
+  channel: 0
+  n_fft: 1024
+  win_length: 1024
+  hop: 256
+  window: hann
+  center: false
+  n_mels: 64
+  fmin: 50.0
+  fmax: 7500.0
+  mel_scale: htk
+  mel_norm: area
+  power: 2.0
+  amin: 1.0e-12
+  top_db: null
+  resample_quality: HQ
+  L: 0.5
+  mode: global_stats
+architecture:
+  channels:
+  - 16
+  - 32
+  - 64
+  - 64
+  kernel_size: 3
+  pool:
+  - 2
+  - 2
+  head: global_average
+  dropout: 0.3
+training:
+  batch_size: 64
+  learning_rate: 0.001
+  weight_decay: 0.01
+  max_epochs: 100
+  early_stopping_patience: 8
+  scheduler_patience: 3
+  scheduler_factor: 0.5
+  optimizer_step_cap: 12000
+  seed: 42
+augmentation:
+  clean_recipe_probability: 0.2
+  clean_gain_db:
+  - -12.0
+  - 12.0
+  band_limit_probability: 0.7
+  eq_probability: 0.5
+  soft_clip_probability: 0.3
+  gain_db:
+  - -30.0
+  - 6.0
+  reverb_probability: 0.5
+  background_probability: 0.6
+  background_snr_db:
+  - 0.0
+  - 30.0
+  microphone_floor_dbfs:
+  - -75.0
+  - -45.0
+  minimum_added_snr_db: 0.0
+  dc_probability: 0.0
+  hard_clip_probability: 0.0
+  codec_probability: 0.0
+  compressor_probability: 0.0
+  pitch_stretch_probability: 0.0
+  specaugment_probability: 0.0
+rungs:
+  ONE_CHANNEL:
+    p_band_limit: 0.7
+    p_eq: 0.5
+    p_soft_clip: 0.3
+    p_reverb: 0.5
+    p_noise: 0.6
+    p_floor: 1.0
+    gain_db:
+    - -30.0
+    - 6.0
+evaluation:
+  clean_weight: 0.5
+  mild_weight: 0.16666666666666666
+  moderate_weight: 0.16666666666666666
+  severe_weight: 0.16666666666666666
+  mild:
+    hp_hz:
+    - 150.0
+    - 250.0
+    lp_hz:
+    - 6500.0
+    - 7500.0
+    noise_snr_db:
+    - 20.0
+    - 30.0
+    rt60_s:
+    - 0.2
+    - 0.4
+  moderate:
+    hp_hz:
+    - 250.0
+    - 400.0
+    lp_hz:
+    - 5000.0
+    - 7000.0
+    noise_snr_db:
+    - 10.0
+    - 20.0
+    rt60_s:
+    - 0.4
+    - 0.7
+  severe:
+    hp_hz:
+    - 400.0
+    - 600.0
+    lp_hz:
+    - 3500.0
+    - 5500.0
+    noise_snr_db:
+    - 0.0
+    - 10.0
+    rt60_s:
+    - 0.7
+    - 1.0
+selection:
+  threshold: weighted_pooled_validation_f1
+  ties: higher_raw_logit
+  clean_recall_minimum: 159/185
+  clean_false_positives_maximum: 5/1325
+  augmented_far_maximum_each_condition: 0.01
+  mean_augmented_recall_gain_minimum: 0.05
+  per_severity_recall_drop_maximum: 0.03
+  finalists: 2
+  seed42_must_pass: true
+final_test:
+  passes: 1
+  test_recall_minimum: 154/180
+  test_false_positives_maximum: 5/1326
+  access: locked_until_selected_checkpoint_is_frozen
+run_output_dir: runs/study-v3/experiments/ONE_CHANNEL_seed42
