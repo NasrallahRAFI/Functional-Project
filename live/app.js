@@ -39,6 +39,7 @@ const state = {
   recentResets: [],
   recording: null, savingRecording: false,
   trace: [], captureSettings: null, sessionStartedAt: 0, selectedModel: null,
+  samplesSourceFrame: null, ambientLogActive: false, ambientLogWindows: 0,
 };
 
 function drawWave() {
@@ -98,8 +99,10 @@ function render(data, requestMs) {
 function stop({ preserveMessage = false } = {}) {
   cancelRecording('Recording cancelled because monitoring stopped. Nothing was saved.');
   const sessionId = state.sessionId, ownerToken = state.ownerToken;
+  const hadAmbientLog = state.ambientLogActive;
+  state.ambientLogActive = false;
   state.epoch++; state.active = false; state.sessionId = null;
-  state.expectedSourceFrame = null; state.gapPending = false;
+  state.expectedSourceFrame = null; state.samplesSourceFrame = null; state.gapPending = false;
   state.ownerToken = null;
   if (sessionId && ownerToken) fetch('/api/session/stop', { method: 'POST', keepalive: true,
     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: sessionId, owner_token: ownerToken }) }).catch(() => {});
@@ -118,6 +121,9 @@ function stop({ preserveMessage = false } = {}) {
   $('startButton').disabled = false; $('startButton').querySelector('span:last-child').textContent = 'Start monitoring';
   $('stopButton').disabled = true;
   updateRecordButton();
+  updateAmbientControls();
+  $('ambientNoDroneConfirm').checked = false;
+  if (hadAmbientLog) $('ambientLogStatus').textContent = `Ambient score log closed locally with the monitor session · ${state.ambientLogWindows.toLocaleString()} window records.`;
   if (!preserveMessage) setMessage('Audio is processed locally. Saving a clip requires Record 10 seconds.');
   drawWave();
 }
@@ -127,6 +133,7 @@ function resetCapture(reason) {
   state.recentResets.push(performance.now());
   if (state.recentResets.length > 8) state.recentResets.shift();
   state.samples = new Float32Array(0);
+  state.samplesSourceFrame = null;
   state.expectedSourceFrame = null;
   state.gapPending = true;
   $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'AUDIO RESET';
@@ -207,7 +214,7 @@ async function saveRecording(recording) {
     clearTimeout(timeout); state.savingRecording = false; updateRecordButton();
   }
 }
-function appendAudio(block) {
+function appendAudio(block, sourceFrame) {
   collectRecording(block);
   for (let i = 0; i < block.length; i++) {
     state.pointAt = (state.pointAt + 1) % state.points.length; state.points[state.pointAt] = block[i];
@@ -220,6 +227,7 @@ function appendAudio(block) {
     merged = new Float32Array(state.samples.length + block.length);
     merged.set(state.samples); merged.set(block, state.samples.length);
   }
+  if (state.samplesSourceFrame === null) state.samplesSourceFrame = sourceFrame;
   state.samples = merged;
   const sum = block.reduce((total, x) => total + x * x, 0);
   $('levelReadout').textContent = `${(20 * Math.log10(Math.max(Math.sqrt(sum / Math.max(block.length, 1)), 1e-7))).toFixed(0)} dB`;
@@ -232,7 +240,9 @@ async function sendAudio() {
   if (!state.active || state.requestBusy) return;
   const epoch = state.epoch, revision = state.revision, count = Math.round(state.sampleRate * CHUNK_SECONDS);
   if (state.samples.length < count) return;
-  const chunk = state.samples.slice(0, count); state.samples = state.samples.slice(count);
+  const chunk = state.samples.slice(0, count), sourceFrame = state.samplesSourceFrame;
+  state.samples = state.samples.slice(count);
+  if (state.samplesSourceFrame !== null) state.samplesSourceFrame += count;
   if (state.gapPending) { state.nextSequence++; state.gapPending = false; }
   const sequence = state.nextSequence++, controller = new AbortController();
   state.controller = controller; state.requestBusy = true;
@@ -242,12 +252,18 @@ async function sendAudio() {
     const response = await fetch('/api/audio', { method: 'POST', signal: controller.signal, cache: 'no-store',
       headers: { 'Content-Type': 'application/octet-stream', 'X-Sample-Rate': String(state.sampleRate),
         'X-Session-ID': state.sessionId, 'X-Session-Token': state.ownerToken,
-        'X-Chunk-Sequence': String(sequence) }, body: chunk.buffer });
+        'X-Chunk-Sequence': String(sequence), 'X-Capture-Drops': String(state.captureDrops),
+        ...(sourceFrame === null ? {} : { 'X-Source-Frame': String(sourceFrame) }) }, body: chunk.buffer });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `Detector returned ${response.status}`);
+    if (data.score_log_error && state.ambientLogActive) {
+      state.ambientLogActive = false;
+      $('ambientLogStatus').textContent = data.score_log_error;
+      updateAmbientControls();
+    }
     const completedAt = performance.now();
     const windows = data.window_trace || [data];
-    windows.forEach((result, index) => state.trace.push({
+    if (!state.ambientLogActive) windows.forEach((result, index) => state.trace.push({
       elapsed_seconds: Number(((completedAt - state.sessionStartedAt) / 1000).toFixed(3)),
       sequence, window_in_chunk: index, source_sample_rate: state.sampleRate,
       chunk_seconds: CHUNK_SECONDS,
@@ -262,7 +278,9 @@ async function sendAudio() {
       recovery_reasons: result.recovery_reasons || data.recovery_reasons || [],
       dropped_frames: state.captureDrops,
     }));
-    if (windows.length) $('traceButton').disabled = false;
+    if (state.ambientLogActive) state.ambientLogWindows += windows.filter(
+      (result) => Number.isFinite(result.window_rms_dbfs)).length;
+    if (windows.length && !state.ambientLogActive) $('traceButton').disabled = false;
     if (epoch === state.epoch && state.active) {
       state.completedRequests++;
       if (revision === state.revision) render(data, performance.now() - started);
@@ -300,6 +318,7 @@ async function start() {
     const sessionId = crypto.randomUUID();
     state.sessionId = sessionId; state.nextSequence = 0;
     state.expectedSourceFrame = null; state.gapPending = false;
+    state.samplesSourceFrame = null;
     state.recentResets = [];
     const claim = await fetch('/api/session/start', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId }) });
@@ -357,10 +376,10 @@ async function start() {
       }
       if (block.droppedFrames > 0 || (state.expectedSourceFrame !== null && block.sourceFrame !== state.expectedSourceFrame)) {
         state.captureDrops += block.droppedFrames || Math.max(0, block.sourceFrame - state.expectedSourceFrame);
-        resetCapture('The mic stream skipped audio. Rebuilding the three-vote window needs about 1.5 sec of uninterrupted input. If this keeps repeating, check the mic and keep this tab active.');
+        resetCapture('The mic stream skipped audio. Rebuilding a fresh raw-score window needs about 0.5 sec of uninterrupted input. If this keeps repeating, check the mic and keep this tab active.');
       }
       state.expectedSourceFrame = block.sourceFrame + samples.length;
-      try { appendAudio(samples); } finally { recycle(); }
+      try { appendAudio(samples, block.sourceFrame); } finally { recycle(); }
     };
     state.processor.addEventListener?.('processorerror', () => {
       if (epoch !== state.epoch || !state.active) return;
@@ -370,6 +389,7 @@ async function start() {
     }, { once: true });
     state.source.connect(state.processor); state.processor.connect(state.context.destination); state.active = true;
     updateRecordButton();
+    updateAmbientControls();
     state.lastAudioBlockAt = performance.now();
     state.captureWatchdog = setTimeout(() => checkCaptureHealth(epoch), 2500);
     $('micDot').classList.add('on'); $('micLabel').textContent = 'MICROPHONE LIVE'; $('latency').textContent = 'BUILDING FIRST DECISION';
@@ -392,6 +412,53 @@ window.addEventListener('pagehide', () => stop({ preserveMessage: true }));
 $('startButton').addEventListener('click', start);
 $('stopButton').addEventListener('click', () => { stop(); $('resultOverline').textContent = 'MONITOR STOPPED'; $('resultText').textContent = 'Standing by'; $('resultNote').textContent = 'Start monitoring to analyze nearby sound.'; $('latency').textContent = 'WAITING FOR AUDIO'; });
 $('recordButton').addEventListener('click', toggleRecording);
+
+function updateAmbientControls() {
+  const logging = state.active && state.ambientLogActive;
+  $('ambientLogButton').disabled = !state.active || logging || !$('ambientNoDroneConfirm').checked;
+  $('stopAmbientLogButton').disabled = !logging;
+  $('ambientNoDroneConfirm').disabled = !state.active || logging;
+}
+async function toggleAmbientLog() {
+  if (!state.active || !state.sessionId || !state.ownerToken) return;
+  if (state.ambientLogActive) {
+    $('stopAmbientLogButton').disabled = true;
+    try {
+      const response = await fetch('/api/score-log/stop', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: state.sessionId, owner_token: state.ownerToken }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not stop the local score log.');
+      state.ambientLogActive = false;
+      $('ambientLogStatus').textContent = result.status === 'saved'
+        ? `Saved ${result.window_records.toLocaleString()} score records locally · ${result.filename}. No audio was saved.`
+        : 'No active ambient log was found. Check that a complete session file was saved locally.';
+    } catch (error) {
+      state.ambientLogActive = false;
+      $('ambientLogStatus').textContent = `Could not confirm log closure: ${error.message || 'connection interrupted'}. Stop monitoring and check whether the local log has a complete end record.`;
+    } finally { updateAmbientControls(); }
+    return;
+  }
+  if (!$('ambientNoDroneConfirm').checked) return;
+  $('ambientLogButton').disabled = true;
+  try {
+    const response = await fetch('/api/score-log/start', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: state.sessionId, owner_token: state.ownerToken,
+        confirmed_ambient_only: true, threshold_selected: false,
+        environment_label: $('environmentLabel').value.trim() }) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not start the local score log.');
+    state.ambientLogActive = true; state.ambientLogWindows = 0;
+    state.trace = []; $('traceButton').disabled = true;
+    $('ambientLogStatus').textContent = `Logging timestamped scores locally · ${result.filename}. No audio is saved. Keep this tab open for the collection period.`;
+  } catch (error) {
+    $('ambientLogStatus').textContent = `Ambient log did not start: ${error.message || 'local service unavailable'}. Monitoring continues without logging.`;
+  } finally { updateAmbientControls(); }
+}
+$('ambientLogButton').addEventListener('click', toggleAmbientLog);
+$('stopAmbientLogButton').addEventListener('click', toggleAmbientLog);
+$('ambientNoDroneConfirm').addEventListener('change', updateAmbientControls);
 drawWave();
 // Bounded numerical diagnostics only; microphone samples are never exposed here.
 window.detectorDiagnostics = () => ({ captureVersion: CAPTURE_VERSION, sampleRate: state.sampleRate,

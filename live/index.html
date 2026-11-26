@@ -60,6 +60,15 @@
         <button class="stop-button" id="traceButton" type="button" disabled>Download session trace</button>
         <p>Save per-window scores, quiet gates, vote history, capture settings and drop counters. The trace contains no audio.</p>
       </div>
+      <div class="recording-controls ambient-log-controls">
+        <label for="environmentLabel">Environment label <span>(optional)</span>
+          <input id="environmentLabel" type="text" maxlength="120" autocomplete="off" placeholder="e.g. outdoor, engine running">
+        </label>
+        <label class="ambient-confirm"><input id="ambientNoDroneConfirm" type="checkbox"> I confirm no drone is present</label>
+        <button class="stop-button" id="ambientLogButton" type="button" disabled>Start ambient-only log</button>
+        <button class="stop-button" id="stopAmbientLogButton" type="button" disabled>Stop log</button>
+        <p id="ambientLogStatus" role="status">Opt in to save timestamped logits, RMS, and gap markers locally. No audio is logged. Use only with no drone present.</p>
+      </div>
     </section>
 
     <footer class="footnote">

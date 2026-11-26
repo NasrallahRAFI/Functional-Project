@@ -12,8 +12,10 @@ The plan specifies binary pooling, Al-Emadi cleaning/grouping rules, 1-second dd
 
 V4 uses its own outputs and has no V3 data/results/runtime mounts or V3 package. The V4 monitor reads its registered V4 checkpoint and training normalization directly. Historical V2/V3 configurations remain under docs/history/inherited-config. Existing test-use history must accompany source material retained in V4; a new split is not evidence that those recordings were previously unseen.
 
-Decision records: [V4-PLAN-001.md](docs/v4/decisions/V4-PLAN-001.md), [V4-IMPL-001.md](docs/v4/decisions/V4-IMPL-001.md), and [V4-TRAIN-001.md](docs/v4/decisions/V4-TRAIN-001.md). Global source/corpus/split/run registry authority: repository/registry in the enclosing project folder.
+Decision records: [V4-PLAN-001.md](docs/v4/decisions/V4-PLAN-001.md), [V4-IMPL-001.md](docs/v4/decisions/V4-IMPL-001.md), [V4-TRAIN-001.md](docs/v4/decisions/V4-TRAIN-001.md), [V4-LIVE-001.md](docs/v4/decisions/V4-LIVE-001.md), and [V4-LIVE-002.md](docs/v4/decisions/V4-LIVE-002.md). Global source/corpus/split/run registry authority: repository/registry in the enclosing project folder.
 
 Live monitor: run `start_detector.bat` from this workspace, or open http://127.0.0.1:8766/live/index.html once the service is ready. It reports raw logits only, with threshold pending. See docs/v4/decisions/V4-LIVE-001.md.
+
+Supplemental threshold analysis: [V4_MUSAN_NOISE_SUPPLEMENT.md](reports/V4_MUSAN_NOISE_SUPPLEMENT.md). MUSAN is external negative-only evidence, not a replacement for representative 24-hour live ambience. Threshold remains pending.
 
 Live monitor: run `start_detector.bat` from this workspace, or open http://127.0.0.1:8766/live/index.html once the service is ready. It reports raw logits only, with threshold pending. See docs/v4/decisions/V4-LIVE-001.md.
