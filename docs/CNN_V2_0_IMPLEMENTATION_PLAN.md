@@ -319,10 +319,10 @@ Stop at the failing gate if archive integrity fails, a source artifact changes u
 
 Before the training run, commit the V2 protocol, preparation/model code and required tests after software checks pass. After training/evaluation/export, publish the final task-owned documentation and remaining verified code on the current branch using the existing GitHub remote. Never push ZIP archives, generated datasets, raw audio, checkpoints, local environments, private records, credentials, or unrelated work. Use a scoped commit; do not force-push or replace remote history.
 
-- [ ] V1 archive and restoration verification complete.
-- [ ] Corrected fresh CNN-only data package complete and persistent.
-- [ ] One fixed 60,641-parameter CNN trained from scratch.
-- [ ] Validation threshold and model/data identities frozen.
-- [ ] One V2 test pass and honest benchmark report complete.
-- [ ] One self-contained CNN V2.0 export verified.
+- [x] V1 archive and restoration verification complete.
+- [x] Corrected fresh CNN-only data package complete and persistent.
+- [x] One fixed 60,641-parameter CNN trained from scratch.
+- [x] Validation threshold and model/data identities frozen.
+- [x] One V2 test pass and honest benchmark report complete.
+- [x] One self-contained CNN V2.0 export verified.
 - [ ] Task-only implementation and results documentation committed and pushed.

@@ -1,0 +1,58 @@
+version: CNN_V2.0
+seed: 42
+device: cpu
+threads: 4
+# Override with DRONE_AUDIO_DATASET_ROOT when the raw corpus is outside data/raw.
+raw_root: data/raw/DroneAudioDataset-master
+reference_splits: data/processed/splits
+reference_manifest: data/interim/manifest_with_split.csv
+reference_split_hashes:
+  train: 60b14ff205bdd4e950ae0642d5ae886c8b8c4c291cabfedc26ee936d9a3e1afc
+  val: c1c0170fddbd6dfa4d3095eab12abef6572ac45036278ba79cc4c71794dc23fc
+  test: 350356a0b89a84bf6cf77fc4a1ffa36dea662151fbd5d79e66989cdfeec14848
+output_root: results/cnn_v2
+frontend:
+  preset: project
+  sr: 16000
+  channel: 0
+  n_fft: 1024
+  win_length: 1024
+  hop: 256
+  window: hann
+  center: false
+  n_mels: 64
+  fmin: 50.0
+  fmax: 7500.0
+  mel_scale: htk
+  mel_norm: area
+  power: 2.0
+  amin: 1.0e-12
+  top_db: null
+  resample_quality: HQ
+  L: 0.5
+  mode: global_stats
+  measured_passband_hz: 7540.278697934931
+  passband_status: measured
+  gain_range_db: [-12.0, 12.0]
+  near_silent_dbfs: -80.0
+  clipped_peak: 0.999
+  clipped_fraction: 0.01
+  manifest_seed: 42
+architecture:
+  channels: [16, 32, 64, 64]
+  kernel_size: 3
+  pool: [2, 2]
+  head: global_average
+  dropout: 0.3
+training:
+  batch_size: 64
+  learning_rate: 0.001
+  weight_decay: 0.01
+  max_epochs: 100
+  early_stopping_patience: 8
+  scheduler_patience: 3
+  scheduler_factor: 0.5
+  min_delta: 0.0
+normalization:
+  policy: train_stats_eligible_per_band_floor_mask_v1
+  floor_db: -119.999999
