@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a18">
+  <title>Drone acoustic monitor</title>
+  <link rel="stylesheet" href="/live/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="wordmark" href="/" aria-label="Fieldnote home">
+        <span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 17h5l3-8 5 16 4-11 2 3h3"/></svg></span>
+        <span>FIELDNOTE <small>ACOUSTIC LAB</small></span>
+      </a>
+      <div class="system-state"><span class="state-light" id="systemLight"></span><span id="systemText">CHECKING MODEL</span><span class="separator">/</span><span>LOCAL SESSION</span></div>
+    </header>
+
+    <section class="intro" aria-labelledby="pageTitle">
+      <div class="intro-copy">
+        <h1 id="pageTitle">Listen for<br><em>what’s overhead.</em></h1>
+      <p class="lede">A continuous microphone feed, read by the project’s frozen CNN V2.0 model.</p>
+      </div>
+      <div class="model-stamp"><span class="stamp-rule"></span><span>FROZEN MODEL</span><strong>CNN V2.0 <i>·</i> depth 4</strong><small>Seed 42 · 60,641 parameters</small></div>
+    </section>
+
+    <section class="monitor" aria-label="Live drone detection">
+      <div class="monitor-head">
+        <div class="mic-status"><span class="mic-dot" id="micDot"></span><span id="micLabel">MICROPHONE OFF</span></div>
+        <span class="latency" id="latency">WAITING FOR AUDIO</span>
+      </div>
+      <div class="monitor-body">
+        <div class="signal-column">
+          <div class="signal-heading"><span>ROOM SIGNAL</span><span id="levelReadout">— dB</span></div>
+          <canvas id="waveform" aria-label="Live microphone waveform"></canvas>
+          <div class="time-axis"><span>LIVE INPUT</span><span id="sampleRate">— Hz</span></div>
+        </div>
+        <div class="result" id="result" data-state="idle" aria-live="polite" aria-atomic="true">
+          <span class="result-overline" id="resultOverline">READY WHEN YOU ARE</span>
+          <strong id="resultText">Standing by</strong>
+          <span class="result-note" id="resultNote">Start monitoring to analyze nearby sound.</span>
+        </div>
+      </div>
+      <div class="monitor-foot">
+        <div class="score"><span>CNN SCORE</span><strong id="scoreValue">—</strong></div>
+        <div class="threshold"><span>FROZEN LOGIT THRESHOLD</span><strong id="thresholdValue">—</strong></div>
+        <div class="decision"><span>DECISION CADENCE</span><strong id="cadenceValue">—</strong></div>
+      </div>
+      <div class="controls">
+        <button class="start-button" id="startButton" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 3v8m-4-4v4a4 4 0 0 0 8 0V7M6 17h8"/></svg></span><span>Start monitoring</span></button>
+        <button class="stop-button" id="stopButton" type="button" disabled>Stop</button>
+        <p id="message" class="message" role="status">Audio is processed locally. Saving a clip requires Record 10 seconds.</p>
+      </div>
+      <div class="recording-controls">
+        <button class="stop-button" id="recordButton" type="button" aria-pressed="false" disabled>Record 10 seconds</button>
+        <p id="recordingStatus" role="status">Start monitoring, then record a clip while your drone sound plays. Clips are saved only on this computer.</p>
+      </div>
+    </section>
+
+    <footer class="footnote">
+      <div><p><strong>About this readout</strong><br>The model compares each half-second sound window with its validation-frozen score threshold. Quiet input is shown as standby.</p></div>
+      <div><p><strong>Local by design</strong><br>Audio is captured through this computer’s microphone and processed by its local Python service. Sound from a phone or speakers must be audible to that microphone; headphone audio is not captured.</p></div>
+      <span class="evidence-note">Validation-selected CNN V2.0 · depth 4 · seed 42</span>
+    </footer>
+  </main>
+  <script src="/live/app.js?v=cnn-v2" defer></script>
+</body>
+</html>
