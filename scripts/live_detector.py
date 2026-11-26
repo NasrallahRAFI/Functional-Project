@@ -147,11 +147,22 @@ class LiveState:
                     "decision_identity": self.decision_identity,
                 }
             result = {"status": "standby"}
+            window_trace = []
             for window in windows:
                 flags = clip_flags(window, self.config)
+                window_rms_dbfs = round(
+                    float(20 * np.log10(max(float(np.sqrt(np.mean(window.astype(np.float64) ** 2))), 1e-15))),
+                    3,
+                )
                 if flags["silent"] or flags["near_silent"]:
                     self.smoother.values.clear()
-                    result = {"status": "standby", "reason": "quiet"}
+                    result = {
+                        "status": "standby",
+                        "reason": "quiet",
+                        "window_rms_dbfs": window_rms_dbfs,
+                        "votes": [],
+                    }
+                    window_trace.append({**result, "window_rms_dbfs": window_rms_dbfs})
                     continue
                 with torch.inference_mode():
                     features = transform(
@@ -168,11 +179,15 @@ class LiveState:
                         "threshold": self.threshold,
                         "votes_received": len(self.smoother.values),
                         "votes_required": self.smoother.count,
+                        "votes": self.smoother.values.copy(),
+                        "raw_vote": bool(score >= self.threshold),
+                        "window_rms_dbfs": window_rms_dbfs,
                         "generation": self.generation,
                         "recovered": discontinuity,
                         "recovery_reasons": reasons,
                         "decision_identity": self.decision_identity,
                     }
+                    window_trace.append(result.copy())
                     continue
                 result = {
                     "status": "scored",
@@ -180,12 +195,18 @@ class LiveState:
                     "raw_score": score,
                     "threshold": self.threshold,
                     "drone": decision,
+                    "votes": self.smoother.values.copy(),
+                    "raw_vote": bool(score >= self.threshold),
+                    "votes_required": self.smoother.count,
+                    "window_rms_dbfs": window_rms_dbfs,
                     "clipped": flags["clipped"],
                     "generation": self.generation,
                     "recovered": discontinuity,
                     "recovery_reasons": reasons,
                     "decision_identity": self.decision_identity,
                 }
+                window_trace.append(result.copy())
+            result["window_trace"] = window_trace
             return result
 
 

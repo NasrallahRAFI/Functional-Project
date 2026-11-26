@@ -119,10 +119,15 @@ class LiveDetectorReleaseTests(unittest.TestCase):
                     result = json.loads(body)
                     if result['status'] not in {'warming_up', 'scored'}:
                         continue
+                    event = result['window_trace'][-1]
                     start = live.STATE.builder.emitted_starts[-1]
                     expected = self.detector.score_window(offline[start:start + 7936])
                     self.assertAlmostEqual(result['raw_score'], expected, delta=1e-4)
                     self.assertEqual(result['threshold'], self.detector.threshold)
+                    self.assertAlmostEqual(event['raw_score'], expected, delta=1e-4)
+                    self.assertEqual(event['raw_vote'], expected >= self.detector.threshold)
+                    self.assertEqual(event['votes'], live.STATE.smoother.values)
+                    self.assertIsNotNone(event['window_rms_dbfs'])
                     votes = (votes + [expected >= self.detector.threshold])[-3:]
                     if len(votes) == 3:
                         self.assertEqual(result['status'], 'scored')

@@ -48,4 +48,6 @@ If the digital control fails, check alignment, the loop boundary and clip scores
 
 ## Outputs and completion criteria
 
+The monitor now has a **Download session trace** action. It saves local JSON with one row per backend window, elapsed monitor time, source rate, raw logit and threshold vote, three-vote history, window RMS and quiet-gate status, browser capture settings, sequence, generation, drop and reset counters. It contains no microphone audio. Start monitoring before video playback and note the elapsed time when playback begins so the saved rows can be aligned with the video interval.
+
 Deliver the event-aligned trace, paired playback results and a decision-log entry identifying the smallest supported change. Record unresolved factors explicitly. A capture fix needs a repeatable benefit under the same source and negative controls. A model change needs validation evidence against frozen V2 plus the agreed final evaluation. Retain the existing test result as historical evidence under the project's one-dataset and judge-once rules (PROJECT_CONTEXT_V8.md, sections 1, 4 and 10).

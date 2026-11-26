@@ -22,6 +22,7 @@ const state = {
   revision: 0, captureBlocks: 0, captureDrops: 0, resets: 0, completedRequests: 0, lastDrawAt: 0,
   recentResets: [],
   recording: null, savingRecording: false,
+  trace: [], captureSettings: null, sessionStartedAt: 0,
 };
 
 function drawWave() {
@@ -223,6 +224,24 @@ async function sendAudio() {
         'X-Chunk-Sequence': String(sequence) }, body: chunk.buffer });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `Detector returned ${response.status}`);
+    const completedAt = performance.now();
+    const windows = data.window_trace || [data];
+    windows.forEach((result, index) => state.trace.push({
+      elapsed_seconds: Number(((completedAt - state.sessionStartedAt) / 1000).toFixed(3)),
+      sequence, window_in_chunk: index, source_sample_rate: state.sampleRate,
+      chunk_seconds: CHUNK_SECONDS,
+      request_ms: Number((completedAt - started).toFixed(1)),
+      status: result.status, reason: result.reason || null,
+      window_rms_dbfs: result.window_rms_dbfs ?? null,
+      raw_logit: result.raw_score ?? null, threshold: result.threshold ?? null,
+      raw_vote: result.raw_vote ?? null, votes: result.votes ?? [],
+      votes_required: result.votes_required ?? 3, drone: result.drone ?? null,
+      generation: result.generation ?? data.generation ?? null,
+      recovered: Boolean(result.recovered || data.recovered),
+      recovery_reasons: result.recovery_reasons || data.recovery_reasons || [],
+      dropped_frames: state.captureDrops,
+    }));
+    if (windows.length) $('traceButton').disabled = false;
     if (epoch === state.epoch && state.active) {
       state.completedRequests++;
       if (revision === state.revision) render(data, performance.now() - started);
@@ -252,6 +271,10 @@ async function start() {
     const device = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
     if (epoch !== state.epoch) { device.getTracks().forEach((track) => track.stop()); return; }
     state.stream = device;
+    state.trace = [];
+    state.sessionStartedAt = performance.now();
+    state.captureSettings = device.getAudioTracks()[0]?.getSettings?.() || {};
+    $('traceButton').disabled = true;
     const sessionId = crypto.randomUUID();
     state.sessionId = sessionId; state.nextSequence = 0;
     state.expectedSourceFrame = null; state.gapPending = false;
@@ -348,4 +371,26 @@ drawWave();
 // Bounded numerical diagnostics only; microphone samples are never exposed here.
 window.detectorDiagnostics = () => ({ captureVersion: CAPTURE_VERSION, sampleRate: state.sampleRate,
   captureBlocks: state.captureBlocks, droppedFrames: state.captureDrops, resets: state.resets,
-  completedRequests: state.completedRequests, queuedSamples: state.samples.length, active: state.active });
+  completedRequests: state.completedRequests, queuedSamples: state.samples.length, active: state.active,
+  captureSettings: state.captureSettings, trace: state.trace.slice() });
+
+function downloadTrace() {
+  const report = {
+    application: 'CNN_V2.0 local monitor',
+    model: { model_id: 'CNN_V2.0', version: '2.0', variant: 'depth_4', seed: 42,
+      checkpoint_sha256: '0e97e3194e42f8fa3a2541e37dcff9fe33cdc1246d5a260ab65c6d157af6f4fb',
+      threshold: 2.823960542678833 },
+    captured_at: new Date().toISOString(), sample_rate: state.sampleRate,
+    capture_settings: state.captureSettings,
+    capture_summary: { blocks: state.captureBlocks, dropped_frames: state.captureDrops,
+      resets: state.resets, completed_requests: state.completedRequests },
+    windows: state.trace,
+  };
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url;
+  link.download = `cnn-v2-session-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+$('traceButton').addEventListener('click', downloadTrace);
