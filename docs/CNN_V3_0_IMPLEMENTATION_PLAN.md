@@ -1,10 +1,37 @@
 # CNN V3.0 implementation plan
 
-Date: 26 November 2026. Status: the user-requested A1-only training and frontend wiring are complete. A1 seed 42 failed frozen validation eligibility, and the user explicitly authorized local experimental activation despite those failures. CNN V3.0 A1 is active in the local live detector with experimental status exposed in the UI and API; CNN V2.0 remains the validated baseline. No A2 or later augmentation rungs were run. Test data remains locked and the final evaluator was not run. Remaining experiment-plan items are deferred beyond the user's current scope.
+Date: 26 November 2026. Status: **updated proposal; one further training run, not started**. A0a/A0b/A0c and A1 are completed historical work. A1 seed 42 remains locally active by explicit experimental authorization despite failed validation eligibility. The remaining experiment ladder and repeated-seed selection are superseded by **ONE_CHANNEL_seed42**, one fixed combined channel recipe on the existing depth_4 CNN. The goal is to obtain one CNN that meets the declared validation and runtime requirements before considering further research. Test data remains locked. This document update does not start training or change the active package.
 
 Improve robustness to phone playback, rooms, microphone noise and low recording levels using the existing binary corpus. Preserve a complete, restorable V2 baseline first. Keep the selected CNN V2 depth_4 architecture fixed and study channel-robust augmentation on that single architecture. Do not run an architecture grid or combinatorial hyperparameter search in this phase. A successful simulation result does not establish performance on new microphones, rooms or drone types.
 
-Canonical plan: `Functional Project/docs/CNN_V3_0_IMPLEMENTATION_PLAN.md`. Identical reading copy: `Project documents/Models/Implementation plan CNN V3.0.md`. All repository paths below are relative to **Functional Project**, the Git root, rather than its parent workspace. This plan supersedes the supplied proposed V3 plan. Section 12 explains the changes.
+Canonical plan: [CNN V3.0 implementation plan](CNN_V3_0_IMPLEMENTATION_PLAN.md) in `workspaces/study-v3/docs/`. Decisions: [CNN V3.0 decision log](CNN_V3_0_DECISION_LOG.md). Layout authority: [project catalog](../../../repository/docs/PROJECT.md). The old `Functional Project` and `Project documents` directories are compatibility views; the preserved duplicate plan is historical and is no longer an editable reading copy. Edit this V3 workspace document only.
+
+## 0. Current scope and relocated dependencies
+
+The owner described 16 planned experiments with 12 remaining after A1 and requested that the remaining work become one run. The binding execution count from this amendment is **one new fit**, regardless of the number of older optional rows or repeats. Completed controls and A1 are retained as evidence and are not repeated. The old ladder is replaced in section 7; sections 8 and 10 now use single-run acceptance instead of finalist ranking.
+
+Paths beginning with `workspaces/`, `storage/`, `runs/`, `evaluations/`, `releases/`, `local/`, `archive/` or `repository/` below are relative to the enclosing **ML Course Project** folder. Source paths such as `config/`, `scripts/`, `src/`, `tests/` and `docs/` are relative to **workspaces/study-v3**. This distinction avoids resolving shared data against the wrong checkout.
+
+| Dependency | Canonical location relative to project root |
+|---|---|
+| Active code, plan and decisions | `workspaces/study-v3/` on branch `cnn-v3` |
+| Registered source | `storage/sources/al-emadi/al-emadi-r001/original/`; use its `Binary_Drone_Audio/` child only |
+| Reviewed corpus and provenance | `storage/corpora/corpus-001/preparation-evidence/` |
+| Frozen train/validation/test split | `storage/splits/split-001/` |
+| V2 cached features and normalization | `storage/caches/cnn-v2-existing/` |
+| Verified raw-derived training cache | `storage/caches/v3-raw-train/` |
+| Fixed validation suite, tensors and V2 reference | `storage/derived/v3-validation-suite/` |
+| Completed V3 experiments and proposed new run | `runs/study-v3/experiments/` |
+| Calibration, review and environment records | `runs/study-v3/preparation/` |
+| Final evaluation and locks | `evaluations/study-v3/`; historical V2 locks remain in `evaluations/study-v2/original/` |
+| Current experimental A1 package | `releases/study-v3/A1-experimental/` |
+| Proposed new package, only after its gates | `releases/study-v3/ONE_CHANNEL_seed42/` (planned) |
+| Runtime selection | `workspaces/study-v3/config/live_detector.json` |
+| Private recordings / diagnostic traces / screenshots | `local/private_recordings/detector/`, `local/diagnostics/detector/`, `local/screenshots/screenshots/` |
+| Existing backups and restore evidence | `archive/legacy/` and `archive/restore_checks/` |
+| Registered Python environment | `local/environments/study-v3/`; `scripts/with_study.ps1` supplies Python and the registered raw source |
+
+Migration records: [path mapping](migration/path_mapping.csv), [restructuring](migration/RESTRUCTURING.md), and [compatibility registry](../registry/compatibility/study-v3.json). Legacy `data/`, `results/`, `runtime/` and `archive/` paths used by frozen scripts resolve through registered junctions. They are compatibility access paths, not additional payload copies. Do not remove the junctions, regenerate V2 dependencies, edit historical archives/records, or rewrite frozen hashes to reflect relocation. Exact member names inside old ZIPs remain unchanged even where this plan gives their new physical locations. The execution notes after section 12 are chronological history; the current scope in sections 0 and 7 supersedes earlier stop-after-A1 and ladder instructions.
 
 ## 1. Baseline and scope
 
@@ -30,24 +57,24 @@ The following boundaries apply:
 
 ### 2.1 Existing backup and current gaps
 
-`archive/Models V1.0.zip` already exists with its `.zip.sha256` sidecar. Its outer size is **1,847,016,558 bytes**. It contains 703 payload files plus `ARCHIVE_MANIFEST.json`, under `data/`, `results/` and `runtime/`. It is a V1 artifact backup, not the complete V2 baseline. It excludes the raw corpus and source code. Preserve it unchanged, verify its sidecar and member manifest again before relying on it, and retain it as a separate backup rather than nesting it in a new ZIP.
+`archive/legacy/Models V1.0.zip` already exists with its `.zip.sha256` sidecar. Its outer size is **1,847,016,558 bytes**. It contains 703 payload files plus `ARCHIVE_MANIFEST.json`, under `data/`, `results/` and `runtime/`. It is a V1 artifact backup, not the complete V2 baseline. It excludes the raw corpus and source code. Preserve it unchanged, verify its sidecar and member manifest again before relying on it, and retain it as a separate backup rather than nesting it in a new ZIP.
 
-The actual V2 prepared-data root is **`results/cnn_v2/data/`**, not `data/cnn_v2/` or `data_manifests/`. Generated data and runtime packages are ignored by Git. A Git tag alone cannot restore them. There is no separate V2 operating-point CSV: the authoritative V2 threshold and alternative operating points are in `training/freeze.json` and `evaluation/report.json`. `results/tables/operating_points.csv` belongs to the older multi-model study.
+The actual V2 prepared-data root is **`storage/caches/cnn-v2-existing/`**, not `data/cnn_v2/` or `data_manifests/`. Generated data and runtime packages are ignored by Git. A Git tag alone cannot restore them. There is no separate V2 operating-point CSV: the authoritative V2 threshold and alternative operating points are in `runs/study-v2/legacy-training/freeze.json` and `evaluations/study-v2/original/report.json`. `runs/study-v1/legacy-model-study/tables/operating_points.csv` belongs to the older multi-model study.
 
-The active V2 runtime selection is **`config/live_detector.json`**. `runtime/assets/manifest.json`, `runtime/assets/metadata/model_selection.json`, `runtime/assets/models/` and `runtime/assets/bundle/` describe the preserved V1 seed-44 runtime. Do not use those legacy files to identify or restore the active V2 model.
+The runtime selection file is **`config/live_detector.json`**; it now selects experimental A1. The frozen V2 archive retains its historical V2 selection copy. `local/runtime/study-v3/assets/manifest.json`, `releases/study-v1/deployed-snapshot/metadata/model_selection.json`, `releases/study-v1/deployed-snapshot/models/` and `releases/study-v1/deployed-snapshot/bundle/` describe the preserved V1 seed-44 runtime. Use the registered V2 release and frozen V2 contract to restore V2; the current active contract identifies experimental A1.
 
-The current `config/cnn_v2.yaml` has SHA-256 `0cf5f934cd1e9a736d87f786132dc422dc7a9b541d4c73e7ba42a30e87fd7998`, while the training freeze and ready marker bind `e4aef0b2ba55c2c5b0d10db5b1dcf36342d8562b5472703215e64d4c855e0bee`. The difference was resolved during this review: restoring the original absolute raw-data path and removing the later portability comment reconstructs the exact frozen bytes. That hash-matching copy is preserved locally at `archive/CNN_V2.0_recovered_provenance/config/cnn_v2.training-frozen.yaml`. Keep both versions in the source archive, label the current one as the portable configuration, and use the frozen copy to explain the original training identity. Do not overwrite the current YAML or edit the historical freeze to match it. The recovered copy contains a local filesystem path and stays out of GitHub.
+The current `config/cnn_v2.yaml` has SHA-256 `0cf5f934cd1e9a736d87f786132dc422dc7a9b541d4c73e7ba42a30e87fd7998`, while the training freeze and ready marker bind `e4aef0b2ba55c2c5b0d10db5b1dcf36342d8562b5472703215e64d4c855e0bee`. The difference was resolved during this review: restoring the original absolute raw-data path and removing the later portability comment reconstructs the exact frozen bytes. That hash-matching copy is preserved locally at `archive/legacy/CNN_V2.0_recovered_provenance/config/cnn_v2.training-frozen.yaml`. Keep both versions in the source archive, label the current one as the portable configuration, and use the frozen copy to explain the original training identity. Do not overwrite the current YAML or edit the historical freeze to match it. The recovered copy contains a local filesystem path and stays out of GitHub.
 
-### 2.2 Create these separate archives before V3 implementation
+### 2.2 Completed baseline archive set — retain for restoration
 
 The names below use the inventory date. If the freeze occurs later, use its actual date and record it in all manifests. Size figures are current uncompressed payload sizes, not promised ZIP sizes.
 
 | Archive | Required contents | Current size or reason |
 |---|---|---|
-| `archive/CNN_V2.0_source_20261126.zip` | The V2 source snapshot, relevant current working-file changes, configuration, tests, requirements, notebooks, documentation, source revision and environment records described below | Supplies the code needed to reproduce and run the artifacts |
-| `archive/CNN_V2.0_artifacts_20261126.zip` | The explicit V2 results/runtime allowlist below and the original V1 test lock referenced by V2 | Approximately 172 MB before source/provenance additions |
-| `archive/DroneAudioDataset_binary_frozen_20261126.zip` | The original `Binary_Drone_Audio/unknown/` and `Binary_Drone_Audio/yes_drone/` trees, source `README.md`, `LICENSE.md`, and an inventory of every raw WAV with SHA-256 | **11,704 WAVs; 384,021,184 bytes** of WAV files |
-| `archive/CNN_V2.0_diagnostics_private_20261126.zip` | The five local microphone WAVs, the two replay/control CSVs, the derived reference WAV, source trace JSON if located, and provenance/label notes | Known local payload: **9,776,788 bytes**, before notes and any recovered JSON |
+| `archive/legacy/CNN_V2.0_source_20261126.zip` | The V2 source snapshot, relevant current working-file changes, configuration, tests, requirements, notebooks, documentation, source revision and environment records described below | Supplies the code needed to reproduce and run the artifacts |
+| `archive/legacy/CNN_V2.0_artifacts_20261126.zip` | The explicit V2 results/runtime allowlist below and the original V1 test lock referenced by V2 | Approximately 172 MB before source/provenance additions |
+| `archive/legacy/DroneAudioDataset_binary_frozen_20261126.zip` | The original `Binary_Drone_Audio/unknown/` and `Binary_Drone_Audio/yes_drone/` trees, source `README.md`, `LICENSE.md`, and an inventory of every raw WAV with SHA-256 | **11,704 WAVs; 384,021,184 bytes** of WAV files |
+| `archive/legacy/CNN_V2.0_diagnostics_private_20261126.zip` | The five local microphone WAVs, the two replay/control CSVs, the derived reference WAV, source trace JSON if located, and provenance/label notes | Known local payload: **9,776,788 bytes**, before notes and any recovered JSON |
 
 The raw dataset currently resides outside the repository. Resolve it through `DRONE_AUDIO_DATASET_ROOT`, then check the `Binary_Drone_Audio` child. Preserve relative dataset paths in the ZIP and document how to set the environment variable after restoration. Do not archive the full parent download: its binary and multiclass trees together have 23,408 WAVs and duplicate the binary task's scope. Keep source URL `https://github.com/saraalemadi/DroneAudioDataset`, the license, and the observed source revision if available; otherwise record revision as unknown and use the per-file hashes as the content identity.
 
@@ -55,20 +82,20 @@ The raw dataset currently resides outside the repository. Resolve it through `DR
 
 ### 2.3 Exact V2 artifact allowlist
 
-Include these paths with their repository-relative structure:
+This table gives the relocated physical locations of the preserved V2 artifacts. Existing ZIPs retain their original member structure; use the migration mapping when restoring. Do not rebuild the completed baseline archive merely to rename its members.
 
 | Path | What must be preserved | Checked local payload |
 |---|---|---:|
-| `results/cnn_v2/data/` | All 12 files: ready marker, three mel-power arrays, three indices, three split manifests, `normalization.json`, `normalization_stats.npz` | 168,494,072 bytes |
-| `results/cnn_v2/training/` | `cnn_v2_best.pt`, `checkpoint_epoch.pt`, `freeze.json`, `history.json`; these include best weights and resume evidence | 1,284,849 bytes |
-| `results/cnn_v2/evaluation/` | `scores.csv`, `report.json`, `scoring.lock.json` | 160,337 bytes |
-| `results/cnn_v2/export/CNN_V2.0/` | All 16 package files, including `PACKAGE_MANIFEST.json`, TorchScript, statistics, metadata, model card, software verification and native-rate golden fixtures | 554,559 bytes |
-| `runtime/assets/CNN_V2.0/` | All 16 currently staged runtime package files, even though they match the export; retain evidence of what was deployed | 554,559 bytes |
-| `results/cnn_v2/frontend_verification/` | Six evidence files, including desktop/mobile screenshots and browser review/logs, after checking for private session details | 978,489 bytes |
-| `results/cnn_v2/verify_frontend_browser.py` | The local verification driver, absent from a source-only Git export because `results/` is ignored | 3,842 bytes |
-| `results/tables/test_scored.lock` | The historical V1 test lock referenced by V2's lock; preserve exact bytes | 659 bytes |
-| `data/interim/inventory.csv`, `data/interim/manifest_full.csv`, `data/interim/manifest_with_split.csv`, `data/interim/cleaning_log.csv`, `data/interim/decision_log.md` | Original inventory, cleaning, grouping and decision provenance used by the preparation workflow | Explicit files only |
-| `data/processed/splits/` | `train.csv`, `val.csv`, `test.csv`, `FROZEN.txt`; required V1 split references for reproducing V2 preparation | Explicit files only |
+| `storage/caches/cnn-v2-existing/` | All 12 files: ready marker, three mel-power arrays, three indices, three split manifests, `normalization.json`, `normalization_stats.npz` | 168,494,072 bytes |
+| `runs/study-v2/legacy-training/` | `cnn_v2_best.pt`, `checkpoint_epoch.pt`, `freeze.json`, `history.json`; these include best weights and resume evidence | 1,284,849 bytes |
+| `evaluations/study-v2/original/` | `scores.csv`, `report.json`, `scoring.lock.json` | 160,337 bytes |
+| `releases/study-v2/export/CNN_V2.0/` | All 16 package files, including `PACKAGE_MANIFEST.json`, TorchScript, statistics, metadata, model card, software verification and native-rate golden fixtures | 554,559 bytes |
+| `releases/study-v2/deployed-snapshot/` | All 16 currently staged runtime package files, even though they match the export; retain evidence of what was deployed | 554,559 bytes |
+| `runs/study-v2/verification/` | Six evidence files, including desktop/mobile screenshots and browser review/logs, after checking for private session details | 978,489 bytes |
+| `local/diagnostics/cnn-v2/verify_frontend_browser.py` | The local verification driver, absent from a source-only Git export because `results/` is ignored | 3,842 bytes |
+| `runs/study-v1/legacy-model-study/tables/test_scored.lock` | The historical V1 test lock referenced by V2's lock; preserve exact bytes | 659 bytes |
+| `storage/corpora/corpus-001/preparation-evidence/inventory.csv`, `storage/corpora/corpus-001/preparation-evidence/manifest_full.csv`, `storage/corpora/corpus-001/preparation-evidence/manifest_with_split.csv`, `storage/corpora/corpus-001/preparation-evidence/cleaning_log.csv`, `storage/corpora/corpus-001/preparation-evidence/decision_log.md` | Original inventory, cleaning, grouping and decision provenance used by the preparation workflow | Explicit files only |
+| `storage/splits/split-001/` | `train.csv`, `val.csv`, `test.csv`, `FROZEN.txt`; required V1 split references for reproducing V2 preparation | Explicit files only |
 
 Also preserve the raw inventory identity recorded in V2's ready marker: `cdfa077215c174ba3a88ce89f4095908685dcc4b1b3aa43e7d38a243d581bf24`. This identifies the source inventory recorded by V2; it is not a substitute for hashing the current raw WAVs. If a current provenance file differs from the state bound by the freeze, retain both versions with their roles identified rather than silently substituting one for the other.
 
@@ -88,7 +115,7 @@ The V2 training entry point is `scripts/train_cnn_v2.py`. The four existing note
 
 ### 2.5 Private diagnostic allowlist
 
-Preserve these five `runtime/recordings/` files in the private diagnostics ZIP:
+Preserve these five `local/private_recordings/detector/` files in the private diagnostics ZIP:
 
 - `microphone_20261125_215246_4ffd885f.wav`
 - `microphone_20261125_215302_f1361f85.wav`
@@ -98,14 +125,16 @@ Preserve these five `runtime/recordings/` files in the private diagnostics ZIP:
 
 Each is a 10-second, 48 kHz mono FLOAT WAV, 1,920,080 bytes. The first four are the historical replay set; the fifth is an additional diagnostic, not part of the reported 80-window result. Also preserve:
 
-- `runtime/diagnostics/cnn_v2_saved_window_trace.csv`
-- `runtime/diagnostics/cnn_v2_validation_bebop_trace.csv`
-- `runtime/diagnostics/training_drone_reference.wav`, labeled as a derived corpus reference rather than a new independent recording
+- `local/diagnostics/detector/cnn_v2_saved_window_trace.csv`
+- `local/diagnostics/detector/cnn_v2_validation_bebop_trace.csv`
+- `local/diagnostics/detector/training_drone_reference.wav`, labeled as a derived corpus reference rather than a new independent recording
 - The downloaded session-trace JSON described in the proposal, when recovered, with its original filename and SHA-256. It was not found in the inspected project or attached JSON files; record it as missing until supplied or located.
 
 Add a diagnostics index listing file hash, source, recording settings, known playback/label information, historical use and missing metadata. Keep private recordings, traces, local filesystem paths and archives out of GitHub. Their archive destination may remain under ignored local storage or outside the repository; never stage the archive directory indiscriminately.
 
 ## 3. Freeze and restore procedure
+
+This is the preserved baseline-backup procedure, already completed for the existing set. It describes restoration of the archived V2 state, not an instruction to reset the active A1 selection or repeat backups before the proposed fit.
 
 Implement the archive operation as a dedicated allowlist-based tool, such as a new `scripts/archive_cnn_v2.py`. The existing `scripts/archive_models_v1.py` is a pattern for member manifests and hashes, **not** a V2 command: its roots select the older artifacts. This plan does not assert that the new tool already exists.
 
@@ -129,32 +158,25 @@ node --test tests/browser/*.test.mjs
 .venv\Scripts\python.exe scripts/prepare_local_detector.py
 ```
 
-Exclude `.git/`, virtual environments, package caches, browser profiles, cookies, credentials, session ownership tokens, `__pycache__/`, `.pytest_cache/`, `.ruff_cache/`, `results/cnn_v2/pytest-tmp/`, incidental logs, unrelated recordings and unrelated generated report sites. Do not ZIP all of `results/`, `runtime/`, the workspace or Downloads. Preserve the V1 ZIP separately. No archive creation or restore test was performed as part of finalizing this plan.
+Exclude `.git/`, virtual environments, package caches, browser profiles, cookies, credentials, session ownership tokens, `__pycache__/`, `.pytest_cache/`, `.ruff_cache/`, `local/scratch/cnn-v2-pytest/`, incidental logs, unrelated recordings and unrelated generated report sites. Do not ZIP all of `results/`, `runtime/`, the workspace or Downloads. Preserve the V1 ZIP separately. Archive creation and restoration were completed earlier; see V3-001 and the execution log. This proposal reuses that evidence and creates no new backup.
 
 ## 4. Preregistration and output layout
 
 Use the next unused decision-log IDs after inspecting the current log. `PROJECT_CONTEXT_V8.md` already contains D044–D058, so **do not restart at D044**. Use a V3 namespace such as `V3-001` if a shared next ID cannot be reserved unambiguously. Log the hypothesis, archive identities, experiment graph, parameter ranges, training budgets, threshold rule, selection rule, guards and final-test authorization before fitting.
 
-Keep the following versioned layout:
+Use the canonical locations in section 0. The next proposed run will use:
 
 ```text
-config/cnn_v3.yaml
-requirements-cnn-v3.txt
-src/dronedet/cnn_v3/augment.py
-src/dronedet/cnn_v3/dataset.py
-scripts/archive_cnn_v2.py
-scripts/prepare_cnn_v3.py
-scripts/train_cnn_v3.py
-scripts/evaluate_cnn_v3.py
-scripts/export_cnn_v3.py
-results/cnn_v3/data/
-results/cnn_v3/experiments/<run_id>/
-results/cnn_v3/evaluation/
-results/cnn_v3/export/CNN_V3.0/
-runtime/assets/CNN_V3.0/
+workspaces/study-v3/config/cnn_v3_one_channel.yaml             # planned frozen execution config
+runs/study-v3/experiments/ONE_CHANNEL_seed42/                 # planned new run; never reuse A1 or A4 outputs
+evaluations/study-v3/ONE_CHANNEL_seed42/                     # planned final evaluation, gated
+releases/study-v3/ONE_CHANNEL_seed42/                        # planned package, gated
+reports/study-v3/ONE_CHANNEL_seed42/                         # planned aggregate report
 ```
 
-These are implementation targets, not existing files. Reuse canonical audio I/O, resampling, mel extraction, normalization and CNN/metric code. A shared frontend change must be selected by a versioned config and preserve V2 behavior; adding a V3 feature must not silently change the default V2 contract. New preparation/training verification must retain the V2 test-access guards.
+Reuse `scripts/train_cnn_v3_rung.py` and `src/dronedet/cnn_v3/` for the selected combined recipe after implementing a distinct run identity/output destination. The existing trainer only accepts A1–A4 and would write an A4-named directory; it is not yet a ONE_CHANNEL runner. Existing `config/cnn_v3.yaml` contains the historical ladder, finalist seeds and finalist count. It remains historical configuration for completed runs; create the dedicated single-run config above before execution, omit finalist/refit settings, and hash its resolved effective recipe. Do not reinterpret or edit the config identity bound to completed checkpoints. No training command in this proposal should be treated as ready to launch until these small execution changes are reviewed.
+
+Reuse canonical audio I/O, resampling, mel extraction, normalization, CNN and metric code. Preserve V2 behavior and V3 test-access guards. Register the new run and its corpus/split/cache dependencies before fitting, using [run templates](../templates/experiment/README.md) and the study registry workflow. Register evaluation and release identities only when those outputs exist; a proposed path is not a completed artifact.
 
 Each run record binds source commit/selected source hash, parent configuration, data/split/statistics hashes, dependency lock, seed, augmentation config hash, sampler/loss policy, training budget and complete metrics. Store optimizer, scheduler and RNG/resume states and timings. Resume only a matching configuration; rerun under a new ID after a material change.
 
@@ -168,9 +190,9 @@ For the main channel runs, retain a 20% branch using the V2 random aligned crop 
 
 Augment full clips with adequate filter/reverb context, then select a 7,936-sample crop, then compute the versioned frontend. Applying a transform to the full clip does **not** automatically eliminate its startup/ending transients from a random crop. Carry proper filter state/context where available, define padding/tail handling for short clips, and check boundary versus interior windows. Do not use circular FFT filtering or hard looping that creates artificial wrap boundaries.
 
-### 5.2 Initial channel ranges
+### 5.2 Channel ranges and deferred extensions
 
-These are fixed starting settings to calibrate with **training-only** energy/survival checks before the first fit. Record any resulting adjustment before freezing the validation recipe; do not repeatedly tune ranges against canary outcomes.
+The core stages below were calibrated with training-only checks before A1 and are the combined recipe in section 7. Rows marked late/optional/separate are retained as deferred ideas and are not enabled in the one-run proposal. Keep the frozen evaluation suite unchanged and verify calibration/config identity before fitting.
 
 | Stage | Conditional probability | Starting range and implementation requirement |
 |---|---:|---|
@@ -216,11 +238,11 @@ First create a no-channel raw-loader control. Match V2's valid **frame-aligned**
 
 Use a stable seed derived from run seed, epoch, source clip ID, derivative ID and draw/occurrence ID. A seed based only on `(seed, epoch, index)` gives identical augmentation to repeated weighted-sampler draws in one epoch. Seed NumPy, Python and Torch/masking generators; preserve the sampler's state. Begin with `num_workers=0`, then add workers only with demonstrated reproducibility and Windows-safe entry points. A parent assignment to `dataset.epoch` does not update persistent worker copies automatically. PyTorch documents separate worker replicas and cross-library RNG considerations in its [data-loading guidance](https://docs.pytorch.org/docs/2.15/data.html).
 
-Use on-the-fly augmentation by default. Saved copies are an optional storage/reproducibility experiment using the same versioned transform engine, not a prerequisite for V3:
+**Active run: on-the-fly augmentation only.** The saved-copy estimates below are retained for historical planning and are deferred; they authorize no additional run or rendering for ONE_CHANNEL_seed42:
 
 - Suggested fixed trial: four derivatives per training positive and one per training negative. This creates **10,508 additional WAVs**; originals plus copies total **18,115**, comprising **4,835 positives and 13,280 negatives**. They remain 7,607 original training clips and 1,249 original groups.
 - Using actual train sample counts, 16-bit mono WAVs with unchanged lengths and 44-byte headers require approximately **342,587,944 extra bytes**. Raw binary audio plus these derivatives is approximately **726,609,128 bytes**. Recompute actual sizes, including manifests and any context/tails, before rendering; stop before the 1 GB budget is exceeded.
-- Persist below `results/cnn_v3/data/augmented/train/` with a manifest containing original clip/group/split, source SHA-256, derivative ID, run/config hash, seed, all parameters, donor identity if any, output SHA-256 and measured levels/SNR. Reload PCM16 copies through the canonical loader so quantization is part of the experiment. Do not compare them with unquantized float data while attributing all effects to persistence.
+- Persist below `storage/derived/v3-saved-train/` (future proposal only; not created or registered) with a manifest containing original clip/group/split, source SHA-256, derivative ID, run/config hash, seed, all parameters, donor identity if any, output SHA-256 and measured levels/SNR. Reload PCM16 copies through the canonical loader so quantization is part of the experiment. Do not compare them with unquantized float data while attributing all effects to persistence.
 - Apply crop and optional SpecAugment during training; do not apply another channel chain to already augmented saved copies. Any extra chain requires a separately registered experiment.
 - Keep all derivatives in training. Verify source groups, hashes and ready markers against frozen manifests; no source or derivative may cross into validation/test.
 - Compare with on-the-fly augmentation at matched optimizer-step and class-exposure budgets. More copies otherwise change epoch length and training effort as well as the augmentation method.
@@ -229,49 +251,58 @@ Baseline loss is `BCEWithLogitsLoss(pos_weight=6640/967)` with ordinary shuffled
 
 A weighted sampler can match class exposure without stored audio. It does not provide the same fixed waveform diversity as saved derivatives, and repeated draws need distinct augmentation seeds. Treat storage, class exposure and loss weighting as distinct factors when interpreting results.
 
-## 7. Experiment graph and frontend options
+## 7. One proposed experiment: ONE_CHANNEL_seed42
 
-### 7.1 Ordered main experiments
+### 7.1 Purpose and execution count
 
-Each row has an explicit parent and adds one named group. These are grouped ablations, so they attribute a result to a group, not to each transform inside it. Split a useful group further if that distinction matters. Archive/restore completion and the preregistration record precede every row.
+**Hypothesis:** learning the combined speaker, room and microphone/noise distortions already calibrated for V3 may improve channel robustness beyond the gain-only A1 result while preserving clean performance. A1 achieved clean recall 157/185 with 25 false positives, and moderate/severe FAR 2.49%/5.21%; it did not qualify. Gain alone did not meet the target, so the proposed next fit includes the channel effects missing from A1.
 
-| ID | Parent | Change |
-|---|---|---|
-| A0a | Frozen V2 | Verify loaded checkpoint/golden/validation-score parity and reproduce the original cached-power V2 training recipe, including clean-validation-loss stopping. No test scoring. |
-| A0b | A0a | Raw-waveform loader with matched offsets, gain and the original clean-validation-loss stopping; no new channel augmentation |
-| A0c | A0b | Change only the stopping/scheduler monitor to the fixed weighted validation loss used by the rest of V3; no new channel augmentation |
-| A1 | A0c | Wider gain, with the fixed 20% V2-recipe branch |
-| A2 | A1 | Speaker band limit, EQ and soft clipping |
-| A3 | A2 | Background mixing and microphone floor |
-| A4 | A3 | Synthetic room response |
-| A5a | Best eligible A1–A4 | DC and clipping stress, applied to both classes |
-| A5b | Best eligible parent | Optional codec/compressor group; compare against its exact parent without it |
-| A6 | Best eligible A1–A5 | SpecAugment |
-| A7 | Best eligible A configuration | Optional pitch/stretch ablation |
-| A8 | Best eligible A configuration | Saved derivatives versus on-the-fly augmentation; matched exposure and step budgets |
-| B1 | Best eligible A configuration | Window DC removal |
-| B2 | Same A parent; also test B1+B2 only if registered | Scalar per-window log-mel mean subtraction |
-| B3 | Registered A/B parent | Train-only re-estimation of normalization statistics, including paired with/without B2 if registered |
+| Item | Binding proposal |
+|---|---|
+| New training executions | **1** |
+| Run ID | `ONE_CHANNEL_seed42` |
+| CNN architecture | Existing V2 depth_4, channels 16–32–64–64, 60,641 parameters, dropout 0.3 |
+| Seed | **42 only** for model, sampling and augmentation RNGs |
+| Initialization | From scratch under the existing deterministic seed-42 recipe; no A1/V2 warm start comparison |
+| Recipe | Existing calibrated full A4 channel recipe, with one fixed set of probabilities and ranges |
+| Comparisons | Already saved frozen V2, A0c and A1 scores; no refits |
+| Checkpoint | Best weighted-validation-loss epoch from this one trajectory |
+| Threshold | One maximum weighted pooled validation-F1 threshold, ties to higher raw logit, per section 8 |
+| Runtime frontend | Existing V2-compatible frontend, normalization, quiet gate, 0.496 s cadence and three-window majority |
 
-Record the parent when it is chosen. If a later rung fails, do not silently continue as if it improved the chain; subsequent rows branch from the best eligible configuration as stated. All candidates use the same frozen evaluation suite. Keep optional extensions bounded to the configurations written before their results are inspected.
+The proposed fit consolidates the practical channel coverage of A2/A3/A4 in one model. Separate A2/A3/A4 fits, A5a/A5b, A6/A7/A8, B1/B2/B3, C options, parameter sweeps, warm-start variants, saved-copy comparisons, ensembles and seeds 43/44 are outside this schedule. Optional stages are not automatically merged just because they appeared in the old plan: some change the frontend or need their own calibration and would make this first combined model harder to interpret.
 
-A0 separates saved-inference reproduction, loader refactoring and the changed validation monitor so none is mistaken for an augmentation gain. Match cached versus raw-loader tensors at identical aligned offsets before comparing trained models: require normalized-tensor maximum absolute error at most 1e-4 and logit error at most 1e-4, with identical frozen-threshold votes. Reproducing the original cached training in the same pinned environment should reproduce its deterministic result; allow at most 0.005 absolute clean-validation F1 difference, one positive decision and one negative decision of count difference as the reproduction guard. Archive both score sets and explain any nonzero difference. A0c is a new control, not a claim to reproduce the original stopping outcome. If A0a or A0b fails its parity/reproduction requirements, resolve the refactor or environment difference before interpreting augmentation gains.
+### 7.2 One fixed combined augmentation distribution
 
-### 7.2 Training and initialization
+For each training example, independently of its label, choose the original V2 crop/±12 dB gain branch with probability **0.20**, otherwise choose the combined channel branch with probability **0.80**. Conditional probabilities within that branch are:
 
-Use the V2 architecture and recipe for the main A ladder: batch 64, AdamW 1e-3, weight decay 1e-2, the recorded ReduceLROnPlateau settings, maximum 100 epochs, early-stopping patience 8. A0a/A0b retain the original clean-validation-loss monitor. From A0c onward, use one fixed validation-loss monitor built from the condition weights in section 8 for early stopping and the plateau scheduler. Restore the best checkpoint. For comparisons with a changed epoch length, match the optimizer-step cap and scheduler/validation frequency as well.
+| Stage | Probability | Frozen range |
+|---|---:|---|
+| Speaker band limit | 0.70 | HP 150–600 Hz; LP 3,500–7,500 Hz; existing log-uniform cutoffs/order-2 implementation |
+| Smooth EQ | 0.50 | Six control points, ±6 dB; existing 513-tap FIR |
+| Soft clipping | 0.30 | Drive 0–18 dB, existing RMS-preserving implementation |
+| Gain | 1.00 | −30 to +6 dB |
+| Synthetic room response | 0.50 | RT60 0.2–1.0 s; DRR −5 to +10 dB |
+| Training-negative background | 0.60 | Added-background SNR 0–30 dB; existing eligible donor selection/provenance |
+| Microphone floor | 1.00 | −75 to −45 dBFS; combined added-noise SNR at least 0 dB for every nonzero waveform |
 
-Run seed 42 for screening. Refit up to two eligible finalists with seeds 42, 43 and 44 under the identical recipe, report mean/std, and retain fixed seed 42 as the deployable seed. Rank finalized configurations by mean selection score under the guards, with seed-42 eligibility also required. Do not choose a lucky seed or add an ensemble. V2's historical benchmark remains a one-seed reference; distinguish that from V3's seed-variance assessment.
+Use the already calibrated processing order, padding/crop behavior and total-nuisance limiter. Preserve the reviewed fix that avoids final per-clip peak normalization. DC augmentation, hard clipping, codec, compressor, pitch/stretch and SpecAugment remain disabled. Keep existing normalization statistics; add no B frontend variant. Use on-the-fly augmentation and ordinary shuffled original sampling, with no persisted derivatives or oversampling.
 
-Keep the existing depth_4 architecture fixed throughout CNN V3.0. V2-weight fine-tuning, architecture changes, and recipe grids are deferred beyond this implementation; they are not part of the current experiment set.
+Random draws inside these fixed bounds expose **one CNN to varied training audio**. They do not create separate parameter experiments or versions. Freeze the complete distribution, code and donor manifest before the fit. If preflight discovers a recipe defect, resolve and document it before training rather than launching comparison runs.
 
-### 7.3 Frontend contracts
+The full A4 training-only calibration and approved listening review already exist under `runs/study-v3/preparation/`. Reuse them only after confirming that the actual augmentation source/config hashes still match those records. Relocation alone requires path/identity checks, not repeating completed A0 controls. Any material DSP change needs the affected training-only safety checks before the one fit.
 
-B1 subtracts the **scored window's** waveform mean before spectral extraction in both training and runtime. For B2, specify one scalar mean over the whole log-mel window; do not subtract a separate time mean per frequency band, which would remove stationary spectral shape. Document the exact operation order relative to B1 and per-band standardization. Gain invariance is approximate in the presence of floors, clipping or nonlinear transforms.
+### 7.3 Fixed training budget
 
-B3 fits statistics from a deterministic, versioned training-only mixture matching the declared clean/channel distribution. Freeze the sampled realizations/seeds and original-source weighting before fitting; do not estimate them anew every epoch or count extra positive copies as unrelated evidence. Apply the reviewed statistics eligibility and per-band floor policy unless a separately logged experiment changes it.
+Use batch 64, AdamW learning rate 0.001, weight decay 0.01, weighted BCE with positive weight 6,640/967, ordinary shuffled sampling, four CPU threads, and the existing environment. Use the fixed weighted validation BCE (clean 1/2; each severity 1/6) for the scheduler and early stopping. ReduceLROnPlateau uses factor 0.5 and patience 3. Stop at the first of 100 epochs, 12,000 optimizer steps, or early-stopping patience 8; restore the best checkpoint from that same trajectory. Evaluate at each epoch end, including a final partial epoch if the step cap is reached.
 
-Each selected frontend variant needs a new config/statistics identity, golden fixtures, sample-rate tests and package hash. Test training, offline inference and live-window processing at 16/44.1/48 kHz through the shared code. Keep quiet-gate, downmix, window cadence, smoothing and reset policies fixed in the main ladder. If evidence requires a capture/downmix fix, version and evaluate it as a separate processing change before attributing its effect to the CNN.
+These are the existing recipe and its one scheduled learning-rate policy, not a search. Do not change the optimizer, loss weights, batch size, training limits or monitor in response to the run. A crash may resume matching model/optimizer/scheduler/RNG state under the same run identity; it does not authorize a fresh initialization or second seed. A completed failed run ends this proposal and produces a report for the next decision.
+
+### 7.4 Meaning of a working candidate
+
+First require all frozen validation guards in section 8 at the one selected threshold. Then freeze the model/package/policy and complete the declared software/runtime checks and the single gated final benchmark. Report the fixed private replay as a diagnostic after selection; do not select checkpoints or thresholds from it. Passing simulated validation is not proof of phone/microphone performance. A model can pass benchmark gates yet still fail the local playback diagnostic; report that limit explicitly.
+
+A1 stays the current experimental selection while this experiment is only proposed or running. Keep its package immutable and store the new candidate beside it. Validation failure does not silently replace A1, promote a new candidate, relax guards, or trigger another fit. General validated activation requires the existing acceptance/runtime gates; an experimental activation of another failed candidate would require its own explicit owner decision.
 
 ## 8. Validation selection and acceptance
 
@@ -296,9 +327,9 @@ Eligibility at that threshold requires:
 3. FAR is at most **1% in each augmented validation condition**. A severely corrupted positive result is not useful if augmented negatives also cross the threshold.
 4. Mean recall across the three augmented conditions improves by at least **five percentage points** over frozen V2 on those same conditions at its frozen threshold. No severity may lose more than three recall points against its V2 reference.
 
-Rank eligible finalized configurations by mean weighted pooled validation F1 across seeds 42/43/44. Require the seed-42 package to meet all guards; report every seed's guards and metrics. Ties within 0.005 pooled F1 prefer fewer optional transform groups, then lower measured runtime cost, then earlier preregistered configuration order. With no eligible candidate, retain V2 as the deployment and report that V3 did not meet the target. Do not relax guards after observing results.
+Assess only `ONE_CHANNEL_seed42` against all guards. There is no finalist ranking, seed averaging, alternative recipe selection or ensemble. Compare its saved metrics with frozen V2 and historical A0c/A1 for interpretation. If it fails, report no new eligible candidate and keep the current explicitly experimental A1 selection unchanged; V2 remains the validated baseline. Do not relax guards or search alternative deployment thresholds after observing failure.
 
-For comparability with D044, also report each finalist's clean-validation-optimal F1 threshold and the validation-derived 1%/5% FAR operating points as **secondary analyses**. They do not replace the selected deployment threshold. Show V2 and V3 at matched validation-FAR targets as a secondary robustness comparison. Never tune a separate threshold per severity or use test FAR to set one.
+For comparability with D044, also report the one candidate's clean-validation-optimal F1 threshold and the validation-derived 1%/5% FAR operating points as **secondary analyses**. They do not replace the selected deployment threshold. Show V2 and V3 at matched validation-FAR targets as a secondary robustness comparison. Never tune a separate threshold per severity or use test FAR to set one.
 
 The three-point/five-point/1% values are the fixed planning choices adopted here, not measured V3 outcomes. A later owner-requested change requires a dated protocol amendment before the affected experiments.
 
@@ -310,7 +341,7 @@ Preserve the original V1 and V2 test locks. Create a separate V3 lock binding ch
 
 The final clean-test acceptance target remains recall within three points of V2's `159/180`, with FAR no worse than `5/1326`: **at least 154/180 positives and no more than five false positives**. Report failure if this target is missed; do not use it to choose another configuration. The prespecified augmented-test results measure whether validation robustness transfers; report all severities even if they fail.
 
-Use at least 1,000 paired group-bootstrap draws for intervals and V3-minus-V2 differences. Resample original groups and keep every clean/augmented condition of a source together. Report the small positive-group counts: validation 29, test 28. Intervals describe these represented groups, not new devices or sites. Multiple ablations and repeated validation use make selected validation estimates optimistic; three seeds and bootstraps do not remove that limitation.
+Use at least 1,000 paired group-bootstrap draws for intervals and V3-minus-V2 differences. Resample original groups and keep every clean/augmented condition of a source together. Report the small positive-group counts: validation 29, test 28. Intervals describe these represented groups, not new devices or sites. Multiple ablations and repeated validation use make selected validation estimates optimistic; bootstrap intervals do not remove that limitation. This single-seed proposal does not estimate training-seed variance or support a claim of seed-stable improvement.
 
 ## 9. Live diagnostics and limits
 
@@ -335,16 +366,16 @@ A separate future evaluation-only recording session, with both drone-present and
 | G2 Prechecks | Existing capture/downmix evidence checked; training-only spectral/SNR/label checks pass; unresolved channel evidence clearly recorded |
 | G3 Preparation | Original splits and cleaning preserved; raw loader parity demonstrated; train-only nuisance bank/statistics provenance verified; fixed validation suite ready; test-access guard passes |
 | G4 A0 | Saved inference and cached/raw-loader controls satisfy parity/reproduction requirements; the changed validation monitor has its own no-channel control; no test scoring |
-| G5 Main ladder | A1–A6 logged with parent/run/config hashes and identical validation suite; optional A7/A8/B/C experiments stay within their registered scope |
-| G6 Selection | Finalists assessed with seeds 42/43/44; one eligible configuration and seed-42 package selected entirely on validation, or a documented no-candidate outcome |
-| G7 Freeze and test | Threshold/package/policy frozen; one V3 final scoring job completed with historical-test disclosure and paired grouped uncertainty |
+| G5 One fit | ONE_CHANNEL_seed42 completed once with the fixed combined recipe, one seed, new output path and frozen source/config hashes; no additional ladder/seed jobs |
+| G6 Acceptance | The one best-loss checkpoint and its one weighted-F1 threshold meet every frozen validation guard, or the run is reported ineligible and stops |
+| G7 Freeze and test | Only after G6 passes: checkpoint/frontend/statistics/threshold/policy frozen; one locked final job scores the prespecified test conditions with historical-test disclosure and paired grouped uncertainty |
 | G8 Export | Self-contained `CNN_V3.0` bundle includes model, frontend, statistics, threshold, labels, provenance, golden fixtures, model card, software verification and member hashes |
 | G9 Runtime | Training/offline/live parity, 16/44.1/48 kHz tests and package checks pass; selected-model hash/version/threshold/window/cadence/smoothing browser contract updated and verified |
 | G10 Delivery | Final report states gains, failures, all guard results and diagnostic limits; next context version reflects actual results; task changes alone committed and pushed |
 
 Verify every augmentation stage with meaningful DSP/property tests, deterministic replay and split/provenance tests; verify the training/raw path at matching offsets; test that selection cannot access test payloads. Do not use a range/dtype test alone as proof of acoustic correctness. Run the focused Python/browser regression suites after export integration. Any user-facing UI edits must also follow the project's Impeccable and motion instructions, including desktop/mobile Chrome DevTools screenshots and an audit; no UI edit is part of this plan-finalization task.
 
-Stage V3 beside V2 and retain a rollback configuration. Activate it only after package/runtime checks and the declared acceptance gates pass; export a failed research candidate only with its failed status explicit and keep V2 selected. Publish source/config/tests/aggregate reports to the existing GitHub remote after required verification, following the current task branch. Keep raw audio, per-clip private diagnostics, generated caches/checkpoints and local ZIPs out of commits. Do not include unrelated uncommitted work or force-push.
+Stage the new package beside immutable A1 and V2 releases and retain rollback selection records. Promote a new validated model only after package/runtime checks and the declared acceptance gates pass. A failed candidate retains explicit failed status. The existing A1 experimental authorization applies to A1 only. Publish source/config/tests/aggregate reports to the existing GitHub remote after required verification, following the current task branch. Keep raw audio, per-clip private diagnostics, generated caches/checkpoints and local ZIPs out of commits. Do not include unrelated uncommitted work or force-push.
 
 ## 11. Evidence references
 
@@ -352,15 +383,18 @@ Stage V3 beside V2 and retain a rollback configuration. Activate it only after p
 - `docs/CNN_V2_0_IMPLEMENTATION_REPORT.md`: retained counts, data layout, training recipe, threshold rule, benchmark metrics and environment evidence.
 - `docs/CNN_V2_FRONTEND_VERIFICATION.md`: package identity, software parity, browser checks and original four-recording replay.
 - `docs/CNN_V2_DEBUG_TEST_TUNING_PLAN.md`: digital Bebop control, saved replay paths, capture limitations and live evaluation requirements.
-- `results/cnn_v2/data/DATASET_READY.json`, `training/freeze.json`, `evaluation/report.json`, `evaluation/scoring.lock.json`: generated local source identities and frozen measurements; the latter three paths are relative to `results/cnn_v2/`.
-- `config/live_detector.json`: active V2 runtime contract. The legacy seed-44 runtime manifest is a separate preserved artifact.
-- `Project documents/PROJECT_CONTEXT_V8.md`: one-dataset/size/library-first rules, existing D044 threshold protocol and D058 frontend result. This companion document is outside the Git root.
+- `storage/caches/cnn-v2-existing/DATASET_READY.json`, `runs/study-v2/legacy-training/freeze.json`, `evaluations/study-v2/original/report.json`, and `evaluations/study-v2/original/scoring.lock.json`: frozen local source identities and measurements.
+- `config/live_detector.json`: current A1 experimental runtime contract. The legacy seed-44 runtime manifest is a separate preserved artifact.
+- [Original project context](history/original_context/PROJECT_CONTEXT_V8.md): preserved one-dataset/size/library-first rules, D044 threshold protocol and D058 frontend result.
 - Supplied proposed V3 plan: proposed transform ranges, owner-described recording labels and the unlocated 99-window trace summary. Those trace numbers retain this limited provenance.
 
 ## 12. Additions and modifications to the proposal
 
 | Change | Reason |
 |---|---|
+| Replace all remaining ladder fits and seed repeats with ONE_CHANNEL_seed42 | The owner wants one working CNN first; reuse calibrated channel effects in one fixed architecture/recipe/seed |
+| Retain numeric validation guards and one gated final benchmark | Combining experiments does not establish success or justify changing acceptance targets |
+| Adopt the restructured workspace/storage/run/release paths | Active edits belong in study-v3; old duplicate plans are historical, and frozen records/hashes remain intact |
 | Replace the broad ZIP command with four explicit archives and preserve V1 separately | Separates reproducible source, V2 artifacts, indispensable raw WAVs and private diagnostics; avoids browser/session state and duplicate multiclass audio |
 | Use actual V2 paths and active `config/live_detector.json` | The proposed data path does not exist; older runtime selection files still describe V1 seed 44 |
 | Preserve the recovered hash-matching training YAML as well as the current portable YAML | The current YAML no longer has the config digest recorded in the training freeze; exact original bytes were reconstructed and verified without changing the active config |
@@ -411,8 +445,11 @@ The archive, rules and measurements above make V3 reviewable without claiming th
 
 **A1 seed-42 result — COMPLETE, NOT ELIGIBLE.** Resumed the saved run after epoch 2; it stopped after epoch 10 with best epoch 2 and weighted validation loss `0.55378383398056`. The selected weighted-F1 threshold is `1.9109516143798828` (weighted F1 `0.7302052786`). Clean recall is 157/185 (guard requires at least 159) and clean false positives are 25/1,325 (guard allows at most 5). Mild FAR is 0.91%, moderate FAR 2.49%, and severe FAR 5.21%; moderate and severe exceed the 1% per-condition guard. The augmented mean recall gain and maximum per-severity recall-drop guard pass. Overall candidate eligibility is false. Test access is false; no final test evaluation was run. Per the user's scope, do not continue to A2 or refit other seeds. Keep V2 selected in the live app and surface A1's non-selection and failed guards in its UI.
 
-**Frontend wiring — COMPLETE; local experimental activation authorized.** The user explicitly chose to activate A1 experimentally despite its failed validation guards. `config/live_detector.json`, the V3 inference loader, launcher health identity and browser UI now select CNN_V3.0 A1 seed 42, threshold `1.9109516143798828`, model SHA-256 `7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed`. The API and UI identify the selection as experimental and validation-ineligible, display the guard failures, and state that test data remains locked. CNN V2.0 remains identified as the validated baseline. The unchanged V2-compatible frontend, 0.496-second decision cadence and three-window smoother remain in use. `scripts/live_detector.py --check`, `/api/health`, launcher ownership check, JavaScript syntax, Python compilation and rendered Impeccable detection passed. At 390 px, the page has no horizontal overflow; mobile DOM geometry confirms the longer model and eligibility note wrap within the viewport. Desktop and mobile screenshots are `runtime/screenshots/cnn-v3-a1/experimental-desktop.png` and `experimental-mobile.png`. The test split was not accessed and no final test evaluation was run.
+**Frontend wiring — COMPLETE; local experimental activation authorized.** The user explicitly chose to activate A1 experimentally despite its failed validation guards. `config/live_detector.json`, the V3 inference loader, launcher health identity and browser UI now select CNN_V3.0 A1 seed 42, threshold `1.9109516143798828`, model SHA-256 `7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed`. The API and UI identify the selection as experimental and validation-ineligible, display the guard failures, and state that test data remains locked. CNN V2.0 remains identified as the validated baseline. The unchanged V2-compatible frontend, 0.496-second decision cadence and three-window smoother remain in use. `scripts/live_detector.py --check`, `/api/health`, launcher ownership check, JavaScript syntax, Python compilation and rendered Impeccable detection passed. At 390 px, the page has no horizontal overflow; mobile DOM geometry confirms the longer model and eligibility note wrap within the viewport. Desktop and mobile screenshots are `local/screenshots/screenshots/cnn-v3-a1/experimental-desktop-verified.png` and `experimental-mobile-verified.png`. The test split was not accessed and no final test evaluation was run.
 
 
 
 **User decision — experimental activation.** After being shown A1’s failed guards, the user explicitly selected “Activate A1 experimentally despite the failed guards.” This overrides the prior plan’s default to keep V2 active, but does not change A1’s validation eligibility: it remains false. The local detector now selects A1 with visible experimental and failed-validation status; no general performance claim is made. Test remains locked, and the next augmentation rung remains out of scope.
+
+
+**Scope amendment — one combined run, 26 November 2026.** The owner requested one run in place of all remaining experiments after A1, with one seed, one CNN architecture and one fixed recipe. Sections 0, 4, 7, 8 and 10 now define ONE_CHANNEL_seed42 using the calibrated full A4 channel distribution. Additional ablations, frontend variants and seed repeats are deferred. The unchanged guards determine eligibility; failure produces a report, not automatic additional fits. Training has not started. References now follow the migrated physical storage layout; old ZIP member names and frozen records/hashes remain historical evidence.

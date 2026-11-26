@@ -1,8 +1,10 @@
 # CNN V3.0 decision log
 
 **Protocol frozen:** 26 November 2026, before V3 fitting.
-**Status:** A1-only implementation complete; A1 is locally active by explicit experimental authorization despite failed validation eligibility. No A2 or later run; test data remains locked.
-**Namespace:** V3-001 through V3-008. These IDs do not reuse the project’s existing D044–D058 decisions.
+**Status:** A1 is complete and remains locally experimental. ONE_CHANNEL_seed42 is proposed as the only next fit; no training has started. See V3-009 for the single-run scope amendment; test remains locked.
+**Namespace:** V3-001 through V3-009. These IDs do not reuse the project’s existing D044–D058 decisions.
+
+Current plan: [CNN V3.0 implementation plan](CNN_V3_0_IMPLEMENTATION_PLAN.md). Original decisions and execution entries below are retained chronologically; V3-009 supersedes their remaining ladder and repeated-seed instructions. Historical artifact paths resolve through the relocation table in plan section 0 and [migration mapping](migration/path_mapping.csv); frozen record bytes and hashes are preserved.
 
 ## V3-001 Baseline archive and source identity
 
@@ -133,3 +135,16 @@ The fixed suite is ready. A0b raw-loader full training, A0c weighted-monitor con
 **User decision — experimental activation.** Presented the A1 validation failures and the choice to keep V2 or activate A1 experimentally. The user chose “Activate A1 experimentally despite the failed guards.” This authorizes only the local experimental selection; it does not waive or alter the failed validation criteria, authorize final test access, or resume augmentation training. CNN V2 remains the validated baseline.
 
 **Frontend wiring — complete; experimental A1 active locally.** `scripts/live_detector.py --check`, `/api/health`, and launcher ownership identity report CNN_V3.0 A1, seed 42, threshold `1.9109516143798828`, and TorchScript hash `7847c73d905811bd53b164ebb923a20e95eccac41d32b478585c0aa658704fed`. UI and API expose `validation_eligible=false`, `experimental_activation=true`, failed guard IDs, and `test_access=false`. The page names the observed clean recall, clean false positives, moderate/severe FAR and keeps CNN V2.0 identified as the validated baseline. V2-compatible frontend, 0.496-second decision cadence and three-window smoother are retained. JS syntax, Python compilation, runtime preflight, health identity and rendered Impeccable detection passed. At 390 px the page has no horizontal overflow and longer status text wraps within the viewport. Screenshots: `runtime/screenshots/cnn-v3-a1/experimental-desktop.png` and `experimental-mobile.png`. No A2 or later run occurred; no test data was accessed and no locked final evaluator ran.
+
+
+## V3-009 One combined run and relocated document authority — 26 November 2026
+
+**Owner instruction:** consolidate the experiments remaining after A1 into one training run, with one seed, one fixed CNN architecture and one recipe. First obtain one working CNN. This supersedes repeated-seed/finalist instructions in V3-003/V3-006, the remaining graph in V3-007, and earlier stop-after-A1 scope. It does not change completed measurements or A1’s failed eligibility/experimental activation.
+
+**Proposed experiment:** ONE_CHANNEL_seed42, initialized from scratch with the existing depth_4 CNN (60,641 parameters), seed 42, existing frontend/statistics and training recipe. Use the full previously calibrated A4 distribution: 20% V2 crop/±12 dB gain branch; 80% combined speaker band limit/EQ/soft clipping, wider gain, procedural room response, training-negative background and microphone floor with the existing total-added-SNR limiter. Exact probabilities, ranges, budgets and outputs are in plan section 7. No additional A/B/C fits, saved-copy comparison, hyperparameter sweep, warm-start variant or seeds 43/44. Stochastic audio draws inside the fixed distribution belong to this one run.
+
+Reuse historical controls, calibration, approved listening review, frozen validation suite and reference scores after identity checks. Select the best weighted-loss checkpoint from the one trajectory, calibrate the one weighted pooled validation-F1 threshold, and apply all original numeric guards. Failure ends this proposal with a report. A gated final benchmark and runtime checks are evaluations of this one model, not more training experiments. No final test access occurs before the eligible checkpoint and policy are frozen. A single seed does not establish seed variance, and the combined run cannot attribute improvement to an individual transform.
+
+**Relocation:** edit only workspaces/study-v3/docs/CNN_V3_0_IMPLEMENTATION_PLAN.md and this decision log. The original Project documents duplicate is historical; do not mirror into it. Inputs now resolve to registered storage/corpora, storage/splits, storage/caches and storage/derived; new outputs belong to runs/study-v3, evaluations/study-v3 and releases/study-v3. Preserve archive-member names, completed run records and their frozen identities. Compatibility junctions remain necessary for legacy scripts.
+
+**Execution status:** proposal only. Before fitting, create the dedicated one-run config and an explicit new run ID/output path in the runner, register its dependencies, and freeze hashes. The historical YAML and trainer still expose ladder/finalist settings and must not be mistaken for a ready single-run command. No config, trainer, runtime selection, model weights or evaluation lock was changed by this documentation amendment.
