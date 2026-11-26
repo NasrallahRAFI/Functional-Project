@@ -15,7 +15,8 @@ import webbrowser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-URL = "http://127.0.0.1:8765/"
+BASE_URL = "http://127.0.0.1:8765"
+URL = f"{BASE_URL}/live/index.html"
 EXPECTED_MODEL = json.loads((ROOT / "config/live_detector.json").read_text(encoding="utf-8"))
 
 
@@ -58,7 +59,7 @@ def attach_kill_on_close_job(process: subprocess.Popen) -> object:
     return job
 def health() -> dict | None:
     try:
-        with urllib.request.urlopen(URL + "api/health", timeout=1.5) as response:
+        with urllib.request.urlopen(BASE_URL + "/api/health", timeout=1.5) as response:
             if response.status != 200:
                 return None
             return json.loads(response.read(16_384))
