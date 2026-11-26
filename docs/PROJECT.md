@@ -1,6 +1,6 @@
 # Project catalog
 
-Layout established 26 November 2026 by owner instruction. The catalog checkout is repository/; active scientific development is in workspaces/study-v3/. V4 has its own branch/workspace and remains a scope scaffold with no built corpus or split.
+Layout established 26 November 2026 by owner instruction. The catalog checkout is repository/; active scientific development is in workspaces/study-v3/. V4 has its own branch/workspace, frozen two-source corpus/split, trained A0 model, and experimental raw-score monitor.
 
 ## Navigation
 
@@ -24,7 +24,7 @@ Layout established 26 November 2026 by owner instruction. The catalog checkout i
 
 ## Study status
 
-V1 is the historical multi-model study. V2 is the frozen CNN baseline. V3 is current development; its deployed A1 model is explicitly experimental and validation-ineligible. V4.0 has completed two-source data preparation and one D048 A0 CNN training run with seed 42. Salford is explicitly excluded. The corpus and frozen split are registered as corpus-002 and split-002; run cnn_a0_seed42 is frozen before test. No tuning, additional run, threshold selection, test scoring, bundle or runtime activation was performed. Reports and evidence are recorded in reports/study-v4/.
+V1 is the historical multi-model study. V2 is the frozen CNN baseline. V3 is current development; its deployed A1 model is explicitly experimental and validation-ineligible. V4.0 has completed two-source data preparation and one D048 A0 CNN training run with seed 42. Salford is explicitly excluded. The corpus and frozen split are registered as corpus-002 and split-002; run cnn_a0_seed42 is frozen before test. No tuning, additional run, threshold selection or test scoring was performed. A later local V4 activation displays raw logits only on port 8766; threshold selection remains pending. Reports and evidence are recorded in reports/study-v4/.
 
 Original scientific decisions remain in docs/history/original_context/PROJECT_CONTEXT_V8.md. Each study names its authoritative plan. The combined-source V4 scope supersedes the one-source restriction for V4 only; no numerical data budget or new scoring protocol is invented here.
 
