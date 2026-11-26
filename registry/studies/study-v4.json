@@ -11,5 +11,11 @@
   "evaluations": "evaluations/study-v4",
   "releases": "releases/study-v4",
   "historical_source": null,
-  "scope_note": "V4 membership/split/processing not built"
+  "scope_note": "Two-source V4.0 preparation plan recorded; Al-Emadi binary and thesis audio included; Salford excluded; corpus/split not built",
+  "preparation_plan": "workspaces/study-v4/docs/v4/DATA_PREPARATION_CNN_V4_0.md",
+  "plan_status": "recorded-not-executed",
+  "supplied_document": {
+    "filename": "DATA_PREPARATION_CNN_V4_0_UPDATED_FINAL.md",
+    "sha256": "2bb6e2bc3ad13f5d5ede122982375b27fe851a8a38d04a39f2f6207674f5222d"
+  }
 }
