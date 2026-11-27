@@ -1,23 +1,30 @@
-# Study V4
+# Study V5.1
 
-Status: V4.0 corpus and split frozen; one A0 CNN trained with seed 42. Experimental local raw-score monitoring is active; threshold selection and test scoring remain pending. No additional model was trained. Branch: study-v4. Parent code snapshot: c357afb (CNN V3 A1 activation).
+Status: O0-A2 corpus-005/split-005 remains historical: P0-P4 passed and P5
+failed. Under O0-A3, corpus-006/split-006 is frozen after P1-P3 and R-DET
+passed; P4 failed B0 because the structural reference QP was primal
+infeasible. P5-P7 for corpus-006 remain NOT_RUN. Preparation is incomplete.
+Preparation phases A0 and P0–P7 are authorized. Model training, new-model
+threshold selection, local recording, downloads, and held-out evaluation are
+not authorized. V4 runtime selection remains active and unchanged.
 
-The authoritative preparation plan is [DATA_PREPARATION_CNN_V4_0.md](docs/v4/DATA_PREPARATION_CNN_V4_0.md), imported from the owner's supplied revision dated 26 November 2026. The identifier remains CNN V4.0. [specification.md](docs/v4/specification.md) binds the plan to the current workspace layout and records approved implementation definitions.
+The authoritative execution plan is
+[`DATA_PREPARATION_CNN_V5_1_FINAL.md`](docs/v5.1/DATA_PREPARATION_CNN_V5_1_FINAL.md).
+Its companion contract is
+[`DATA_PREPARATION_CNN_V5_1_CONTRACT.json`](docs/v5.1/DATA_PREPARATION_CNN_V5_1_CONTRACT.json).
+The O0 request was recorded on 27 November 2026. SHA-256:
 
-Included sources: al-emadi-r001 (Binary_Drone_Audio only) and thesis-r001 (Data/Audio only). Salford is explicitly excluded from V4.0. Its original source registration and stored files remain separate from V4 membership.
+- Plan: `20d2e6d1bd89be9cca7c2465db71bc53e0ed723ebdf96d3bcf061ba6fdd02d46`
+- Contract: `76d912a8563a54786cb401c7a51104e1cc61be30d7eb0130a707aba81b731839`
 
-The prepared data identities are corpus-002 and split-002. See the [preparation report](reports/DATA_PREPARATION_CNN_V4_0_REPORT.md) and [requirement audit](reports/V4_PREPARATION_REQUIREMENT_AUDIT.md) for data counts, gates, hashes, and limitations, and the [single-model training report](reports/V4_CNN_TRAINING_REPORT.md) for the one seed-42 training run. The train/validation/test manifests are frozen. Canonical train/validation caches and train-only normalization statistics were produced. Test audio remains unaccessed; no threshold or test evaluation was produced. The later V4-LIVE-001 activation uses the checkpoint and fitted training statistics directly.
+Current frozen identities: corpus-006 and split-006 under O0-A3; do not use
+P5 because P4 failed. The 1 GiB byte cap retains all AE/DD/ITU files and a
+deterministic MUSAN subset. corpus-005/split-005 and all prior attempts remain
+immutable history. New cache identities derived-build-v51-004 and cnn-v51-004
+remain planned/unbuilt. MIC and Wang remain OOD by default; optional Cochl and
+local recordings are absent.
+See reports/v5.1/DATA_PREPARATION_CNN_V5_1_REPORT.md for execution evidence.
 
-The plan specifies binary pooling, Al-Emadi cleaning/grouping rules, 1-second dd segments, duplicate checks, source/flag audits, and the frozen group-aware train/validation/test split procedure. It retains the 16 kHz, 64-band, 7,936-sample / (1,64,28) frontend contract. Cache construction, normalization fitting and the single model training followed the preparation plan. Threshold selection and packaging remain separate future stages.
-
-V4 uses its own outputs and has no V3 data/results/runtime mounts or V3 package. The V4 monitor reads its registered V4 checkpoint and training normalization directly. Historical V2/V3 configurations remain under docs/history/inherited-config. Existing test-use history must accompany source material retained in V4; a new split is not evidence that those recordings were previously unseen.
-
-Decision records: [V4-PLAN-001.md](docs/v4/decisions/V4-PLAN-001.md), [V4-IMPL-001.md](docs/v4/decisions/V4-IMPL-001.md), [V4-TRAIN-001.md](docs/v4/decisions/V4-TRAIN-001.md), [V4-LIVE-001.md](docs/v4/decisions/V4-LIVE-001.md), and [V4-LIVE-002.md](docs/v4/decisions/V4-LIVE-002.md). Global source/corpus/split/run registry authority: repository/registry in the enclosing project folder.
-
-Live monitor: run `start_detector.bat` from this workspace, or open http://127.0.0.1:8766/live/index.html once the service is ready. The service returns raw logits; the frontend shows provisional labels at −3.00 with two-of-three voting. See docs/v4/decisions/V4-LIVE-003.md.
-
-Supplemental MUSAN analysis: [V4_MUSAN_NOISE_SUPPLEMENT.md](reports/V4_MUSAN_NOISE_SUPPLEMENT.md) is retained as a separate historical stress check. It was excluded from the current ambient-only provisional threshold. A validated operating threshold remains pending.
-
-Current working point: [V4_PROVISIONAL_THRESHOLD.md](reports/V4_PROVISIONAL_THRESHOLD.md) records logit −3.00 based only on the current ambient recording; MUSAN was excluded. The frontend now shows explicitly provisional two-of-three drone/no-drone labels, while the detector service remains raw-score-only pending adequate ambient exposure and false-alarm evidence.
-
-Live monitor: run `start_detector.bat` from this workspace, or open http://127.0.0.1:8766/live/index.html once the service is ready. The Python service is raw-score-only; the frontend provides provisional labels. See docs/v4/decisions/V4-LIVE-003.md.
+Implementation is isolated on branch `study-v5-1`, based on the V4 code
+snapshot for reuse of unchanged numerical primitives. No V3 compatibility
+mounts are connected. V4 artifacts and runtime remain out of scope.

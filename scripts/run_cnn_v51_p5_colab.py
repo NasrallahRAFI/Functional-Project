@@ -7,6 +7,7 @@ to the same implementation used by the local runner.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 from pathlib import Path
@@ -37,6 +38,8 @@ def main() -> int:
     parser.add_argument("--frozen-attempt", type=Path, required=True,
                         help="P3 directory containing FROZEN.json and split manifests")
     parser.add_argument("--source-inventory", type=Path, required=True)
+    parser.add_argument("--budget-selection", type=Path, required=True,
+                        help="O0-A3 complete MUSAN selection/exclusion CSV")
     parser.add_argument("--p4-attempt", type=Path, required=True,
                         help="P4 directory containing p4_summary.json and weight_fit.json")
     parser.add_argument("--output", type=Path, required=True,
@@ -71,6 +74,12 @@ def main() -> int:
             "approved contract hash mismatch: "
             f"frozen={expected_contract_sha256!r}, local={contract_sha256}"
         )
+    budget_binding = frozen.get("group_id_grid_rules", {}).get("O0-A3_byte_budget")
+    if not isinstance(budget_binding, dict):
+        raise SystemExit("frozen split is missing the O0-A3 byte-budget binding")
+    selection_path = args.budget_selection.expanduser().resolve()
+    if _sha256(selection_path) != budget_binding.get("selection_manifest_sha256"):
+        raise SystemExit("O0-A3 selection manifest hash differs from the frozen binding")
     for filename in ("train.csv", "val.csv", "test.csv", "ood.csv"):
         if _sha256(frozen_attempt / filename) != frozen["artifact_sha256"][filename]:
             raise SystemExit(f"frozen membership artifact hash mismatch: {filename}")
@@ -91,6 +100,20 @@ def main() -> int:
     test = read_csv(frozen_attempt / "test.csv", "test.csv")
     ood = read_csv(frozen_attempt / "ood.csv", "ood.csv")
     inventory = read_csv(inventory_path, "inventory_v51.csv")
+    with selection_path.open("r", encoding="utf-8", newline="") as stream:
+        selection_rows = list(csv.DictReader(stream))
+    selected_ids = {str(row["source_file_id"]) for row in selection_rows if row.get("selected") == "true"}
+    inventory_musan_ids = {str(row["source_file_id"]) for row in inventory if row["source"] == "musan"}
+    non_musan_bytes = sum(int(row["bytes"]) for row in inventory if row["source"] != "musan")
+    musan_bytes = sum(int(row["bytes"]) for row in inventory if row["source"] == "musan")
+    total_bytes = non_musan_bytes + musan_bytes
+    if inventory_musan_ids != selected_ids:
+        raise SystemExit("P1 MUSAN inventory does not match the frozen O0-A3 selected file set")
+    if (total_bytes > int(budget_binding["total_cap_bytes"])
+            or total_bytes != int(budget_binding["combined_selected_bytes"])
+            or musan_bytes != int(budget_binding["musan_selected_bytes"])
+            or non_musan_bytes != int(budget_binding["non_musan_bytes"])):
+        raise SystemExit("P1 inventory byte totals differ from the frozen O0-A3 byte budget")
     config = load_v51_config(study_root / "config" / "v51.yaml")
 
     roots = dict(args.source_root)
@@ -115,6 +138,7 @@ def main() -> int:
         return path
 
     print(f"P5 source rows: train={len(train)}, val={len(val)}; sources={sorted(required_sources)}")
+    print(f"O0-A3 inventory bytes: total={total_bytes}, MUSAN={musan_bytes}, cap={budget_binding['total_cap_bytes']}")
     print(f"Frozen membership: {frozen['membership_sha256']}")
     print("P5 A-chk ranks every eligible train crop pair exactly; this is CPU-bound.")
     result = build_p5_cache(
