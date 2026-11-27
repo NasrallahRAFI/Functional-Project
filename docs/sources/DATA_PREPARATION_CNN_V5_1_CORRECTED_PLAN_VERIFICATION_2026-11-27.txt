@@ -1,0 +1,285 @@
+CNN V5.1 CORRECTED PLAN - SECOND VERIFICATION
+Reviewed: 27 November 2026
+Corrected proposal SHA-256:
+f5fe98c8ba651a81f73e3118465e87f467070b37948c586009bde4e6d92af112
+Superseded proposal SHA-256:
+3d2769f37a2a4d8cb059be59dfb0eea22b4116fa1d19e6e9ba5dbe6d338ad90e
+
+VERDICT
+
+The correction addresses several important findings from the first review. It is
+still NOT READY for end-to-end preparation sign-off: the default positive sampler
+cannot meet its mandatory B2 gate, and clip identity, mechanical-ledger schema and
+AE event construction still contain incompatible or incomplete fixed rules.
+
+This is a plan review. No V5.1 implementation or data-preparation execution was
+performed. O0 remains unanswered; no owner approval is inferred from this review.
+Existing V5.1 execution gates remain NOT_RUN/NOT_IMPLEMENTED. Review dispositions
+below are not execution-gate results.
+
+WHAT THE CORRECTION ADDRESSES
+
+Previous F1: the blanket header/hash-only rule is replaced with explicit Z0/Z1/Z2
+zones, an owner-authorized mechanical pass, deferred test file writing and a
+ledger replay check. This resolves the main operation-order contradiction in
+principle; the allowed-output schema still needs correction (C3 below).
+
+Previous F2: transform identity and normalized-input identity are separated, and
+augmentation is placed outside frontend.gain_range_db. The quoted transform and
+power-cache hashes match the identities measured in the first review. Refitted
+statistics get a new bound normalized-input identity. A V5.1 config adapter is
+still needed; the current V4 parser rejects augmentation/inputs root keys.
+
+Previous F3: the plan now acknowledges the absence of ITU background timestamps,
+sets label_weak=true and forbids an invented five-second proximity test. Unknown
+sample overlap between background groups is explicitly retained as a limitation;
+this does not prove those groups are sample-disjoint.
+
+Previous F4: the 20-second bed rule now gives a valid construction path for long
+files and paired Cochl segments. Non-overlapping fade dips preserve duration for
+four genuinely one-second event clips. AE originals do not satisfy that length
+assumption (C4 below).
+
+Previous F5: the fallback 35/35/30 positive source shares satisfy the 35% source
+cap. The conservative MIC rule gives eight keys on the existing inventory and
+keeps MIC OOD by default. Satisfying B3 does not make B2 feasible (C1 below).
+
+Previous F6: T4 now refers to recording-level negative labels and explicit source
+exclusions, so DD BACKGROUND/HELICOPTER are no longer contradictory inputs.
+
+Previous F7: missing/failed Cochl recovery now consistently means tier D plus
+the approved fallback, rather than both fallback and halt. Input is explicitly
+unlocated and optional by default.
+
+Previous F8: SGKF is explicitly exempted from SHA-1-only randomness; local seed,
+version and input order are pinned. AE/DD duplicate/group semantics are preserved
+and R3 compares maps as well as content. The new clip-ID formula conflicts with
+literal V4 ID preservation (C2), and continuous augmentation randomness still
+needs its sampling contract (C5).
+
+Previous F9: new replay/recorder work is explicitly identified, browser decisions
+are distinguished from raw Python scores, and O1 defaults to inactive. Existing
+score-only logs are not presented as V5.1 calibration audio. Implementation and
+replay gates remain NOT_RUN rather than being granted PASS from V4 tests.
+
+Other corrections addressed: requested versus observed capture settings; the
+rolloff gap as a hypothesis rather than causal model evidence; named descriptor
+semantics; train-only mining exception; bound post-freeze descriptor artifacts;
+actual rather than nominal stream exposure; distinct determinism/mining names.
+
+REMAINING FINDINGS
+
+C1 [P1] B2 is mathematically unreachable with the default positive shares.
+
+References: section 7.2 line 290, section 7.4 lines 305-314, B2 line 457.
+
+MIC is OOD by default. The fixed positive weight shares are therefore:
+  AE 0.35; ITU 0.35; DD 0.30.
+Even before any holdout, the available positive clip counts are at most:
+  AE 1,332; ITU 4,491; DD 300.
+
+For nonnegative weights summing to one within a class, Kish effective sample size
+is 1 / sum_i(w_i^2). Holding each source's total share s_j fixed, equal weights
+within each source minimize sum_i(w_i^2). Thus the best possible effective size is
+
+  n_eff <= 1 / sum_j(s_j^2 / n_j)
+        <= 1 / (0.35^2/1332 + 0.35^2/4491 + 0.30^2/300)
+        = 2385.2472870857064.
+
+B2 requires at least 3,000 in each class. Train/validation/test separation,
+duplicate removal, descriptor constraints and group caps can only reduce this
+upper bound. IPF cannot reach 3,000 under these source shares. Repeated draws or
+augmentation do not increase the Kish size of the underlying clip weights.
+Negative-only Cochl admission and negative-only mining cannot repair this
+positive-class bound.
+
+This does not make a diagnostic implementation invalid: a literal run would
+correctly stop and report B2. It does mean the current default cannot complete
+the preparation pipeline. The shares, admissible positive counts and B2 target
+need an explicit scientific decision if completion is intended. None was changed
+or selected in this review.
+
+Verification: analytic inequality plus direct construction of uniform weights
+within each source. The 300 DD and 1,332 AE positive counts were also checked
+against the existing retained V4 manifest, without reopening audio.
+
+C2 [P1] clip_id lacks source-file identity, and literal R3 ID equality conflicts
+with the new DD identifier convention.
+
+References: section 3.2 line 139; sections 4.1-4.3; R3 line 441.
+
+The formula is <code>__<group_key>__<start_sample_at_16k:09d>. A group contains
+multiple input files. For ITU, each one-second input is resampled separately and
+has a file-local start of zero. Under that stated per-file coordinate system,
+the 5,491 segment rows produce only 55 IDs (35 drone groups + 20 background
+groups), before any interval merging. For example:
+
+  audio/drone/drone_0001.wav -> itu__drone_interval_00__000000000
+  audio/drone/drone_0002.wav -> itu__drone_interval_00__000000000
+
+Distinct hashes therefore share an identifier. MIC chunks of one flight have
+the same issue: multiple files share one conservative group and restart at zero.
+A globally unique group-relative coordinate is not defined by the plan, and ITU
+background source positions explicitly must not be invented from filenames.
+
+R3 also asks for the exact V4 clip_id-to-group and representative maps. Current DD
+IDs encode seven-digit millisecond starts, not nine-digit sample starts:
+  V4:       dd__BACKGROUND_001__0001000
+  new rule: dd__BACKGROUND_001__000016000
+Both describe the start at 16,000 standardized samples.
+
+Required correction: define globally unique clip IDs and source-file/offset
+coordinates, with group identity stored separately. State whether AE/DD preserve
+their legacy IDs or whether R3 compares through an explicit legacy-ID mapping.
+Require uniqueness before writing a ledger, manifest or derived path. No ID
+convention was invented here.
+
+C3 [P1] The closed mechanical and frozen-manifest schemas are inconsistent and
+omit required identity fields.
+
+References: Z0 line 29, section 3.3 line 148, section 6.5 line 264, M-P line 439.
+
+Z0 allows only sample count, clip grid, sample_sha256, exact-zero and the listed
+mechanical flags. It omits crop_all_zero and stats_eligible, while section 3.3
+requires them before freeze. M-P enforces the closed Z0 schema. The prose also
+calls the allowed outputs five booleans while the flag/zero list is not the same
+set as section 3.3.
+
+Section 6.5 says manifests hold only the columns in the first two rows of 3.3.
+Those rows list flags and label quality; they do not list clip_id, source revision,
+source file, label, group key, split, offset or sample_sha256. S1/S2, reference
+resolution and the bound descriptor join need those identity columns.
+
+The V4 crop_all_zero/statistics-eligibility definition uses the centre mel-power
+crop (features.power_quality_flags). The proposal must explicitly allow the
+transient numerical work needed to emit that boolean in Z0, or define a distinct
+approved mechanical equivalent and corresponding identity. It cannot silently
+drop the flag or replace it with a different waveform-only test.
+
+Required correction: provide complete literal schemas for ledger, manifests and
+descriptor artifacts, including keys/types/offset domains and every permitted
+mechanical boolean. Distinguish transient calculations from retained descriptors.
+
+C4 [P1] Four unchanged AE clips do not define an exact four-second event.
+
+References: section 3.2 AE exception, section 4.1, section 9.3 lines 382-386.
+
+The revision fixes crossfade shrinkage with non-overlapping fade dips, but AE
+remains referenced in its original variable-length form. Existing retained AE
+positive lengths include:
+  16,384 samples: 1,038 files
+  14,336 samples:   110 files
+  14,464 samples:   126 files
+  plus other lengths; no assumption of 16,000 samples is valid for all positives.
+
+Four 16,384-sample clips concatenate to 65,536 samples (4.096 s).
+Four 14,336-sample clips concatenate to 57,344 samples (3.584 s).
+The dip and ramp preserve those lengths; they do not produce 64,000 samples.
+
+Required correction: define AE event eligibility, extraction/assembly, exact
+length handling and the associated contiguity flag. It is insufficient to repeat
+the 64,000-sample target without specifying what happens to long/short assemblies.
+No trimming, padding or exclusion policy was selected in this review.
+
+C5 [P2] SHA-1 ranking does not yet define the continuous/epoch-dependent random
+choices in A1-A5 and the bootstrap.
+
+References: section 0 rule 6, section 8, sections 9.4 and 9.8.
+
+Finite file ordering is now explicit. A1-A4 still require uniform-valued draws and
+Bernoulli decisions, A5 requires fresh epoch-dependent integer crop draws, and
+the bootstrap requires repeated file draws with replacement. The named purposes
+do not define these operations' purpose strings, key serialization, epoch/draw
+indices, hash-to-uniform mapping, endpoint policy or integer conversion. Only bed
+start has an explicit hash-to-uniform rule.
+
+An implementer could produce deterministic code in multiple incompatible ways,
+but the plan prohibits making such a choice. Define this contract, including
+which indices distinguish epochs, examples, augmentation parameters and bootstrap
+replicates. Pinning the split RNG alone does not determine the training draws.
+
+ADAPTATION NOTES AND LIMITS
+
+1. Current MIC conservative grouping produces eight keys, confirming the revised
+   expected outcome and default OOD route. These are metadata keys, not verified
+   independent flights.
+
+2. ITU segment records contain no start_s fields. The revised eligibility rule
+   therefore admits zero ITU events. P6 excludes AE/DD and leaves MIC/Wang
+   test-bound. Under current defaults, P6 has no positive event source. It can
+   describe ambient score/descriptor relationships, but cannot report a new-source
+   positive sensitivity or recall curve. Record zero event counts explicitly.
+
+3. The current V4 config parser rejects augmentation and inputs as unknown root
+   keys. A V5.1-specific loader/adapter is required to pass only the intended
+   frontend mapping to unchanged numerical helpers. Do not edit frozen V4 config
+   or put the new augmentation range into its frontend.gain_range_db field.
+
+4. P6's assertion that V4 never saw MUSAN needs narrower wording. The existing
+   V4_MUSAN_NOISE_SUPPLEMENT.md records replay of all 930 MUSAN noise files,
+   candidate thresholds and V4 validation metrics. Those files were not V4
+   training inputs, but they have prior evaluation/diagnostic exposure. A V5.1
+   test containing them must carry that history rather than being described as
+   untouched by earlier tuning. The selected ambient-only frontend candidate
+   excluded MUSAN; this does not erase the earlier separate replay.
+
+5. MUSAN's evenly spaced fractional offsets can differ from the generic one-second
+   grid in 3.2. State which grid is recorded during MP, sample rounding, and how
+   the sparse clip budget and reservoir complement are represented. Cochl's
+   sparse starts should likewise be explicit exceptions/selections of that grid.
+
+6. v51_descriptor uses RMS over nonzero samples, but the nine retained AE exact-
+   zero representatives have no such samples. Define finite sentinel/missing-bin
+   behavior before decile construction and weighting; do not let an empty mean
+   silently become NaN.
+
+7. A corrected CochlScene bed premise is supported by the primary paper: accepted
+   longer recordings were divided into ten-second files, with submission and
+   segment index in the filename. Actual recovered pairs still require matching
+   identifiers, consecutive indices, lengths and same-split membership. No
+   archive was downloaded or recovered for this review.
+
+8. The plan still authorizes no V5.1 execution by default: O0 defaults to no
+   registration/no execution and P0 stops if O0 is unanswered. A0's placement
+   before P0 does not override the explicit "required before anything runs"
+   statement. Owner authorization for MP remains a real prerequisite.
+
+VERIFICATION AND PROJECT STATE
+
+- The corrected attachment was hashed and reviewed with line-number references.
+- ESS bound independently matched the explicit uniform-within-source weights.
+- ITU ID collision counts and timing availability came from existing JSON text.
+- MIC grouping and AE lengths came from existing scout/manifest metadata.
+- Current V4 config behavior was probed with an in-memory mapping; the expected
+  unknown-key rejection was observed. No configuration was written.
+- Project layout/registry integrity check: PASS, no errors.
+- No raw dataset audio, test/OOD samples or checkpoint inference was used.
+- No training, preparation, data registration, statistics fitting, stream creation,
+  recorder activation or test evaluation was executed.
+- No V5.1 workspace or registered study/corpus/split exists in the inspected
+  current project. This remains a plan, not integrated implementation evidence.
+- The existing unrelated modification to scripts/build_data_scout_report.py was
+  preserved and excluded from this review's commit.
+
+REFERENCES
+
+- Corrected proposal identified by SHA-256 above. Line numbers refer to that
+  exact attachment, not the first proposal.
+- Previous verification:
+  docs/sources/DATA_PREPARATION_CNN_V5_1_INTEGRATION_VERIFICATION_2026-11-27.txt
+- Current code:
+  workspaces/study-v4/src/dronedet/config.py:238, 389, 424
+  workspaces/study-v4/src/dronedet/features.py:79
+  workspaces/study-v4/src/dronedet/data_preparation.py:539, 568, 592, 666
+  workspaces/study-v4/src/dronedet/splits.py:84
+- Existing metadata:
+  storage/corpora/corpus-002/manifest_v4_full.csv
+  reports/data-scout/2026-11-27/inventories/MicArrayData30s.json
+  ITU extracted groups.json and metadata.json
+- Prior MUSAN evaluation:
+  workspaces/study-v4/reports/V4_MUSAN_NOISE_SUPPLEMENT.md
+- Primary CochlScene paper, section II.D:
+  https://arxiv.org/pdf/2211.02289
+
+This review publishes no raw data, model weights, private recordings, machine
+paths, or full unapproved proposal. The prior review remains preserved.
