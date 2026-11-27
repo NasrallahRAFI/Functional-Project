@@ -1,6 +1,6 @@
 # CNN V5.1 data preparation report
 
-**Status:** preparation incomplete. The O0-A2 corpus-005/split-005 attempt has P0-P4 PASS and P5 FAIL from the recorded memory/ranking attempts. Under O0-A3, corpus-006/split-006 reached P1-P3/R-DET PASS; P4 failed B0 because the fixed structural-reference QP was primal infeasible. P5-P7 for corpus-006 are NOT_RUN. No V5.1 model training, threshold selection, runtime activation, or held-out test/OOD evaluation has been performed.
+**Status:** preparation incomplete. The O0-A2 corpus-005/split-005 attempt has P0-P4 PASS and P5 FAIL from the recorded memory/ranking attempts. O0-A3 corpus-006/split-006 and O0-A4 corpus-007/split-007 both passed P1/P2/P3/R-DET and failed P4 B0 because the unchanged structural-reference QP was primal infeasible. P5-P7 remain NOT_RUN for both capped splits. No V5.1 model training, threshold selection, runtime activation, or held-out test/OOD evaluation has been performed.
 
 **Amended plan SHA-256:** `20d2e6d1bd89be9cca7c2465db71bc53e0ed723ebdf96d3bcf061ba6fdd02d46`  
 **Amended contract SHA-256:** `76d912a8563a54786cb401c7a51104e1cc61be30d7eb0130a707aba81b731839`  
@@ -24,7 +24,23 @@ Selection manifest SHA-256: `5a2bb35a03a6896353fb6c08e1d632e53e7c50565e1b9f6f554
 
 P4 stopped at B0: the structural reference QP returned `primal infeasible` under the unchanged O0-A2 source/stratum shares and caps. The descriptor checkpoint and failure record are preserved under `local/study-v5-1/attempts/v51-budget-1g-a3/`. No P5, training, or test/OOD work may proceed from this split. The 1 GiB cap therefore does not currently produce a P4-eligible preparation under the unchanged balancing contract; resolving that conflict requires a new owner-approved amendment and new identities, while preserving this failure.
 
-## Phase results
+## O0-A4 1 GiB group-coverage attempt
+
+After O0-A3 failed B0 with insufficient N3 speech-group support, the owner authorized a new selection-order amendment while retaining the exact cap and all fixed O0-A2 gates. O0-A4 reserves the 20 smallest eligible speech groups and 10 smallest eligible music groups (hash tie-breaks), then fills the remaining allowance by a separate deterministic hash rank. Exact-byte aliases remain indivisible. This creates a short-recording selection bias; it does not change strata shares, descriptor margins, group caps, or solver rules.
+
+| Measure | Result |
+|---|---:|
+| Total cap | 1,073,741,824 bytes |
+| Full non-MUSAN payload | 785,180,400 bytes |
+| MUSAN allowance | 288,561,424 bytes |
+| Selected MUSAN | 70 groups/files; 288,561,124 bytes |
+| Combined payload | 1,073,741,524 bytes (300 bytes below cap) |
+
+Selection manifest SHA-256: `532fea22a5d1e8d9cf8f478f4c4821054b9aef73c77b0fce352d7f348d7a25fe`. The selected MUSAN group counts are 29 speech, 19 music, and 22 noise. The new frozen identity is corpus-007/split-007. P1, P2 (19,367 candidates; 18,276 retained), P3 S1-S8, and independent P3 reproduction passed. Both P3 runs produced membership SHA-256 `81abc1824fec44b9744ec25caaadc3a064602897e3f7d754b2526e768eed92fa`. The frozen split has 12,406 train, 2,443 validation, and 2,462 test rows; the MUSAN counts are 244 train, 23 validation, and 40 test.
+
+P4 failed at B0 again: OSQP returned `primal infeasible` for the structural reference QP under unchanged shares and caps. Descriptor checkpoint SHA-256: `7cab4f6a1780b8be1b28a020adabc7222fca0a7d45e05dedf0317af0134f6f55`. Failure evidence is recorded in `local/study-v5-1/attempts/v51-budget-1g-a4/p4_failure.json`; the phase ledger and full descriptors remain alongside it. O0-A4 permits no further selection retry under corpus-007. P5-P7 remain NOT_RUN, and the Colab P5 adapter has been updated to O0-A4 and still requires a completed P4 with every gate PASS. A new balancing or cap change requires a separately authorized amendment and new identities.
+
+## Historical O0-A2 phase results (corpus-005)
 
 | Phase | State | Evidence |
 |---|---|---|

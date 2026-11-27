@@ -39,7 +39,7 @@ def main() -> int:
                         help="P3 directory containing FROZEN.json and split manifests")
     parser.add_argument("--source-inventory", type=Path, required=True)
     parser.add_argument("--budget-selection", type=Path, required=True,
-                        help="O0-A3 complete MUSAN selection/exclusion CSV")
+                        help="O0-A4 complete MUSAN selection/exclusion CSV")
     parser.add_argument("--p4-attempt", type=Path, required=True,
                         help="P4 directory containing p4_summary.json and weight_fit.json")
     parser.add_argument("--output", type=Path, required=True,
@@ -63,6 +63,18 @@ def main() -> int:
     if not frozen_attempt.is_dir() or not p4_attempt.is_dir():
         raise SystemExit("frozen P3 and P4 input directories must exist")
 
+    p4_summary_path = p4_attempt / "p4_summary.json"
+    p4_weights_path = p4_attempt / "weight_fit.json"
+    failure_path = p4_attempt / "p4_failure.json"
+    if failure_path.is_file():
+        failure = json.loads(failure_path.read_text(encoding="utf-8"))
+        raise SystemExit(
+            "P5 is blocked by the recorded P4 failure: "
+            f"gate={failure.get('gate')!r}, reason={failure.get('reason')!r}"
+        )
+    if not p4_summary_path.is_file() or not p4_weights_path.is_file():
+        raise SystemExit("P5 requires p4_summary.json and weight_fit.json from a completed passing P4 attempt")
+
     frozen = json.loads((frozen_attempt / "FROZEN.json").read_text(encoding="utf-8"))
     contract_path = study_root / "docs" / "v5.1" / "DATA_PREPARATION_CNN_V5_1_CONTRACT.json"
     if not contract_path.is_file():
@@ -74,18 +86,18 @@ def main() -> int:
             "approved contract hash mismatch: "
             f"frozen={expected_contract_sha256!r}, local={contract_sha256}"
         )
-    budget_binding = frozen.get("group_id_grid_rules", {}).get("O0-A3_byte_budget")
+    budget_binding = frozen.get("group_id_grid_rules", {}).get("O0-A4_byte_budget")
     if not isinstance(budget_binding, dict):
-        raise SystemExit("frozen split is missing the O0-A3 byte-budget binding")
+        raise SystemExit("frozen split is missing the O0-A4 byte-budget binding")
     selection_path = args.budget_selection.expanduser().resolve()
     if _sha256(selection_path) != budget_binding.get("selection_manifest_sha256"):
-        raise SystemExit("O0-A3 selection manifest hash differs from the frozen binding")
+        raise SystemExit("O0-A4 selection manifest hash differs from the frozen binding")
     for filename in ("train.csv", "val.csv", "test.csv", "ood.csv"):
         if _sha256(frozen_attempt / filename) != frozen["artifact_sha256"][filename]:
             raise SystemExit(f"frozen membership artifact hash mismatch: {filename}")
 
-    p4_summary = json.loads((p4_attempt / "p4_summary.json").read_text(encoding="utf-8"))
-    p4_weights = json.loads((p4_attempt / "weight_fit.json").read_text(encoding="utf-8"))
+    p4_summary = json.loads(p4_summary_path.read_text(encoding="utf-8"))
+    p4_weights = json.loads(p4_weights_path.read_text(encoding="utf-8"))
     if p4_weights.get("frozen_membership_sha256") != frozen["membership_sha256"]:
         raise SystemExit("P4 artifact is bound to a different frozen membership")
     if p4_weights.get("train_manifest_sha256") != frozen["artifact_sha256"]["train.csv"]:
@@ -108,12 +120,12 @@ def main() -> int:
     musan_bytes = sum(int(row["bytes"]) for row in inventory if row["source"] == "musan")
     total_bytes = non_musan_bytes + musan_bytes
     if inventory_musan_ids != selected_ids:
-        raise SystemExit("P1 MUSAN inventory does not match the frozen O0-A3 selected file set")
+        raise SystemExit("P1 MUSAN inventory does not match the frozen O0-A4 selected file set")
     if (total_bytes > int(budget_binding["total_cap_bytes"])
             or total_bytes != int(budget_binding["combined_selected_bytes"])
             or musan_bytes != int(budget_binding["musan_selected_bytes"])
             or non_musan_bytes != int(budget_binding["non_musan_bytes"])):
-        raise SystemExit("P1 inventory byte totals differ from the frozen O0-A3 byte budget")
+        raise SystemExit("P1 inventory byte totals differ from the frozen O0-A4 byte budget")
     config = load_v51_config(study_root / "config" / "v51.yaml")
 
     roots = dict(args.source_root)
@@ -138,7 +150,7 @@ def main() -> int:
         return path
 
     print(f"P5 source rows: train={len(train)}, val={len(val)}; sources={sorted(required_sources)}")
-    print(f"O0-A3 inventory bytes: total={total_bytes}, MUSAN={musan_bytes}, cap={budget_binding['total_cap_bytes']}")
+    print(f"O0-A4 inventory bytes: total={total_bytes}, MUSAN={musan_bytes}, cap={budget_binding['total_cap_bytes']}")
     print(f"Frozen membership: {frozen['membership_sha256']}")
     print("P5 A-chk ranks every eligible train crop pair exactly; this is CPU-bound.")
     result = build_p5_cache(
