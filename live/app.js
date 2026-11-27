@@ -1,9 +1,17 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('waveform');
 const ctx = canvas.getContext('2d');
+const melCanvas = $('melSpectrum');
+const melCtx = melCanvas.getContext('2d', { alpha: false });
 const CHUNK_SECONDS = 0.5;
 const REQUEST_TIMEOUT_MS = 4000;
 const CAPTURE_VERSION = 'pool-v3';
+const MEL_FFT_SIZE = 2048;
+const MEL_HOP_SIZE = 1024;
+const MEL_BANDS = 64;
+const MEL_HISTORY_SECONDS = 5;
+const MEL_FMIN = 50;
+const MEL_FMAX = 7500;
 const V4_CHECKPOINT = 'f4372da59644395c174514944aa6387901ed483f64c137fd1ae4e31c83092049';
 const PROVISIONAL_THRESHOLD = -3.0;
 const PROVISIONAL_VOTE_COUNT = 3;
@@ -36,7 +44,7 @@ const state = {
   processor: null, samples: new Float32Array(0), sampleRate: 0,
   requestBusy: false, controller: null, sessionId: null, ownerToken: null, nextSequence: 0,
   expectedSourceFrame: null, gapPending: false, lastAudioBlockAt: 0, captureWatchdog: null,
-  points: new Float32Array(240), pointAt: 0,
+  points: new Float32Array(240), pointAt: 0, capturedAudio: null, mel: null,
   revision: 0, captureBlocks: 0, captureDrops: 0, resets: 0, completedRequests: 0, lastDrawAt: 0,
   recentResets: [],
   recording: null, savingRecording: false,
@@ -83,12 +91,168 @@ function drawWave() {
   ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
   ctx.strokeStyle = state.active ? '#b9e476' : '#64756b'; ctx.lineWidth = 1.7 * dpr;
   ctx.beginPath();
-  for (let i = 0; i < state.points.length; i++) {
-    const index = (state.pointAt + i) % state.points.length;
-    const x = i / (state.points.length - 1) * w, y = h / 2 - state.points[index] * h * 0.42;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  if (state.capturedAudio?.length) {
+    const samples = state.capturedAudio, bins = state.points.length;
+    for (let i = 0; i < bins; i++) {
+      const start = Math.floor(i * samples.length / bins);
+      const end = Math.max(start + 1, Math.floor((i + 1) * samples.length / bins));
+      let low = 1, high = -1;
+      for (let j = start; j < end; j++) {
+        low = Math.min(low, samples[j]); high = Math.max(high, samples[j]);
+      }
+      const x = i / (bins - 1) * w;
+      ctx.moveTo(x, h / 2 - high * h * 0.42);
+      ctx.lineTo(x, h / 2 - low * h * 0.42);
+    }
+  } else {
+    for (let i = 0; i < state.points.length; i++) {
+      const index = (state.pointAt + i) % state.points.length;
+      const x = i / (state.points.length - 1) * w, y = h / 2 - state.points[index] * h * 0.42;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
   }
   ctx.stroke();
+}
+function showCapturedAudio(audio = null) {
+  state.capturedAudio = audio;
+  const captured = Boolean(audio?.length);
+  $('waveformMode').textContent = captured ? 'FULL CLIP · 10 SEC' : 'LIVE INPUT';
+  $('waveform').setAttribute('aria-label', captured
+    ? 'Full 10-second captured microphone audio waveform' : 'Live microphone capture waveform');
+  $('levelReadout').textContent = captured ? '10.0 sec' : '— dB';
+  drawWave();
+}
+function hzToHtkMel(hz) { return 2595 * Math.log10(1 + hz / 700); }
+function htkMelToHz(mel) { return 700 * (10 ** (mel / 2595) - 1); }
+function createMelState(sampleRate) {
+  const halfBins = MEL_FFT_SIZE / 2 + 1;
+  const highHz = Math.min(MEL_FMAX, sampleRate * 0.49);
+  const lowMel = hzToHtkMel(MEL_FMIN), highMel = hzToHtkMel(highHz);
+  const edges = Array.from({ length: MEL_BANDS + 2 }, (_, i) =>
+    htkMelToHz(lowMel + (highMel - lowMel) * i / (MEL_BANDS + 1)));
+  const weights = new Float32Array(MEL_BANDS * halfBins);
+  for (let band = 0; band < MEL_BANDS; band++) {
+    const left = edges[band], center = edges[band + 1], right = edges[band + 2];
+    for (let bin = 0; bin < halfBins; bin++) {
+      const hz = bin * sampleRate / MEL_FFT_SIZE;
+      const triangle = hz < center ? (hz - left) / (center - left) : (right - hz) / (right - center);
+      if (triangle > 0) weights[band * halfBins + bin] = triangle * 2 / (right - left);
+    }
+  }
+  return {
+    sampleRate, halfBins, weights, hann: Float32Array.from({ length: MEL_FFT_SIZE }, (_, i) =>
+      0.5 - 0.5 * Math.cos(2 * Math.PI * i / (MEL_FFT_SIZE - 1))),
+    frame: new Float32Array(MEL_FFT_SIZE), writeAt: 0, samplesSeen: 0, sinceFrame: 0,
+    real: new Float32Array(MEL_FFT_SIZE), imag: new Float32Array(MEL_FFT_SIZE),
+    powers: new Float64Array(MEL_BANDS), historyFrames: Math.ceil(sampleRate * MEL_HISTORY_SECONDS / MEL_HOP_SIZE),
+    history: new Float32Array(Math.ceil(sampleRate * MEL_HISTORY_SECONDS / MEL_HOP_SIZE) * MEL_BANDS),
+    historyAt: 0, historyCount: 0,
+  };
+}
+function melFrame(mel) {
+  const { frame, writeAt, hann, real, imag } = mel;
+  for (let i = 0; i < MEL_FFT_SIZE; i++) {
+    real[i] = frame[(writeAt + i) % MEL_FFT_SIZE] * hann[i]; imag[i] = 0;
+  }
+  for (let i = 1, j = 0; i < MEL_FFT_SIZE; i++) {
+    let bit = MEL_FFT_SIZE >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [real[i], real[j]] = [real[j], real[i]];
+      [imag[i], imag[j]] = [imag[j], imag[i]];
+    }
+  }
+  for (let size = 2; size <= MEL_FFT_SIZE; size <<= 1) {
+    const half = size >> 1, angle = -2 * Math.PI / size;
+    for (let start = 0; start < MEL_FFT_SIZE; start += size) {
+      for (let offset = 0; offset < half; offset++) {
+        const wr = Math.cos(angle * offset), wi = Math.sin(angle * offset);
+        const even = start + offset, odd = even + half;
+        const tr = real[odd] * wr - imag[odd] * wi;
+        const ti = real[odd] * wi + imag[odd] * wr;
+        real[odd] = real[even] - tr; imag[odd] = imag[even] - ti;
+        real[even] += tr; imag[even] += ti;
+      }
+    }
+  }
+  let peakDb = -Infinity;
+  for (let band = 0; band < MEL_BANDS; band++) {
+    let power = 0, offset = band * mel.halfBins;
+    for (let bin = 0; bin < mel.halfBins; bin++) {
+      const magnitude = real[bin] * real[bin] + imag[bin] * imag[bin];
+      power += mel.weights[offset + bin] * magnitude;
+    }
+    mel.powers[band] = power;
+    peakDb = Math.max(peakDb, 10 * Math.log10(Math.max(power, 1e-12)));
+  }
+  const historyOffset = mel.historyAt * MEL_BANDS;
+  for (let band = 0; band < MEL_BANDS; band++) {
+    const db = 10 * Math.log10(Math.max(mel.powers[band], 1e-12));
+    mel.history[historyOffset + band] = peakDb < -90 ? 0 : Math.max(0, Math.min(1, (db - peakDb + 48) / 48));
+  }
+  mel.historyAt = (mel.historyAt + 1) % mel.historyFrames;
+  mel.historyCount = Math.min(mel.historyCount + 1, mel.historyFrames);
+}
+function drawMelSpectrum() {
+  const mel = state.mel;
+  if (!mel) return;
+  if (melCanvas.width !== mel.historyFrames || melCanvas.height !== MEL_BANDS) {
+    melCanvas.width = mel.historyFrames; melCanvas.height = MEL_BANDS;
+  }
+  const image = melCtx.createImageData(mel.historyFrames, MEL_BANDS);
+  const firstEmpty = mel.historyFrames - mel.historyCount;
+  for (let x = firstEmpty; x < mel.historyFrames; x++) {
+    const sourceFrame = (mel.historyAt - mel.historyCount + x - firstEmpty + mel.historyFrames) % mel.historyFrames;
+    for (let band = 0; band < MEL_BANDS; band++) {
+      const intensity = mel.history[sourceFrame * MEL_BANDS + band];
+      const row = MEL_BANDS - 1 - band, pixel = (row * mel.historyFrames + x) * 4;
+      image.data[pixel] = Math.round(12 + 173 * intensity);
+      image.data[pixel + 1] = Math.round(28 + 206 * intensity);
+      image.data[pixel + 2] = Math.round(25 + 93 * intensity);
+      image.data[pixel + 3] = 255;
+    }
+  }
+  melCtx.putImageData(image, 0, 0);
+  drawMelGrid();
+}
+function drawMelGrid() {
+  melCtx.save();
+  melCtx.strokeStyle = 'rgba(168, 183, 174, 0.16)'; melCtx.lineWidth = 0.5;
+  melCtx.beginPath();
+  for (let x = 0.5; x < melCanvas.width; x += melCanvas.width / 5) {
+    melCtx.moveTo(x, 0); melCtx.lineTo(x, melCanvas.height);
+  }
+  for (let y = 0.5; y < melCanvas.height; y += melCanvas.height / 4) {
+    melCtx.moveTo(0, y); melCtx.lineTo(melCanvas.width, y);
+  }
+  melCtx.stroke(); melCtx.restore();
+}
+function resetMelSpectrum() {
+  state.mel = null;
+  melCanvas.width = 240; melCanvas.height = MEL_BANDS;
+  melCtx.fillStyle = '#101a18'; melCtx.fillRect(0, 0, melCanvas.width, melCanvas.height);
+  drawMelGrid();
+  $('melStatus').textContent = 'WAITING FOR MIC';
+  melCanvas.setAttribute('aria-label', 'Live microphone Mel spectrogram; relative energy across 64 bands over the last 5 seconds. Visualization only, separate from detector input.');
+}
+function processMelAudio(block) {
+  if (!state.mel || state.mel.sampleRate !== state.sampleRate) {
+    state.mel = createMelState(state.sampleRate);
+    $('melStatus').textContent = 'UP TO 5 SEC · 64 BANDS';
+  }
+  const mel = state.mel;
+  let updated = false;
+  for (let i = 0; i < block.length; i++) {
+    mel.frame[mel.writeAt] = block[i];
+    mel.writeAt = (mel.writeAt + 1) % MEL_FFT_SIZE;
+    mel.samplesSeen++;
+    mel.sinceFrame++;
+    if (mel.samplesSeen >= MEL_FFT_SIZE && mel.sinceFrame >= MEL_HOP_SIZE) {
+      mel.sinceFrame = 0; melFrame(mel); updated = true;
+    }
+  }
+  if (updated) drawMelSpectrum();
 }
 function setMessage(text, error = false) {
   $('message').textContent = text;
@@ -144,6 +308,10 @@ function stop({ preserveMessage = false } = {}) {
   state.ambientLogActive = false;
   resetProvisionalVotes();
   state.epoch++; state.active = false; state.sessionId = null;
+  if (state.mel?.historyCount) {
+    $('melStatus').textContent = 'PAUSED · UP TO 5 SEC';
+    melCanvas.setAttribute('aria-label', 'Paused live microphone Mel spectrogram; relative energy across 64 bands over up to the last 5 seconds. Visualization only, separate from detector input.');
+  }
   state.expectedSourceFrame = null; state.samplesSourceFrame = null; state.gapPending = false;
   state.ownerToken = null;
   if (sessionId && ownerToken) fetch('/api/session/stop', { method: 'POST', keepalive: true,
@@ -220,6 +388,7 @@ function cancelRecording(note) {
 function toggleRecording() {
   if (state.recording) { cancelRecording('Recording cancelled. Nothing was saved.'); return; }
   if (!state.active || state.savingRecording) return;
+  showCapturedAudio();
   state.recording = { samples: new Float32Array(state.sampleRate * 10), at: 0,
     sampleRate: state.sampleRate, sessionId: state.sessionId, ownerToken: state.ownerToken, seconds: -1 };
   $('recordingStatus').textContent = 'Recording 0 / 10 sec — play the drone sound now. This clip will be saved locally.';
@@ -237,6 +406,7 @@ function collectRecording(block) {
   }
   if (recording.at === recording.samples.length) {
     state.recording = null;
+    showCapturedAudio(recording.samples);
     saveRecording(recording);
   }
 }
@@ -259,6 +429,7 @@ async function saveRecording(recording) {
 }
 function appendAudio(block, sourceFrame) {
   collectRecording(block);
+  processMelAudio(block);
   for (let i = 0; i < block.length; i++) {
     state.pointAt = (state.pointAt + 1) % state.points.length; state.points[state.pointAt] = block[i];
   }
@@ -273,8 +444,8 @@ function appendAudio(block, sourceFrame) {
   if (state.samplesSourceFrame === null) state.samplesSourceFrame = sourceFrame;
   state.samples = merged;
   const sum = block.reduce((total, x) => total + x * x, 0);
-  $('levelReadout').textContent = `${(20 * Math.log10(Math.max(Math.sqrt(sum / Math.max(block.length, 1)), 1e-7))).toFixed(0)} dB`;
-  if (performance.now() - state.lastDrawAt >= 80) {
+  if (!state.capturedAudio) $('levelReadout').textContent = `${(20 * Math.log10(Math.max(Math.sqrt(sum / Math.max(block.length, 1)), 1e-7))).toFixed(0)} dB`;
+  if (!state.capturedAudio && performance.now() - state.lastDrawAt >= 80) {
     state.lastDrawAt = performance.now(); drawWave();
   }
   if (!state.requestBusy && state.samples.length >= Math.round(state.sampleRate * CHUNK_SECONDS)) sendAudio();
@@ -343,6 +514,7 @@ async function sendAudio() {
   }
 }
 async function start() {
+  resetMelSpectrum();
   $('startButton').disabled = true; setMessage('Requesting microphone access…'); const epoch = ++state.epoch;
   try {
     const health = await fetch('/api/health', { cache: 'no-store' });
@@ -504,6 +676,7 @@ $('ambientLogButton').addEventListener('click', toggleAmbientLog);
 $('stopAmbientLogButton').addEventListener('click', toggleAmbientLog);
 $('ambientNoDroneConfirm').addEventListener('change', updateAmbientControls);
 drawWave();
+resetMelSpectrum();
 // Bounded numerical diagnostics only; microphone samples are never exposed here.
 window.detectorDiagnostics = () => ({ captureVersion: CAPTURE_VERSION, sampleRate: state.sampleRate,
   captureBlocks: state.captureBlocks, droppedFrames: state.captureDrops, resets: state.resets,

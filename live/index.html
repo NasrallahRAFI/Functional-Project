@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101a18">
   <title>V4 acoustic monitor · Fieldnote</title>
-  <link rel="stylesheet" href="/live/styles.css?v=cnn-v4-provisional-3">
+  <link rel="stylesheet" href="/live/styles.css?v=cnn-v4-live-mel-1">
 </head>
 <body>
   <main class="shell">
@@ -32,9 +32,14 @@
       </div>
       <div class="monitor-body">
         <div class="signal-column">
-          <div class="signal-heading"><span>ROOM SIGNAL</span><span id="levelReadout">— dB</span></div>
-          <canvas id="waveform" aria-label="Live microphone waveform"></canvas>
-          <div class="time-axis"><span>LIVE INPUT</span><span id="sampleRate">— Hz</span></div>
+          <div class="signal-heading"><span>CAPTURED AUDIO</span><span id="levelReadout">— dB</span></div>
+          <canvas id="waveform" aria-label="Live microphone capture waveform"></canvas>
+          <div class="time-axis"><span id="waveformMode">LIVE INPUT</span><span id="sampleRate">— Hz</span></div>
+          <figure class="mel-figure" aria-labelledby="melTitle">
+            <figcaption class="mel-heading"><span id="melTitle">LIVE MEL SPECTROGRAM</span><span id="melStatus">WAITING FOR MIC</span></figcaption>
+            <canvas id="melSpectrum" aria-label="Live microphone Mel spectrogram; relative energy across 64 bands over the last 5 seconds. Visualization only, separate from detector output."></canvas>
+            <p class="mel-note">Live mic view · brighter means stronger · time moves left to right · low to high, bottom to top</p>
+          </figure>
         </div>
         <div class="result" id="result" data-state="idle" aria-live="polite" aria-atomic="true">
           <span class="result-overline" id="resultOverline">READY WHEN YOU ARE</span>
@@ -80,6 +85,6 @@
       </div>
     </footer>
   </main>
-  <script src="/live/app.js?v=cnn-v4-provisional-3" defer></script>
+  <script src="/live/app.js?v=cnn-v4-live-mel-1" defer></script>
 </body>
 </html>
