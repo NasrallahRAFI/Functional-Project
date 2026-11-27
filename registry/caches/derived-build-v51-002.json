@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "id": "derived-build-v51-002",
+  "status": "planned-unbuilt",
+  "workspace": "workspaces/study-v5-1",
+  "corpus": "corpus-004",
+  "root": null,
+  "note": "Reserved for P4 train/validation derivatives and statistics under O0-A1; no derivatives are written."
+}

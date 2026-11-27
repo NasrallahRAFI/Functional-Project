@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "split-005",
+  "status": "frozen",
+  "corpus": "corpus-005",
+  "root": "storage/splits/split-005",
+  "files": [
+    {
+      "path": "FROZEN.json",
+      "sha256": "3b8cb246d46435f30fe5430c7b9cd1b682be3b0f585390615ec704c0ba7e0ab2",
+      "bytes": 3076
+    },
+    {
+      "path": "mechanical_ledger.csv",
+      "sha256": "27beeb6fb7551bbeed94d4c71d1d5308472e8fd4b68084ce21f08503531a9626",
+      "bytes": 47440781,
+      "rows": 85726
+    },
+    {
+      "path": "ood.csv",
+      "sha256": "b2138e7c471ba37e3edc46b149b3552b4afb7a5e3e4767a9c01975499a662616",
+      "bytes": 390,
+      "rows": 0
+    },
+    {
+      "path": "quarantine_manifest.csv",
+      "sha256": "423a042affbc7104bf75165a079ca78ca37978a0ab1c40fd2dc494eaadf22609",
+      "bytes": 61,
+      "rows": 0
+    },
+    {
+      "path": "reservoir_train.csv",
+      "sha256": "efb9289254bfa82187c95d95f9ec612078e8e2ceb544d1e776aa3aa28a84daf0",
+      "bytes": 27762466,
+      "rows": 42000
+    },
+    {
+      "path": "test.csv",
+      "sha256": "54da74578b1cc0aec512333bda9b75bf15b6a7aa1ddca78c8a24f545b80c3d5b",
+      "bytes": 2467921,
+      "rows": 4327
+    },
+    {
+      "path": "train.csv",
+      "sha256": "b32d0086dcf8228c06b0b308cb986c5e11db0d490eeb6480128635e910e6d3e0",
+      "bytes": 11431838,
+      "rows": 20249
+    },
+    {
+      "path": "val.csv",
+      "sha256": "38370c517dff31ca4e059a8cdb995073a72ee722151a89068503dfb273dfe5dd",
+      "bytes": 2508817,
+      "rows": 4396
+    }
+  ],
+  "full_manifest_sha256": "ea8d667f12a0432e5d78e4b20b9741e47b54b8c565fef2e024316a213b369133",
+  "seed": 51,
+  "preparation_plan": "workspaces/study-v5-1/docs/v5.1/DATA_PREPARATION_CNN_V5_1_FINAL.md",
+  "reproduction": "R-DET PASS under O0-A2; both attempt directories retained locally"
+}

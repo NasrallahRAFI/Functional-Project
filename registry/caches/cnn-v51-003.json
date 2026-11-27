@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "cnn-v51-003",
+  "status": "planned-unbuilt",
+  "workspace": "workspaces/study-v5-1",
+  "corpus": "corpus-005",
+  "split": "split-005",
+  "derived_build": "derived-build-v51-003",
+  "transform_hash": "bb7a21a1e5fb317c43e1e214bc04af6e46e04d75053383d1c62ef6849c9466c7",
+  "cache_content_hash": "026ff2ecaa8a240383af8666f61bbfcd9ea7ef3d4e9a51c73e803d82259a43b0",
+  "root": null,
+  "note": "Reserved cache identity under O0-A2; no cache or fitted statistics exist."
+}

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "id": "micarray30s-r001",
+  "source": "micarray30s",
+  "status": "planned-unbuilt",
+  "evidence": "Plan proposal only; exact local recordings and coordinate inventory are not present.",
+  "admission": "OOD by default; not admitted pending O5 and exact source snapshot"
+}

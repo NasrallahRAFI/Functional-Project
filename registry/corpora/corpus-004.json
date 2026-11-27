@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "corpus-004",
+  "status": "prepared-frozen-split",
+  "workspace": "workspaces/study-v5-1",
+  "sources": [
+    "al-emadi-r001",
+    "thesis-r001",
+    "itu-aris-r001",
+    "musan-r001"
+  ],
+  "membership": "storage/corpora/corpus-004/mechanical_ledger.csv",
+  "membership_sha256": "27beeb6fb7551bbeed94d4c71d1d5308472e8fd4b68084ce21f08503531a9626",
+  "inventory": "storage/corpora/corpus-004/inventory_v51.csv",
+  "inventory_sha256": "13ff2b199e37460285614797c8ff03fb17e32e74823dac4cf7d2422a92ade201",
+  "label_register": "storage/corpora/corpus-004/label_register.csv",
+  "label_register_sha256": "b1bcaa68888ee167adf040534ec6f978f6f8616eb18594225b99b0a0aed77e08",
+  "raw_rows": 19301,
+  "candidate_rows": 85726,
+  "retained_rows": 84635,
+  "split": "split-004",
+  "root": "storage/corpora/corpus-004",
+  "preparation_plan": "workspaces/study-v5-1/docs/v5.1/DATA_PREPARATION_CNN_V5_1_FINAL.md",
+  "plan_sha256": "bca93f9e1f98e82328f49b005bd6278c8f8318f37e2ecbf188f10d29ea56d3ce",
+  "contract_sha256": "c4227643919a3bf7ea1f1d8bab5a9191ae2a69470de59af6ccc56885144df827",
+  "note": "O0-A1 amended plan/contract. ITU single-session and weak-background caveats apply; MUSAN missing annotations are recorded, not inferred."
+}

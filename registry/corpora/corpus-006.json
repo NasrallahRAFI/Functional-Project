@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "corpus-006",
+  "status": "prepared-frozen-split",
+  "workspace": "workspaces/study-v5-1",
+  "sources": [
+    "al-emadi-r001",
+    "thesis-r001",
+    "itu-aris-r001",
+    "musan-r001"
+  ],
+  "membership": "storage/corpora/corpus-006/mechanical_ledger.csv",
+  "membership_sha256": "caaaac6c90c59f30a8d6cf24d847bb236018531e324b6169f886cbb6365d79a1",
+  "inventory": "storage/corpora/corpus-006/inventory_v51.csv",
+  "inventory_sha256": "d9283dc61b271020e3a1408bd4d1dc05cb412b7ca2c8e95dee337bb25dc89843",
+  "label_register": "storage/corpora/corpus-006/label_register.csv",
+  "label_register_sha256": "2d9736fb19aa9f745c26c6c5072c1dfad4a50fb4c0edba30b859ce4c5799c85c",
+  "raw_rows": 17343,
+  "candidate_rows": 19667,
+  "retained_rows": 18576,
+  "split": "split-006",
+  "root": "storage/corpora/corpus-006",
+  "preparation_plan": "workspaces/study-v5-1/docs/v5.1/O0-A3_MUSAN_1G_CAP.md",
+  "plan_sha256": "03266f3185bf35de6b822c84e2f38b30dd9a789e968272393dbc0cc1b0925563",
+  "contract_sha256": "76d912a8563a54786cb401c7a51104e1cc61be30d7eb0130a707aba81b731839",
+  "selection_manifest": "storage/corpora/corpus-006/musan_budget_selection.csv",
+  "selection_manifest_sha256": "5a2bb35a03a6896353fb6c08e1d632e53e7c50565e1b9f6f554f8711ff078a21",
+  "combined_audio_bytes": 1073218024,
+  "note": "O0-A3 capped inventory at 1 GiB. P2 and P3/R-DET passed; P4 B0 failed (structural reference QP primal infeasible). P4 failure evidence retained locally; do not use for P5."
+}

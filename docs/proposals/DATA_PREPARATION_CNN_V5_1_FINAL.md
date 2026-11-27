@@ -222,9 +222,11 @@ Equivalent group/cell aggregation is allowed only when clips in a cell have iden
 
 ### 7.3 Suitable B2 requirement for this data
 
-**Explicit change from the prior proposals:** 3,000 per class is a reported acquisition target, not a blocking requirement that the available positives cannot meet. Blocking B2 retains at least 80% of the best structurally feasible Kish size, rounded upward to the next 100:
+**Explicit change from the prior proposals:** 3,000 per class is a reported acquisition target, not a blocking requirement that the available positives cannot meet. Blocking B2 retains at least 80% of the best structurally feasible Kish size, without quantizing the floor:
 
-`B2_min_class = min(n_ref_class, 100 * ceil(0.80 * n_ref_class / 100))`.
+`B2_min_class = min(n_ref_class, 0.80 * n_ref_class)`.
+
+O0 amendment O0-A2 (owner-approved 2026-11-27) removes the earlier round-up-to-100 step. It preserves the 80% retention requirement and all fitted shares, margins, constraints, and solver settings.
 
 Compute this once after freeze from q_ref, before fitting descriptor margins. Freeze its output in `weight_reference.json`, bound to membership, solver and contract. Do not recompute a lower reference after descriptor balancing, change the 80% rule, or lower the threshold after a failure. A reference below 100 gets the exact reference floor and is explicitly a severe diversity gap; it does not imply scientific adequacy.
 
@@ -232,8 +234,8 @@ The metadata-only seed-51 authoring calculation gives:
 
 | Class | Candidate train rows | Best structural Kish size | Proposed B2 minimum |
 |---|---:|---:|---:|
-| Positive | 4,396 (AE 972, DD 220, ITU 3,204) | 1,667.85 | 1,400 |
-| Negative | 15,890 | 3,537.75 | 2,900 |
+| Positive | 4,396 (AE 972, DD 220, ITU 3,204) | 1,667.85 | 1,334.28 |
+| Negative | 15,890 | 3,537.75 | 2,830.20 |
 
 These are sizing estimates, not a frozen split or execution gate result. The companion `DATA_PREPARATION_CNN_V5_1_EFFECTIVE_SIZE_BASIS.json` records the metadata assumptions, prospective counts, source/reference hashes and residuals. The estimates exclude unrun new-source zero/dedup and K1 effects; Cochl/loc are absent and MIC is OOD. The actual gate is calculated by the fixed formula on cleaned, frozen training rows. Report absolute Kish size, ratio to reference, count-only ceiling, group/session counts and the shortfall to 3,000 separately. Kish size measures weight concentration, not independent recording conditions, power, accuracy or deployment readiness. Per-stratum Kish size below 150 is a flagged gap, not an automatic class-level failure.
 
@@ -243,7 +245,7 @@ Add M2: positive draw fraction .35 in each nonempty rolloff decile; M3: the same
 
 Minimize `sum_pos((w_i/.35)^2) + sum_neg((w_i/.65)^2)` under M1/M2/M3 and the structural constraints. This explicitly replaces the earlier underspecified IPF loop with a uniquely defined minimum-concentration quadratic program. If the solver proves infeasibility, drop M3, then M2; never M1. A numerical failure is a stop, not evidence allowing a margin drop. Report dropped margins and all residuals. B1 still requires every nonempty RMS and rolloff decile's positive share in [.21,.56]; dropping a margin does not waive B1. B2 compares final within-class Kish sizes with the fixed reference floors.
 
-Use OSQP 1.1.3 builtin direct solver; record NumPy/SciPy/OSQP/binary platform identities. Settings: float64 CSC matrices, eps_abs/eps_rel=1e-9, max_iter=200000, adaptive_rho=false, rho=.1, warm_starting=false, polishing=true, scaled_termination=false, check_termination=25. Sort variables by clip ID and constraints by the contract order. Require status solved, finite nonnegative-within-1e-10 weights, and original-unit max constraint violation <=1e-8. Zero only negative roundoff in [-1e-10,0); recheck every constraint and class sum. No solver fallback or random restart. Reference and final solver records are separate. The solver is an authoring dependency choice covered by O0, not an installed V5.1 environment claim.
+Use OSQP 1.1.3 builtin direct solver; record NumPy/SciPy/OSQP/binary platform identities. Settings: float64 CSC matrices, eps_abs/eps_rel=1e-11, max_iter=200000, adaptive_rho=false, rho=.1, warm_starting=false, polishing=true, scaled_termination=false, check_termination=25. Sort variables by clip ID and constraints by the contract order. Require status solved, finite nonnegative-within-1e-10 weights, and original-unit max constraint violation <=1e-8. Zero only negative roundoff in [-1e-10,0); recheck every constraint and class sum. No solver fallback or random restart. Reference and final solver records are separate. O0 amendment O0-A1 (owner-approved 2026-11-27) tightens eps_abs/eps_rel from 1e-9 to 1e-11 after the original profile returned a weight below the fixed nonnegativity tolerance. The solver remains OSQP 1.1.3 builtin direct; this is a numerical-tolerance amendment only, not a change to margins, constraints, solver, or post-solve rules. The solver is an authoring dependency choice covered by O0, not an installed V5.1 environment claim.
 
 ## 8. Deterministic training augmentation interface
 
@@ -361,7 +363,7 @@ Deliver inventory/label/quarantine/ledger files; frozen memberships and FROZEN.j
 * O3: Cochl input/download. Default no input, tier D. Downloads are separate actions; no invented local archive path.
 * O5: MIC pool admission. Default OOD; document the eligible independent/conservative group decision before P1.
 
-The user requested an effective size suited to the data. The final authoring choice is the 80%-reference rule with current provisional floors 1,400 positive /2,900 negative, rather than the impossible 3,000-positive blocker. This is a design tolerance for weight concentration, not a power analysis. The solver objective and reference calculation are explicit so the floor cannot be made easier by first producing a poor reference sampler.
+The user requested an effective size suited to the data. O0-A2 sets the blocking floor to exactly 80% of the fixed structural reference: the metadata sizing illustration gives 1,334.28 positive and 2,830.20 negative, rather than a ceiling-rounded floor. The absolute 3,000-per-class value remains a reported acquisition target, not a blocking requirement. This is a design tolerance for weight concentration, not a power analysis. The solver objective and reference calculation are explicit so the floor cannot be made easier by first producing a poor reference sampler.
 
 Remaining scientific limits are source-level labels, the ITU single session and unknown background-block overlap, AE prior test history, MIC/Wang provenance/label weakness, class-dependent training mixture probabilities, nominal rather than true acoustic SNR, power-mixing approximation, and default absence of device ambient. A completed preparation run does not establish a valid operating point.
 

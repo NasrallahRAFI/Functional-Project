@@ -1439,17 +1439,16 @@
       0.56
     ],
     "effective_size": {
-      "blocking_policy": "min(n_ref,100*ceil(0.8*n_ref/100))",
+      "blocking_policy": "min(n_ref,0.8*n_ref)",
       "reference_retention": 0.8,
-      "round_up_step": 100,
       "absolute_3000": "reported_acquisition_target_not_blocking",
       "stratum_150": "reported_gap_not_class_failure",
       "freeze_reference_before_descriptor_balance": true,
       "metadata_only_authoring_sizing": {
         "positive_reference": 1667.8456636853937,
         "negative_reference": 3537.746644487286,
-        "positive_floor": 1400,
-        "negative_floor": 2900,
+        "positive_floor": 1334.276530948315,
+        "negative_floor": 2830.197315429828,
         "not_a_frozen_split": true
       }
     }
@@ -1461,8 +1460,8 @@
     "reference_objective": "minimize sum(q_i^2) per class under structural constraints",
     "final_objective": "sum_pos((w_i/.35)^2)+sum_neg((w_i/.65)^2)",
     "settings": {
-      "eps_abs": 1e-09,
-      "eps_rel": 1e-09,
+      "eps_abs": 1e-11,
+      "eps_rel": 1e-11,
       "max_iter": 200000,
       "adaptive_rho": false,
       "rho": 0.1,
@@ -1803,5 +1802,21 @@
     "future_empirical_selection_target_per_hour": 0.5,
     "future_test_target_per_hour": 1.0,
     "test_or_new_model_execution_authorized": false
-  }
+  },
+  "amendments": [
+    {
+      "id": "O0-A1",
+      "date": "2026-11-27",
+      "authority": "owner-approved in Codex conversation",
+      "reason": "Original OSQP settings returned minimum weight -1.6288860751502927e-9 against the fixed -1e-10 nonnegativity bound.",
+      "change": "eps_abs and eps_rel tightened from 1e-9 to 1e-11; all margins, constraints, OSQP version/backend, nonnegativity rule, and no-fallback policy remain fixed."
+    },
+    {
+      "id": "O0-A2",
+      "date": "2026-11-27",
+      "authority": "owner-approved in Codex conversation",
+      "reason": "Under O0-A1, negative ESS 2853.19 exceeded exact 80% of the fixed reference (2830.20) but fell below its ceiling-rounded floor 2900.",
+      "change": "B2 minimum is exact min(n_ref, 0.8*n_ref); remove upward rounding to 100. Positive/negative shares, source/group/clip caps, descriptor margins, solver settings and 80% reference retention remain fixed."
+    }
+  ]
 }

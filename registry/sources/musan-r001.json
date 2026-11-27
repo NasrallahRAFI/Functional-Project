@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "musan-r001",
+  "source": "musan",
+  "status": "registered-input-present",
+  "url": "https://www.openslr.org/17/",
+  "root": "storage/sources/musan/musan-r001",
+  "original": "storage/sources/musan/musan-r001/original",
+  "inventory": "storage/sources/musan/musan-r001/checksums/files.csv",
+  "inventory_sha256": "e2fea4a47df276e833cbf34f8b541c9f5f8c71336cce37afcb30c3ab426b5f79",
+  "files": 2037,
+  "bytes": 12590361810,
+  "revision_provenance": "Local MUSAN collection snapshot; original upstream acquisition revision not established",
+  "evidence": "Exact local payload and per-file SHA-256 inventory registered; file-level byte/hash verification is required by P1.",
+  "admission": "P1 source admitted with per-file license/annotation documentation preserved",
+  "documentation": "Documentation files are included in the checksum inventory; MUSAN licenses and annotations remain per collection/file."
+}

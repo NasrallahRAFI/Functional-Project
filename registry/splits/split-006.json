@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "split-006",
+  "status": "frozen",
+  "corpus": "corpus-006",
+  "root": "storage/splits/split-006",
+  "files": [
+    {
+      "path": "FROZEN.json",
+      "sha256": "f5112f2923b4c6e0ebc241c947dbdc9c6a5aa8b99374e9ef45ba910011594bcc",
+      "bytes": 3401
+    },
+    {
+      "path": "mechanical_ledger.csv",
+      "sha256": "caaaac6c90c59f30a8d6cf24d847bb236018531e324b6169f886cbb6365d79a1",
+      "bytes": 8613143,
+      "rows": 19667
+    },
+    {
+      "path": "ood.csv",
+      "sha256": "b2138e7c471ba37e3edc46b149b3552b4afb7a5e3e4767a9c01975499a662616",
+      "bytes": 390,
+      "rows": 0
+    },
+    {
+      "path": "quarantine_manifest.csv",
+      "sha256": "423a042affbc7104bf75165a079ca78ca37978a0ab1c40fd2dc494eaadf22609",
+      "bytes": 61,
+      "rows": 0
+    },
+    {
+      "path": "reservoir_train.csv",
+      "sha256": "9d9652dad046217527f4b230a9e77b163b7bd4d16f47a4a765f593a6ce6d7902",
+      "bytes": 578800,
+      "rows": 875
+    },
+    {
+      "path": "test.csv",
+      "sha256": "f11f68a5d670268eb14b0af487850fd632202ae11872d0aea2199a4bdd69269c",
+      "bytes": 1260092,
+      "rows": 2491
+    },
+    {
+      "path": "train.csv",
+      "sha256": "1ccab50ad6e4f506963c3894dde8b29216c9281930c351586cd24b70be025fa1",
+      "bytes": 6223925,
+      "rows": 12342
+    },
+    {
+      "path": "val.csv",
+      "sha256": "6d005c9c760457808b21cd61413cf0979283d5b01cce36926204876139cf131f",
+      "bytes": 1241019,
+      "rows": 2466
+    }
+  ],
+  "full_manifest_sha256": "908482c9aa85e416d7a53bf26090d003dea9dea2e15de6142988b740e65ae3e0",
+  "seed": 51,
+  "preparation_plan": "workspaces/study-v5-1/docs/v5.1/O0-A3_MUSAN_1G_CAP.md",
+  "reproduction": "R-DET PASS; two independent P3 attempts have identical membership SHA-256 908482c9aa85e416d7a53bf26090d003dea9dea2e15de6142988b740e65ae3e0"
+}

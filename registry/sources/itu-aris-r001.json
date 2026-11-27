@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "itu-aris-r001",
+  "source": "itu-aris",
+  "status": "registered-input-present",
+  "url": "https://zenodo.org/records/22682339",
+  "root": "storage/sources/itu-aris/itu-aris-r001",
+  "original": "storage/sources/itu-aris/itu-aris-r001/original",
+  "inventory": "storage/sources/itu-aris/itu-aris-r001/checksums/files.csv",
+  "inventory_sha256": "30508e2078b736bd752f86a40f8a0a7a52c7072d9093dcdd0d8229498a46eddd",
+  "files": 5499,
+  "bytes": 244023166,
+  "revision_provenance": "Zenodo record 22682339, version 1.0.0; exact approved extraction",
+  "evidence": "Exact local payload and per-file SHA-256 inventory registered; file-level byte/hash verification is required by P1.",
+  "admission": "P1 source admitted; source-level single-session caveat and weak background labels retained",
+  "documentation": "Documentation files are included in the checksum inventory; MUSAN licenses and annotations remain per collection/file."
+}

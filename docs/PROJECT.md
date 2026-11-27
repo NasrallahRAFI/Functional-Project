@@ -9,6 +9,7 @@ Layout established 26 November 2026 by owner instruction. The catalog checkout i
 | repository/ | Versioned catalog, governance, source reports, registry and templates |
 | workspaces/study-v3/ | Active V3 code, plan, decisions, tests and launchers |
 | workspaces/study-v4/ | Separate V4 study workspace; corpus-002/split-002 prepared and frozen |
+| workspaces/study-v5-1/ | Independent V5.1 preparation workspace; O0-A2 corpus-005 historical; O0-A3 corpus-006 P4 failed B0 |
 | storage/sources/ | Exact imported source revisions, documentation and SHA-256 inventories |
 | storage/corpora/ | Corpus membership, cleaning/group records and preparation evidence |
 | storage/splits/ | Frozen split manifests and their identities |
@@ -26,11 +27,13 @@ Layout established 26 November 2026 by owner instruction. The catalog checkout i
 
 V1 is the historical multi-model study. V2 is the frozen CNN baseline. V3 is current development; its deployed A1 model is explicitly experimental and validation-ineligible. V4.0 has completed two-source data preparation and one D048 A0 CNN training run with seed 42. Salford is explicitly excluded. The corpus and frozen split are registered as corpus-002 and split-002; run cnn_a0_seed42 is frozen before test. No tuning, additional run, threshold selection or test scoring was performed. A later local V4 activation displays raw logits only on port 8766; threshold selection remains pending. Reports and evidence are recorded in reports/study-v4/.
 
-Original scientific decisions remain in docs/history/original_context/PROJECT_CONTEXT_V8.md. Each study names its authoritative plan. The combined-source V4 scope supersedes the one-source restriction for V4 only; no numerical data budget or new scoring protocol is invented here.
+V5.1 preparation is authorized by O0 and amendments O0-A1/A2 on 27 November 2026 on branch `study-v5-1`. O0-A2 corpus-005/split-005 and its P4 PASS remain immutable history; its P5 attempts failed. O0-A3 authorizes a 1 GiB combined raw-audio cap, keeping AE/DD/ITU complete and selecting MUSAN by deterministic group ranking under class-proportional byte quotas. New corpus-006/split-006 are frozen with P1/P2/P3/R-DET PASS, but P4 failed B0 because the fixed structural reference QP was primal infeasible. P5-P7 for corpus-006 remain NOT_RUN. Do not use its split for P5 or training unless a new owner-approved amendment creates a new eligible attempt. Prior corpus-003/004/005 histories remain immutable. No V5.1 training, runtime activation, or test/OOD evaluation occurred. Evidence is in `workspaces/study-v5-1/reports/v5.1/`.
+
+Original scientific decisions remain in docs/history/original_context/PROJECT_CONTEXT_V8.md. Each study names its authoritative plan. The combined-source V4 scope supersedes the one-source restriction for V4 only. V5.1's 1 GiB raw-audio cap is the owner-approved O0-A3 amendment; it does not create a new scoring protocol.
 
 ## Git and document authority
 
-The proposed V5.1 preparation contract is [DATA_PREPARATION_CNN_V5_1_FINAL.md](proposals/DATA_PREPARATION_CNN_V5_1_FINAL.md), with a [machine-readable contract](proposals/DATA_PREPARATION_CNN_V5_1_CONTRACT.json) and [metadata-only effective-size basis](proposals/DATA_PREPARATION_CNN_V5_1_EFFECTIVE_SIZE_BASIS.json). It remains pending explicit O0 execution approval. Its authoring/sizing checks are not preparation execution; no V5.1 workspace, source import, corpus-003/split-003 freeze, cache, training run or runtime activation is established by these documents.
+The V5.1 preparation authority is [DATA_PREPARATION_CNN_V5_1_FINAL.md](proposals/DATA_PREPARATION_CNN_V5_1_FINAL.md), with a [machine-readable contract](proposals/DATA_PREPARATION_CNN_V5_1_CONTRACT.json) and [metadata-only effective-size basis](proposals/DATA_PREPARATION_CNN_V5_1_EFFECTIVE_SIZE_BASIS.json). O0 is recorded in `workspaces/study-v5-1/docs/v5.1/DECISIONS.md`; the workspace holds exact copies with their hashes. Authoring/sizing checks remain distinct from preparation execution.
 
 repository/ is the project-catalog branch checkout. workspaces/study-v3/ is the cnn-v3 checkout; study-v4 is separate. They share one Git object database, currently housed in Functional Project/.git because Windows prevented moving that open metadata directory. Do not delete or relocate that primary checkout manually. Use Git worktree operations and the migration records for a later relocation.
 

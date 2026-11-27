@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "study-v5-1",
+  "status": "preparation-incomplete",
+  "workspace": "workspaces/study-v5-1",
+  "branch": "study-v5-1",
+  "corpus": "corpus-006",
+  "split": "split-006",
+  "plan_status": "O0-A3 1 GiB cap approved; P1/P2/P3/R-DET passed; P4 failed B0 structural QP infeasible; P5-P7 NOT_RUN",
+  "preparation_report": "workspaces/study-v5-1/reports/v5.1/DATA_PREPARATION_CNN_V5_1_REPORT.md",
+  "models_trained": false,
+  "runtime_selection": "V4 remains active; no V5.1 runtime selection",
+  "preparation_status": "INCOMPLETE",
+  "preparation_gates": {
+    "A0": "PASS",
+    "P0": "PASS",
+    "P1": "PASS",
+    "P2": "PASS",
+    "P3": "PASS",
+    "R-DET": "PASS",
+    "P4": "FAIL",
+    "P5": "NOT_RUN",
+    "P6": "NOT_RUN",
+    "P7": "NOT_RUN"
+  },
+  "attempt_id": "v51-budget-1g-a3"
+}
