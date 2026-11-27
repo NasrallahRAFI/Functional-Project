@@ -1,0 +1,320 @@
+DATA_PREPARATION_CNN_V5_1 - INTEGRATION AND ADAPTATION VERIFICATION
+Reviewed: 27 November 2026
+Scope: proposal review against current project files; no preparation execution.
+Proposal SHA-256: 3d2769f37a2a4d8cb059be59dfb0eea22b4116fa1d19e6e9ba5dbe6d338ad90e
+
+VERDICT
+
+V5.1 IS NOT INTEGRATED in the inspected project. The proposal is not ready for
+literal implementation without resolving the conflicts below. Existing V4
+components provide reusable building blocks; their existence does not establish
+V5.1 gate compliance or authorize changes to frozen studies.
+
+The supplied document explicitly says "proposal for owner approval" and "Nothing
+here has been executed." Its unresolved decisions and stop-on-ambiguity rule were
+respected. No source was imported, audio decoded for V5.1, split assigned, corpus
+frozen, cache fitted, model scored, threshold chosen, or recorder enabled.
+
+This is an audit document, not the authoritative V5.1 preparation plan or an
+execution report. Findings identify required decisions without making them.
+
+OBSERVED INTEGRATION STATUS
+
+- Worktrees: project-catalog, cnn-v3 and study-v4. No V5.1 worktree was present.
+- Registered studies: study-v1 through study-v4 only.
+- Registered sources: al-emadi-r001, thesis-r001 and salford-r001 only.
+- corpus-003, split-003 and a V5.1 cache identity were not registered.
+- No V5.1 workspace, corpus directory, split directory, cache directory, study
+  reports or preparation entry point were found in the inspected project trees.
+- No versioned V5.1 plan or decision log was found.
+- Existing live configuration selects CNN_V4.0, seed 42, raw scores only.
+- Existing training entry point is V4-specific: seed 42, run cnn_a0_seed42,
+  corpus-002/split-002 and gain augmentation [-12, +12] dB.
+- Copying or renaming that script would not implement seed 51, the proposed
+  sampler, new sources, augmentation, streams, or V5.1 runtime identity.
+
+FINDINGS THAT BLOCK SIGN-OFF
+
+F1 [P1] Test sealing conflicts with the operation order and unchanged V4 workflow.
+
+Proposal references: section 0 rule 4 (line 16), 3.2, 4.1-4.2, 5, 12 P2/P3
+(lines 431-432), and gate T6 (line 404).
+
+P2 derives, reads back, measures and deduplicates audio before P3 assigns groups
+to splits. Some of those inputs will become test-bound. The current V4 workflow
+also decodes all AE audio for descriptors and all DD audio for derivation and
+quality checks before its group split. Calling it unchanged would violate the
+proposal's header/hash-only test boundary. New float32 sample identities also
+require standardized sample access; a raw file hash is not that identity.
+
+Required resolution: state exactly which pre-assignment operations are allowed,
+when prospective test groups are sealed, and how sample-identity gates can be
+verified under that boundary. Scope V4 reuse to compatible numerical helpers,
+not an implicit rerun of its complete pre-split workflow.
+
+Project evidence: workspaces/study-v4/src/dronedet/data_preparation.py:416,
+515-576, 588-615, 662-666.
+
+F2 [P1] Gate R2 conflates unchanged frontend processing with refitted statistics.
+
+Proposal references: section 3.1 and gate R2 (line 380).
+
+V5.1 requires new training normalization statistics, but R2 requires the frontend
+hash to equal V4's. The V4 runtime's frontend_hash is normalization_lineage_hash:
+it includes the mean/std values, not just sample rate and mel geometry. Reusing
+that identity after fitting different statistics would misrepresent the input.
+
+Measured identity checks:
+- V4 normalized frontend hash:
+  028d682f79e0099f265bf9194e11ba3250d16fc8ef5377944e7d7671ab60fdd2
+- Current transform_hash:
+  bb7a21a1e5fb317c43e1e214bc04af6e46e04d75053383d1c62ef6849c9466c7
+- Current mel-power cache_content_hash:
+  026ff2ecaa8a240383af8666f61bbfcd9ea7ef3d4e9a51c73e803d82259a43b0
+- Changing an in-memory copy of one training-statistics value changed the
+  normalized-input hash, with no disk write and no statistics fitting.
+- Changing manifest_seed alone preserved transform_hash. Putting A1's
+  [-36, +6] range in the existing frontend.gain_range_db field changed
+  transform_hash, while preserving cache_content_hash.
+
+Required resolution: name the processing identity to preserve, separately bind
+new V5.1 statistics/normalized-input identity, and specify where augmentation
+configuration belongs. Do not reuse the V4 normalized-input hash for V5.1.
+
+Project evidence: workspaces/study-v4/src/dronedet/config.py:345, 389, 424;
+workspaces/study-v4/src/dronedet/inference.py:289.
+
+F3 [P1] ITU background proximity filtering cannot use the current metadata as
+written.
+
+Proposal reference: section 4.3 rule 6.
+
+The extracted groups.json contains 5,491 segment records, 35 drone intervals and
+20 background groups. Its interval records have start_s/end_s, but each of the
+1,000 background segment records has only file, label and group. Background
+segment times are absent. Therefore "groups.json has times" is true for drone
+intervals, but insufficient for the proposed five-second background filter.
+
+Required resolution: define timestamp completeness per segment/source and the
+explicit weak-label fallback when background positions are unavailable. An
+implementer cannot invent those times from a numbered filename. The supplied
+interval/block group names alone also do not prove sample disjointness across
+background-block boundaries; source-position evidence is needed for that claim.
+
+Evidence: ITU extracted archive metadata inspected directly; no ITU audio was
+decoded or scored in this review.
+
+F4 [P1] Event construction has no defined path from short scene files to a
+continuous 20-second bed, and its crossfade arithmetic changes event duration.
+
+Proposal references: sections 9.2-9.3 (lines 306, 310-315, 331-336).
+
+Events require a 20-second excerpt with equal shares of E1-E4 beds. CochlScene
+files are ten seconds, and DD recordings are approximately ten seconds. The
+proposal supplies no approved concatenation, looping, padding or rejection rule.
+An E4 scene file therefore cannot supply the specified excerpt directly.
+Four one-second clips joined by three overlapping 10-ms crossfades total
+3.970 seconds, not the fixed 4.000 seconds.
+
+Required resolution: define bed eligibility/construction and exact crossfade,
+sample-count, time-origin and SNR/ramp ordering rules. None was chosen here.
+
+F5 [P2] The MIC-OOD fallback deterministically violates source-cap gate B3.
+
+Proposal references: section 7.2 (line 253) and gate B3 (line 394).
+
+The fallback assigns AE 45% of positive draws, but B3 allows no source above 35%
+of its class's draws. Both fixed rules cannot pass in that branch. Under the
+literal final-numeric-suffix removal rule, the present 163 MIC audio paths produce
+12 distinct keys, so this fallback is not currently selected by the >=6 test.
+It remains an inconsistent specified branch and cannot silently be substituted
+after a later MIC grouping/admission change.
+
+The 12 names are grouping keys, not verified independent flights. Four pairs
+share an otherwise identical flight/timestamp prefix and differ by the remaining
+_0/_1 suffix; the proposal has not established whether that suffix denotes
+independent recordings. Splitting such keys needs source documentation or an
+explicit conservative grouping decision before claiming flight independence.
+
+Required resolution: reconcile the fallback share and B3; document MIC flight
+identity rather than equating regex keys with independent acquisition conditions.
+
+F6 [P2] Stream-purity gate T4 contradicts the explicit DD background/helicopter
+stream inputs if "positive source" means dataset source.
+
+Proposal references: section 9.2 and gate T4 (line 402).
+
+DD contains positive and negative recordings. E1 explicitly permits DD BACKGROUND
+and E6 permits DD HELICOPTER, but T4 says no stream file belongs to a positive
+source. ITU background has its own explicit exclusion. Source identity and a
+recording's class must be distinguished in the gate; otherwise permitted DD
+negative streams fail it.
+
+Required resolution: define purity at the intended recording/label level and
+retain separately listed source exclusions. No interpretation was applied.
+
+F7 [P2] The CochlScene recovery gate has contradictory failure outcomes and an
+unlocated local input.
+
+Proposal references: section 4.6, P1 (line 430), and O3 (line 448).
+
+Section 4.6 defines unused tier D plus fallback strata when recovery misses its
+minimums, but its heading and the phase table require stop-and-report on R-gate
+failure. Those are different execution outcomes. CochlScene.z01 was not found at
+the inspected Downloads root or in the existing scout's roots; this review does
+not claim absence elsewhere on the machine.
+
+The official Zenodo record confirms five approximately 10.7-GB .z01-.z05 parts
+plus a 173-MB final .zip, 53.9 GB in total. It confirms 76,115 ten-second files,
+13 classes and 831 participants. Published metadata is not evidence of a local
+download, recovered CRC-valid entries or locally recorded license contents.
+
+Required resolution: locate the exact archive input and state whether a failed
+recovery is an approved fallback or a halt awaiting an owner decision.
+
+F8 [P2] Determinism and V4 reuse require an explicit algorithm boundary.
+
+Proposal references: section 0 rules 6-7 (lines 18-19), section 5 duplicate
+selection, and section 6.2.
+
+The existing two_stage_split uses shuffled StratifiedGroupKFold with a local
+random_state. This is deterministic for a pinned implementation/input order and
+does not use mutable global RNG state, but it is not SHA-1 ranking for every
+random choice. Existing V4 nonzero duplicate representatives use clip-ID order;
+section 5 asks for SHA-1 order except for pinned zero representatives. Decoded
+duplicate contents can remain identical while representative paths/groups change.
+
+Required resolution: identify allowed SGKF randomness and pinned library/input
+ordering, specify SHA-1 purpose/key serialization, and state which AE/DD
+representative/group rules are exempt to preserve unchanged V4 semantics. Hash
+equality of duplicate audio alone does not prove unchanged group membership.
+
+F9 [P2] The replay and recorder are new adaptations, not available V5.1 features.
+
+The current Python service intentionally returns raw scores with threshold=null.
+The provisional -3.00 two-of-three decision exists in live/app.js, with resets
+on standby, buffering and capture recovery. VoteSmoother is a reusable Python
+primitive; using it does not by itself reproduce every browser reset/timing rule.
+
+The existing replay script is bound to the V4 checkpoint/statistics identity and
+counts alarm openings without the new <5-second episode-merge policy or a
+file-block bootstrap. The diagnostic audio endpoint limits uploads to ten
+seconds; no continuous O1 recorder was found. Existing ambient logs have
+audio_saved=false and cannot be rescored with a new model. The inspected old
+ambient log also has null statistics_sha256/frontend_hash, so the current strict
+V4 replay rejects its identity; A0 may still describe the log if that limitation
+is explicit, but it cannot become identity-verified V5.1 calibration audio.
+
+Required resolution: record the exact replay contract and make O1 A/B/C explicit
+before implementing dependent behavior. Full T1/T2/T3-T6 approval requires the
+new harness and frozen membership; it was not awarded here.
+
+OTHER CORRECTIONS TO CARRY INTO ADAPTATION
+
+- app.js:354 already requests channelCount=1, echoCancellation=false,
+  noiseSuppression=false and autoGainControl=false. These are requested settings,
+  not proof of every device's actual applied capture behavior. Session metadata
+  should distinguish requested constraints from track.getSettings observations.
+- The rolloff difference is an observed class descriptor gap, not proof that a
+  trained model causally uses an HF shortcut. Section 1.1 overstates that evidence;
+  H2 remains a hypothesis.
+- H2 requires new waveform recordings or existing raw source audio. Score-only
+  V4 ambient logs have no rolloff descriptor or recoverable waveform.
+- 7.3 changes RMS semantics to nonzero samples and rolloff to an STFT-based
+  descriptor; V4's v4_descriptor uses whole-waveform RMS and a periodogram.
+  Preserve numerical reuse boundaries and name the new descriptor contract.
+- 9.7 uses scores to select reservoir windows while section 0 broadly forbids
+  model-score admission/rejection. State the intended training-only mining
+  exception; source/label admission must not become score based.
+- The validation event quota and group eligibility must be checked again for P6
+  after AE/DD are excluded. Their groups cannot be counted toward a new-source-
+  only event quota that actually draws only ITU/MIC.
+- Approximate MUSAN hours and split fractions are not measured per-split scored
+  exposure. Quiet-gate warmup, resets and file selection change exposure.
+- S9 currently precedes descriptors and weighting. Any frozen CSV columns that
+  require later weak-positive/distance results need a separate bound descriptor
+  artifact, not post-freeze edits to train/val/test manifests.
+- R1 is used both for the determinism gate and the mining round; distinguish
+  identifiers in machine-readable execution records.
+- O2 sources stay quarantined until their stated documentation/label conditions
+  are resolved. O4 is optional. This review did not download additional datasets.
+
+REQUIREMENT-TO-PROJECT MAP
+
+Study/plan/decision authority:
+  Missing V5.1 binding. Global identities belong in repository/registry;
+  scientific implementation requires its own explicitly selected study workspace.
+
+Registered source inventory and raw read-only guard:
+  Existing catalog/checksum conventions are reusable. Proposed ITU/MIC/MUSAN
+  source identities are not registered. Cochl/loc inputs are conditional/unbound.
+
+AE/DD conversion and cleaning:
+  Reusable helpers in src/dronedet/data_preparation.py and splits.py.
+  Full V4 orchestration is hardcoded to corpus-002/split-002 and cannot serve as
+  a new V5.1 entry point without crossing the stated workflow boundary.
+
+V5.1 groups, manifests, deterministic sampling and OOD guards:
+  No implementation or execution evidence found. Existing split_gates are
+  V4-specific and do not establish the new S-series.
+
+IPF weights, source caps, descriptor balancing, Kish effective size:
+  No V5.1 implementation or achieved-margin/gap report found.
+
+A1-A5 and A-chk:
+  No V5.1 implementation or numerical validation found. Existing V4 training has
+  a random crop and +/-12-dB gain, not this augmentation suite.
+
+Train/val caches and new normalization lineage:
+  Existing cache/normalization helpers are reusable; no corpus-003 artifacts or
+  new lineage were found. Existing V4 statistics remain bound to V4.
+
+Replay, episode merge, bootstrap, event/SNR data and threshold evidence:
+  LiveWindowBuilder and VoteSmoother are reusable. The V4 replay is not the full
+  V5.1 protocol. No V5.1 stream manifests or evidence outputs were found.
+
+Continuous local-ambient recording:
+  Missing; conditional on O1. Existing diagnostic recording is limited to 10 s.
+
+VERIFICATION PERFORMED
+
+1. Project catalog layout/registry integrity check: PASS, no errors. It checks
+   preserved source-manifest and split hashes and existing dependency/mount rules.
+2. Existing V4 StreamingParityTests.test_g14_t1_t2_t3: PASS. It uses synthetic
+   audio and checks the existing 16/48-kHz streaming/resampling/reset behavior.
+   It is not V5.1 T1's 20 clips at every proposed rate.
+3. Exhaustive short synthetic vote sequences with warmup and resets:
+   18,432 scored steps matched median-of-three >= threshold whenever ready.
+   This checks the Python primitive, not every proposed end-to-end replay rule.
+4. Frontend identity behavior: measured with existing training statistics and
+   in-memory copies only; no on-disk statistics were changed.
+5. ITU grouping/time schema: read JSON metadata only, no audio decode.
+6. MIC proposed key count: derived from the existing scout's 163 decoded-file
+   inventory entries; no MIC audio was reopened or scored.
+7. V4 ambient log schema inspected; no raw audio was reconstructed or saved.
+8. Official CochlScene metadata checked against primary publication/listing.
+
+No V5.1 execution gate is recorded as passed. Absence of implementation evidence
+is reported as NOT IMPLEMENTED/NOT RUN, not as a failed experiment. The proposal
+conflicts above are specification findings, not failures of the preserved V4 run.
+
+REFERENCES
+
+- Supplied DATA_PREPARATION_CNN_V5_1 proposal, identified by SHA-256 above;
+  line numbers refer to the exact pasted text reviewed.
+- repository/AGENTS.md; repository/docs/PROJECT.md;
+  repository/docs/governance/STORAGE.md.
+- repository/registry/studies, sources, corpora, splits, caches and runs.
+- workspaces/study-v4/AGENTS.md; STUDY.md; docs/v4/specification.md.
+- workspaces/study-v4/src/dronedet/data_preparation.py, splits.py, config.py,
+  features.py, inference.py.
+- workspaces/study-v4/demo/run_demo.py; live/app.js;
+  scripts/live_detector.py; scripts/replay_v4_ambient_score_logs.py;
+  scripts/train_cnn_v4_single.py; tests/unit/test_stream_parity.py.
+- reports/data-scout/2026-11-27/ inventories and supporting metadata.
+- https://zenodo.org/records/7080122
+- https://dcase-repo.github.io/dcase_datalist/datasets/scenes/cochlscene.html
+
+Publication scope: this review contains relative project references and a
+proposal digest. It excludes raw data, checkpoints, private recordings,
+machine-specific paths and the full unapproved proposal text.
