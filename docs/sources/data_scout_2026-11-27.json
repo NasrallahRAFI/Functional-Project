@@ -1,0 +1,1002 @@
+{
+  "schema_version": 1,
+  "title": "Factual local data scout",
+  "snapshot_date": "2026-11-27",
+  "scope": "Three registered sources and eight download roots; no recommendations or new study membership.",
+  "count_semantics": "Filesystem files and logical bytes, including copies and sidecars. Audio durations are sums of files, not independent acquisition time. Sampled collections explicitly identify header/hash coverage.",
+  "collections": [
+    {
+      "name": "Al-Emadi (registered)",
+      "category": "registered-source",
+      "files": 23410,
+      "bytes": 768050825,
+      "extensions": {
+        ".md": {
+          "files": 2,
+          "bytes": 8457
+        },
+        ".wav": {
+          "files": 23408,
+          "bytes": 768042368
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "16000": 23408
+        },
+        "channels": {
+          "1": 23408
+        },
+        "format": {
+          "WAV": 23408
+        },
+        "subtype": {
+          "PCM_16": 23408
+        },
+        "readable_files": 23408,
+        "duration_s": {
+          "n": 23408,
+          "minimum": 0.0015,
+          "median": 1.0216875,
+          "maximum": 5.12,
+          "total": 23943.02575
+        },
+        "frames": {
+          "n": 23408,
+          "minimum": 24,
+          "median": 16347.0,
+          "maximum": 81920,
+          "total": 383088412
+        }
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 23410,
+        "unique_contents": 10627,
+        "duplicate_groups": 10625,
+        "extra_duplicate_copies": 12783,
+        "files_in_duplicate_groups": 23408
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "Drone Detection Thesis (registered)",
+      "category": "registered-source",
+      "files": 1396,
+      "bytes": 357150001,
+      "extensions": {
+        ".m": {
+          "files": 1,
+          "bytes": 2248
+        },
+        ".mat": {
+          "files": 650,
+          "bytes": 10569053
+        },
+        ".md": {
+          "files": 1,
+          "bytes": 2883
+        },
+        ".mp4": {
+          "files": 652,
+          "bytes": 187772782
+        },
+        ".wav": {
+          "files": 90,
+          "bytes": 158764512
+        },
+        ".xlsx": {
+          "files": 1,
+          "bytes": 31475
+        },
+        "[none]": {
+          "files": 1,
+          "bytes": 7048
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "44100": 90
+        },
+        "channels": {
+          "2": 90
+        },
+        "format": {
+          "WAV": 90
+        },
+        "subtype": {
+          "PCM_16": 90
+        },
+        "readable_files": 90,
+        "duration_s": {
+          "n": 90,
+          "minimum": 10.000022675736961,
+          "median": 10.000045351473922,
+          "maximum": 10.000045351473922,
+          "total": 900.0031292517007
+        },
+        "frames": {
+          "n": 90,
+          "minimum": 441001,
+          "median": 441002.0,
+          "maximum": 441002,
+          "total": 39690138
+        }
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 1396,
+        "unique_contents": 1395,
+        "duplicate_groups": 1,
+        "extra_duplicate_copies": 1,
+        "files_in_duplicate_groups": 2
+      },
+      "probe_error_count": 650
+    },
+    {
+      "name": "Salford DroneNoise (registered)",
+      "category": "registered-source",
+      "files": 175,
+      "bytes": 742123543,
+      "extensions": {
+        ".wav": {
+          "files": 174,
+          "bytes": 742054912
+        },
+        ".xlsx": {
+          "files": 1,
+          "bytes": 68631
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "50000": 174
+        },
+        "channels": {
+          "1": 174
+        },
+        "format": {
+          "WAV": 174
+        },
+        "subtype": {
+          "FLOAT": 174
+        },
+        "readable_files": 174,
+        "duration_s": {
+          "n": 174,
+          "minimum": 11.88394,
+          "median": 20.0,
+          "maximum": 30.0,
+          "total": 3710.20496
+        },
+        "frames": {
+          "n": 174,
+          "minimum": 594197,
+          "median": 1000000.0,
+          "maximum": 1500000,
+          "total": 185510248
+        }
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 175,
+        "unique_contents": 174,
+        "duplicate_groups": 1,
+        "extra_duplicate_copies": 1,
+        "files_in_duplicate_groups": 2
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "drone_A",
+      "category": "download-location",
+      "files": 108000,
+      "bytes": 2486092847,
+      "extensions": {
+        ".wav": {
+          "files": 108000,
+          "bytes": 2486092847
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "16000": 384
+        },
+        "channels": {
+          "1": 384
+        },
+        "format": {
+          "FLAC": 256,
+          "WAV": 128
+        },
+        "subtype": {
+          "PCM_24": 384
+        },
+        "readable_files": 384,
+        "total_audio_files": 108000,
+        "metadata_only_files": 107616,
+        "duration_s": {
+          "n": 384,
+          "minimum": 0.5,
+          "median": 0.5,
+          "maximum": 0.5,
+          "total": 192.0
+        },
+        "frames": {
+          "n": 384,
+          "minimum": 8000,
+          "median": 8000.0,
+          "maximum": 8000,
+          "total": 3072000
+        }
+      },
+      "header_sampling_per_leaf": 64,
+      "hash_coverage": {
+        "hashed_files": 384,
+        "unique_contents": 384,
+        "duplicate_groups": 0,
+        "extra_duplicate_copies": 0,
+        "files_in_duplicate_groups": 0
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "drone_B",
+      "category": "download-location",
+      "files": 108000,
+      "bytes": 2467314593,
+      "extensions": {
+        ".wav": {
+          "files": 108000,
+          "bytes": 2467314593
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "16000": 384
+        },
+        "channels": {
+          "1": 384
+        },
+        "format": {
+          "FLAC": 256,
+          "WAV": 128
+        },
+        "subtype": {
+          "PCM_24": 384
+        },
+        "readable_files": 384,
+        "total_audio_files": 108000,
+        "metadata_only_files": 107616,
+        "duration_s": {
+          "n": 384,
+          "minimum": 0.5,
+          "median": 0.5,
+          "maximum": 0.5,
+          "total": 192.0
+        },
+        "frames": {
+          "n": 384,
+          "minimum": 8000,
+          "median": 8000.0,
+          "maximum": 8000,
+          "total": 3072000
+        }
+      },
+      "header_sampling_per_leaf": 64,
+      "hash_coverage": {
+        "hashed_files": 384,
+        "unique_contents": 384,
+        "duplicate_groups": 0,
+        "extra_duplicate_copies": 0,
+        "files_in_duplicate_groups": 0
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "drone_C",
+      "category": "download-location",
+      "files": 108000,
+      "bytes": 2465722416,
+      "extensions": {
+        ".wav": {
+          "files": 108000,
+          "bytes": 2465722416
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "16000": 384
+        },
+        "channels": {
+          "1": 384
+        },
+        "format": {
+          "FLAC": 256,
+          "WAV": 128
+        },
+        "subtype": {
+          "PCM_24": 384
+        },
+        "readable_files": 384,
+        "total_audio_files": 108000,
+        "metadata_only_files": 107616,
+        "duration_s": {
+          "n": 384,
+          "minimum": 0.5,
+          "median": 0.5,
+          "maximum": 0.5,
+          "total": 192.0
+        },
+        "frames": {
+          "n": 384,
+          "minimum": 8000,
+          "median": 8000.0,
+          "maximum": 8000,
+          "total": 3072000
+        }
+      },
+      "header_sampling_per_leaf": 64,
+      "hash_coverage": {
+        "hashed_files": 384,
+        "unique_contents": 361,
+        "duplicate_groups": 23,
+        "extra_duplicate_copies": 23,
+        "files_in_duplicate_groups": 46
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "Thesis download copy",
+      "category": "download-location",
+      "files": 1396,
+      "bytes": 357150001,
+      "extensions": {
+        ".m": {
+          "files": 1,
+          "bytes": 2248
+        },
+        ".mat": {
+          "files": 650,
+          "bytes": 10569053
+        },
+        ".md": {
+          "files": 1,
+          "bytes": 2883
+        },
+        ".mp4": {
+          "files": 652,
+          "bytes": 187772782
+        },
+        ".wav": {
+          "files": 90,
+          "bytes": 158764512
+        },
+        ".xlsx": {
+          "files": 1,
+          "bytes": 31475
+        },
+        "[none]": {
+          "files": 1,
+          "bytes": 7048
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "44100": 90
+        },
+        "channels": {
+          "2": 90
+        },
+        "format": {
+          "WAV": 90
+        },
+        "subtype": {
+          "PCM_16": 90
+        },
+        "readable_files": 90,
+        "total_audio_files": 90,
+        "metadata_only_files": 0,
+        "duration_s": {
+          "n": 90,
+          "minimum": 10.000022675736961,
+          "median": 10.000045351473922,
+          "maximum": 10.000045351473922,
+          "total": 900.0031292517007
+        },
+        "frames": {
+          "n": 90,
+          "minimum": 441001,
+          "median": 441002.0,
+          "maximum": 441002,
+          "total": 39690138
+        }
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 1396,
+        "unique_contents": 1395,
+        "duplicate_groups": 1,
+        "extra_duplicate_copies": 1,
+        "files_in_duplicate_groups": 2
+      },
+      "probe_error_count": 650
+    },
+    {
+      "name": "MicArrayData30s",
+      "category": "download-location",
+      "files": 916,
+      "bytes": 3790301973,
+      "extensions": {
+        ".csv": {
+          "files": 326,
+          "bytes": 34239737
+        },
+        ".ds_store": {
+          "files": 50,
+          "bytes": 6000
+        },
+        ".wav": {
+          "files": 326,
+          "bytes": 3755556032
+        },
+        "[none]": {
+          "files": 214,
+          "bytes": 500204
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "48000": 163
+        },
+        "channels": {
+          "8": 163
+        },
+        "format": {
+          "WAV": 163
+        },
+        "subtype": {
+          "PCM_16": 163
+        },
+        "readable_files": 163,
+        "total_audio_files": 326,
+        "metadata_only_files": 0,
+        "duration_s": {
+          "n": 163,
+          "minimum": 30.0,
+          "median": 30.0,
+          "maximum": 30.000020833333334,
+          "total": 4890.000020833333
+        },
+        "frames": {
+          "n": 163,
+          "minimum": 1440000,
+          "median": 1440000,
+          "maximum": 1440001,
+          "total": 234720001
+        }
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 916,
+        "unique_contents": 381,
+        "duplicate_groups": 3,
+        "extra_duplicate_copies": 535,
+        "files_in_duplicate_groups": 538
+      },
+      "probe_error_count": 163
+    },
+    {
+      "name": "MLSP 2022 real data",
+      "category": "download-location",
+      "files": 62103,
+      "bytes": 19082660340,
+      "extensions": {
+        ".wav": {
+          "files": 62103,
+          "bytes": 19082660340
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "96000": 2304
+        },
+        "channels": {
+          "8": 2304
+        },
+        "format": {
+          "WAV": 2304
+        },
+        "subtype": {
+          "PCM_32": 2304
+        },
+        "readable_files": 2304,
+        "total_audio_files": 62103,
+        "metadata_only_files": 59799,
+        "duration_s": {
+          "n": 2304,
+          "minimum": 0.0,
+          "median": 0.1,
+          "maximum": 42.5,
+          "total": 281.06100000000004
+        },
+        "frames": {
+          "n": 2304,
+          "minimum": 0,
+          "median": 9600.0,
+          "maximum": 4080000,
+          "total": 26981856
+        }
+      },
+      "header_sampling_per_leaf": 64,
+      "hash_coverage": {
+        "hashed_files": 2304,
+        "unique_contents": 2058,
+        "duplicate_groups": 1,
+        "extra_duplicate_copies": 246,
+        "files_in_duplicate_groups": 247
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "MUSAN",
+      "category": "download-location",
+      "files": 2037,
+      "bytes": 12590361810,
+      "extensions": {
+        ".wav": {
+          "files": 2016,
+          "bytes": 12590251358
+        },
+        "[none]": {
+          "files": 21,
+          "bytes": 110452
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "16000": 2016
+        },
+        "channels": {
+          "1": 2016
+        },
+        "format": {
+          "WAV": 2016
+        },
+        "subtype": {
+          "PCM_16": 2016
+        },
+        "readable_files": 2016,
+        "total_audio_files": 2016,
+        "metadata_only_files": 0,
+        "duration_s": {
+          "n": 2016,
+          "minimum": 0.026125,
+          "median": 124.5340625,
+          "maximum": 1047.9543125,
+          "total": 393442.5829375
+        },
+        "frames": {
+          "n": 2016,
+          "minimum": 418,
+          "median": 1992545.0,
+          "maximum": 16767269,
+          "total": 6295081327
+        }
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 2037,
+        "unique_contents": 2037,
+        "duplicate_groups": 0,
+        "extra_duplicate_copies": 0,
+        "files_in_duplicate_groups": 0
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "DroneAudioSet download",
+      "category": "download-subcollection",
+      "files": 150,
+      "bytes": 204802,
+      "extensions": {
+        ".json": {
+          "files": 1,
+          "bytes": 132232
+        },
+        ".lock": {
+          "files": 2,
+          "bytes": 0
+        },
+        ".md": {
+          "files": 1,
+          "bytes": 51696
+        },
+        ".metadata": {
+          "files": 143,
+          "bytes": 18217
+        },
+        ".tag": {
+          "files": 1,
+          "bytes": 195
+        },
+        "[none]": {
+          "files": 2,
+          "bytes": 2462
+        }
+      },
+      "audio": {
+        "sample_rate": {},
+        "channels": {},
+        "format": {},
+        "subtype": {},
+        "readable_files": 0,
+        "total_audio_files": 0,
+        "metadata_only_files": 0,
+        "duration_s": null,
+        "frames": null
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 150,
+        "unique_contents": 149,
+        "duplicate_groups": 1,
+        "extra_duplicate_copies": 1,
+        "files_in_duplicate_groups": 2
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "FSD50K metadata archives",
+      "category": "download-subcollection",
+      "files": 2,
+      "bytes": 341685,
+      "extensions": {
+        ".zip": {
+          "files": 2,
+          "bytes": 341685
+        }
+      },
+      "audio": {
+        "sample_rate": {},
+        "channels": {},
+        "format": {},
+        "subtype": {},
+        "readable_files": 0,
+        "total_audio_files": 0,
+        "metadata_only_files": 0,
+        "duration_s": null,
+        "frames": null
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 2,
+        "unique_contents": 2,
+        "duplicate_groups": 0,
+        "extra_duplicate_copies": 0,
+        "files_in_duplicate_groups": 0
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "ITU ARIS partial download",
+      "category": "download-subcollection",
+      "files": 300,
+      "bytes": 6642651,
+      "extensions": {
+        ".incomplete": {
+          "files": 7,
+          "bytes": 0
+        },
+        ".lock": {
+          "files": 8,
+          "bytes": 0
+        },
+        ".md": {
+          "files": 1,
+          "bytes": 3139
+        },
+        ".metadata": {
+          "files": 141,
+          "bytes": 17918
+        },
+        ".tag": {
+          "files": 1,
+          "bytes": 195
+        },
+        ".wav": {
+          "files": 138,
+          "bytes": 6091872
+        },
+        "[none]": {
+          "files": 4,
+          "bytes": 529527
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "22050": 138
+        },
+        "channels": {
+          "1": 138
+        },
+        "format": {
+          "WAV": 138
+        },
+        "subtype": {
+          "PCM_16": 138
+        },
+        "readable_files": 138,
+        "total_audio_files": 138,
+        "metadata_only_files": 0,
+        "duration_s": {
+          "n": 138,
+          "minimum": 1.0,
+          "median": 1.0,
+          "maximum": 1.0,
+          "total": 138.0
+        },
+        "frames": {
+          "n": 138,
+          "minimum": 22050,
+          "median": 22050.0,
+          "maximum": 22050,
+          "total": 3042900
+        }
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 300,
+        "unique_contents": 286,
+        "duplicate_groups": 1,
+        "extra_duplicate_copies": 14,
+        "files_in_duplicate_groups": 15
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "ITU ARIS snapshot",
+      "category": "download-subcollection",
+      "files": 11002,
+      "bytes": 244725318,
+      "extensions": {
+        ".json": {
+          "files": 4,
+          "bytes": 1092026
+        },
+        ".md": {
+          "files": 1,
+          "bytes": 3139
+        },
+        ".metadata": {
+          "files": 5500,
+          "bytes": 702355
+        },
+        ".py": {
+          "files": 1,
+          "bytes": 3372
+        },
+        ".tag": {
+          "files": 1,
+          "bytes": 195
+        },
+        ".wav": {
+          "files": 5491,
+          "bytes": 242394704
+        },
+        "[none]": {
+          "files": 4,
+          "bytes": 529527
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "22050": 5491
+        },
+        "channels": {
+          "1": 5491
+        },
+        "format": {
+          "WAV": 5491
+        },
+        "subtype": {
+          "PCM_16": 5491
+        },
+        "readable_files": 5491,
+        "total_audio_files": 5491,
+        "metadata_only_files": 0,
+        "duration_s": {
+          "n": 5491,
+          "minimum": 1.0,
+          "median": 1.0,
+          "maximum": 1.0,
+          "total": 5491.0
+        },
+        "frames": {
+          "n": 5491,
+          "minimum": 22050,
+          "median": 22050,
+          "maximum": 22050,
+          "total": 121076550
+        }
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 11002,
+        "unique_contents": 11002,
+        "duplicate_groups": 0,
+        "extra_duplicate_copies": 0,
+        "files_in_duplicate_groups": 0
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "ITU ARIS extracted archive",
+      "category": "download-subcollection",
+      "files": 5499,
+      "bytes": 244023166,
+      "extensions": {
+        ".json": {
+          "files": 4,
+          "bytes": 1092026
+        },
+        ".md": {
+          "files": 1,
+          "bytes": 6042
+        },
+        ".py": {
+          "files": 1,
+          "bytes": 3372
+        },
+        ".wav": {
+          "files": 5491,
+          "bytes": 242394704
+        },
+        "[none]": {
+          "files": 2,
+          "bytes": 527022
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "22050": 5491
+        },
+        "channels": {
+          "1": 5491
+        },
+        "format": {
+          "WAV": 5491
+        },
+        "subtype": {
+          "PCM_16": 5491
+        },
+        "readable_files": 5491,
+        "total_audio_files": 5491,
+        "metadata_only_files": 0,
+        "duration_s": {
+          "n": 5491,
+          "minimum": 1.0,
+          "median": 1.0,
+          "maximum": 1.0,
+          "total": 5491.0
+        },
+        "frames": {
+          "n": 5491,
+          "minimum": 22050,
+          "median": 22050,
+          "maximum": 22050,
+          "total": 121076550
+        }
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 5499,
+        "unique_contents": 5499,
+        "duplicate_groups": 0,
+        "extra_duplicate_copies": 0,
+        "files_in_duplicate_groups": 0
+      },
+      "probe_error_count": 0
+    },
+    {
+      "name": "Wang drone signatures",
+      "category": "download-subcollection",
+      "files": 160,
+      "bytes": 28433454,
+      "extensions": {
+        ".css": {
+          "files": 2,
+          "bytes": 3937
+        },
+        ".html": {
+          "files": 1,
+          "bytes": 1721
+        },
+        ".jpeg": {
+          "files": 1,
+          "bytes": 297642
+        },
+        ".jpg": {
+          "files": 2,
+          "bytes": 111192
+        },
+        ".js": {
+          "files": 13,
+          "bytes": 13600
+        },
+        ".json": {
+          "files": 4,
+          "bytes": 681548
+        },
+        ".md": {
+          "files": 1,
+          "bytes": 616
+        },
+        ".png": {
+          "files": 101,
+          "bytes": 13647729
+        },
+        ".py": {
+          "files": 1,
+          "bytes": 96
+        },
+        ".svg": {
+          "files": 1,
+          "bytes": 2632
+        },
+        ".txt": {
+          "files": 1,
+          "bytes": 67
+        },
+        ".wav": {
+          "files": 31,
+          "bytes": 13672364
+        },
+        "[none]": {
+          "files": 1,
+          "bytes": 310
+        }
+      },
+      "audio": {
+        "sample_rate": {
+          "44100": 31
+        },
+        "channels": {
+          "1": 31
+        },
+        "format": {
+          "WAV": 31
+        },
+        "subtype": {
+          "PCM_16": 31
+        },
+        "readable_files": 31,
+        "total_audio_files": 31,
+        "metadata_only_files": 0,
+        "duration_s": {
+          "n": 31,
+          "minimum": 5.0,
+          "median": 5.0,
+          "maximum": 5.0,
+          "total": 155.0
+        },
+        "frames": {
+          "n": 31,
+          "minimum": 220500,
+          "median": 220500,
+          "maximum": 220500,
+          "total": 6835500
+        }
+      },
+      "header_sampling_per_leaf": 0,
+      "hash_coverage": {
+        "hashed_files": 160,
+        "unique_contents": 157,
+        "duplicate_groups": 3,
+        "extra_duplicate_copies": 3,
+        "files_in_duplicate_groups": 6
+      },
+      "probe_error_count": 0
+    }
+  ]
+}
