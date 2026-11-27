@@ -30,6 +30,8 @@ Original scientific decisions remain in docs/history/original_context/PROJECT_CO
 
 ## Git and document authority
 
+The proposed V5.1 preparation contract is [DATA_PREPARATION_CNN_V5_1_FINAL.md](proposals/DATA_PREPARATION_CNN_V5_1_FINAL.md), with a [machine-readable contract](proposals/DATA_PREPARATION_CNN_V5_1_CONTRACT.json) and [metadata-only effective-size basis](proposals/DATA_PREPARATION_CNN_V5_1_EFFECTIVE_SIZE_BASIS.json). It remains pending explicit O0 execution approval. Its authoring/sizing checks are not preparation execution; no V5.1 workspace, source import, corpus-003/split-003 freeze, cache, training run or runtime activation is established by these documents.
+
 repository/ is the project-catalog branch checkout. workspaces/study-v3/ is the cnn-v3 checkout; study-v4 is separate. They share one Git object database, currently housed in Functional Project/.git because Windows prevented moving that open metadata directory. Do not delete or relocate that primary checkout manually. Use Git worktree operations and the migration records for a later relocation.
 
 Project-wide catalog/governance documents are edited in repository/. V3 plans are edited in the V3 checkout. V4 plans are edited in the V4 checkout. Branch snapshots of documentation are history; they are not additional editable authorities. Cross-study registry records are edited in the catalog and synchronized explicitly when a study requires a code change.

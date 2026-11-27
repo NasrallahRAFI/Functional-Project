@@ -1,0 +1,204 @@
+{
+  "kind": "metadata_only_authoring_sizing_NOT_A_FROZEN_SPLIT",
+  "seed": 51,
+  "sklearn_version": "1.9.1",
+  "inherited_manifest_sha256": "2407e2a3f31beebd86134b4423f14a4a3b17b65d64ce9bfaeb01156a064d4a39",
+  "itu_groups_metadata_sha256": "a79cd37058795b15ad355c156934493f546bd83acad9ba3e961add270d20d837",
+  "assumptions": [
+    "Existing retained AE/DD membership; no new audio decode or new duplicate audit",
+    "ITU text metadata only; no sample identities newly computed",
+    "AE positive substratum=drone_type; AE negative substratum=style; DD=sub_class; ITU=folder label",
+    "Source-file identity uses source_revision + NUL + exact relative path; new clip IDs defined above",
+    "Counts can change after final registration, mechanical pass and cleaning"
+  ],
+  "split_sizing_counts": [
+    {
+      "split": "test",
+      "source": "ae",
+      "label": 0,
+      "clips": 1327,
+      "groups": 219
+    },
+    {
+      "split": "test",
+      "source": "ae",
+      "label": 1,
+      "clips": 180,
+      "groups": 28
+    },
+    {
+      "split": "test",
+      "source": "dd",
+      "label": 0,
+      "clips": 80,
+      "groups": 8
+    },
+    {
+      "split": "test",
+      "source": "dd",
+      "label": 1,
+      "clips": 40,
+      "groups": 4
+    },
+    {
+      "split": "test",
+      "source": "itu",
+      "label": 0,
+      "clips": 150,
+      "groups": 3
+    },
+    {
+      "split": "test",
+      "source": "itu",
+      "label": 1,
+      "clips": 645,
+      "groups": 3
+    },
+    {
+      "split": "train",
+      "source": "ae",
+      "label": 0,
+      "clips": 6636,
+      "groups": 1102
+    },
+    {
+      "split": "train",
+      "source": "ae",
+      "label": 1,
+      "clips": 972,
+      "groups": 147
+    },
+    {
+      "split": "train",
+      "source": "dd",
+      "label": 0,
+      "clips": 430,
+      "groups": 43
+    },
+    {
+      "split": "train",
+      "source": "dd",
+      "label": 1,
+      "clips": 220,
+      "groups": 22
+    },
+    {
+      "split": "train",
+      "source": "itu",
+      "label": 0,
+      "clips": 700,
+      "groups": 14
+    },
+    {
+      "split": "train",
+      "source": "itu",
+      "label": 1,
+      "clips": 3204,
+      "groups": 28
+    },
+    {
+      "split": "val",
+      "source": "ae",
+      "label": 0,
+      "clips": 1328,
+      "groups": 219
+    },
+    {
+      "split": "val",
+      "source": "ae",
+      "label": 1,
+      "clips": 180,
+      "groups": 28
+    },
+    {
+      "split": "val",
+      "source": "dd",
+      "label": 0,
+      "clips": 80,
+      "groups": 8
+    },
+    {
+      "split": "val",
+      "source": "dd",
+      "label": 1,
+      "clips": 40,
+      "groups": 4
+    },
+    {
+      "split": "val",
+      "source": "itu",
+      "label": 0,
+      "clips": 150,
+      "groups": 3
+    },
+    {
+      "split": "val",
+      "source": "itu",
+      "label": 1,
+      "clips": 642,
+      "groups": 4
+    }
+  ],
+  "positive_source_shares": {
+    "ae": 0.35,
+    "itu": 0.35,
+    "dd": 0.3
+  },
+  "group_cap": 0.015,
+  "clip_cap_normalized_within_positive_class": 0.0021847690387016227,
+  "positive_train_count_only_ess_ceiling": 1744.1256900710416,
+  "positive_structural_reference": [
+    {
+      "source": "ae",
+      "clips": 972,
+      "groups": 147,
+      "target_share": 0.35,
+      "available_group_capacity": 1.6465667915106115,
+      "feasible": true,
+      "source_reference_inverse_ess": 0.00012653423268870867
+    },
+    {
+      "source": "itu",
+      "clips": 3204,
+      "groups": 28,
+      "target_share": 0.35,
+      "available_group_capacity": 0.40718476903870165,
+      "feasible": true,
+      "source_reference_inverse_ess": 6.395071932873355e-05
+    },
+    {
+      "source": "dd",
+      "clips": 220,
+      "groups": 22,
+      "target_share": 0.3,
+      "available_group_capacity": 0.33000000000000007,
+      "feasible": true,
+      "source_reference_inverse_ess": 0.00040909090909090913
+    }
+  ],
+  "positive_structurally_feasible_ess": 1667.8456636853937,
+  "candidate_80_percent_reference_floor": 1334.276530948315,
+  "positive_groups_by_split": {
+    "test": 35,
+    "train": 197,
+    "val": 36
+  },
+  "negative_reference_assumptions": [
+    "MUSAN base budgets from complete audio header inventory; fractional split counts rounded down",
+    "No new K1 text admission, exact-zero or sample dedup audit; source/stratum counts are provisional",
+    "Cochl and loc absent; N1=.40 N2=.15 N3=.22 N4=.08 N5=.15; source and group caps retained"
+  ],
+  "negative_solver_status": "solved",
+  "negative_train_candidate_clips": 15890,
+  "negative_train_candidate_groups": 2555,
+  "negative_structurally_feasible_ess": 3537.746644487286,
+  "negative_reference_source_mass": {
+    "ae": 0.1777862595419864,
+    "dd": 0.26221374045801454,
+    "itu": 0.21000000000000008,
+    "musan": 0.35
+  },
+  "negative_reference_max_constraint_residual": 5.440092820663267e-15,
+  "negative_80_percent_floor_rounded_up_100": 2900,
+  "positive_80_percent_floor_rounded_up_100": 1400
+}
