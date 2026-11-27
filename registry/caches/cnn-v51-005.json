@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "cnn-v51-005",
+  "status": "planned-unbuilt",
+  "workspace": "workspaces/study-v5-1",
+  "corpus": "corpus-007",
+  "split": "split-007",
+  "derived_build": "derived-build-v51-005",
+  "transform_hash": "bb7a21a1e5fb317c43e1e214bc04af6e46e04d75053383d1c62ef6849c9466c7",
+  "cache_content_hash": null,
+  "root": null,
+  "note": "Reserved for O0-A4 corpus-007/split-007; no cache or fitted statistics exist."
+}

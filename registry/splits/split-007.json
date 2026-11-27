@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "split-007",
+  "status": "frozen-p4-failed",
+  "corpus": "corpus-007",
+  "root": "storage/splits/split-007",
+  "files": [
+    {
+      "path": "FROZEN.json",
+      "sha256": "7e30b54d6e00a4def3d9b68f7f584aa16682e0ed380fc72d3f855a69d8b0f06c",
+      "bytes": 3487,
+      "rows": 0
+    },
+    {
+      "path": "mechanical_ledger.csv",
+      "sha256": "62fa354a8cf9e530aa2c584e01d926e8e9d1f69da844de9182f1652585651b03",
+      "bytes": 8436579,
+      "rows": 19367
+    },
+    {
+      "path": "ood.csv",
+      "sha256": "b2138e7c471ba37e3edc46b149b3552b4afb7a5e3e4767a9c01975499a662616",
+      "bytes": 390,
+      "rows": 0
+    },
+    {
+      "path": "quarantine_manifest.csv",
+      "sha256": "423a042affbc7104bf75165a079ca78ca37978a0ab1c40fd2dc494eaadf22609",
+      "bytes": 61,
+      "rows": 0
+    },
+    {
+      "path": "reservoir_train.csv",
+      "sha256": "12c32ea1544434238f0ecf7a39a19c196cf10527f82ba0cfeedef5cf20db8add",
+      "bytes": 529340,
+      "rows": 800
+    },
+    {
+      "path": "test.csv",
+      "sha256": "7dff4ab5d5b3ecd08b61abaa692a51232f93303b9465fd53574352bdabc1a3fb",
+      "bytes": 1241117,
+      "rows": 2462
+    },
+    {
+      "path": "train.csv",
+      "sha256": "cb227299af43d88e7d2730bb40680616340f915842e771d7e97f1158b5ed1ca8",
+      "bytes": 6266081,
+      "rows": 12406
+    },
+    {
+      "path": "val.csv",
+      "sha256": "7ce2b8c9c7edb4dbcee962082ea8a72abf2422871cbb267043f0beacc6ef76c6",
+      "bytes": 1226109,
+      "rows": 2443
+    }
+  ],
+  "full_manifest_sha256": "81abc1824fec44b9744ec25caaadc3a064602897e3f7d754b2526e768eed92fa",
+  "seed": 51,
+  "preparation_plan": "workspaces/study-v5-1/docs/v5.1/O0-A4_MUSAN_GROUP_COVERAGE.md",
+  "reproduction": "R-DET PASS; independent P3 attempts have identical membership SHA-256 81abc1824fec44b9744ec25caaadc3a064602897e3f7d754b2526e768eed92fa. P4 B0 FAIL; do not use for P5."
+}
