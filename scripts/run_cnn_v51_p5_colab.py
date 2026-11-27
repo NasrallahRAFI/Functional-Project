@@ -61,6 +61,16 @@ def main() -> int:
         raise SystemExit("frozen P3 and P4 input directories must exist")
 
     frozen = json.loads((frozen_attempt / "FROZEN.json").read_text(encoding="utf-8"))
+    contract_path = study_root / "docs" / "v5.1" / "DATA_PREPARATION_CNN_V5_1_CONTRACT.json"
+    if not contract_path.is_file():
+        raise SystemExit(f"missing approved V5.1 contract: {contract_path}")
+    contract_sha256 = _sha256(contract_path)
+    expected_contract_sha256 = frozen.get("contract_sha256")
+    if contract_sha256 != expected_contract_sha256:
+        raise SystemExit(
+            "approved contract hash mismatch: "
+            f"frozen={expected_contract_sha256!r}, local={contract_sha256}"
+        )
     for filename in ("train.csv", "val.csv", "test.csv", "ood.csv"):
         if _sha256(frozen_attempt / filename) != frozen["artifact_sha256"][filename]:
             raise SystemExit(f"frozen membership artifact hash mismatch: {filename}")
@@ -81,7 +91,7 @@ def main() -> int:
     test = read_csv(frozen_attempt / "test.csv", "test.csv")
     ood = read_csv(frozen_attempt / "ood.csv", "ood.csv")
     inventory = read_csv(inventory_path, "inventory_v51.csv")
-    config = load_v51_config(args.study_root / "config" / "v51.yaml")
+    config = load_v51_config(study_root / "config" / "v51.yaml")
 
     roots = dict(args.source_root)
     required_sources = {str(row["source"]) for row in train + val}
