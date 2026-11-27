@@ -1,5 +1,8 @@
 @echo off
 setlocal
+rem The legacy Functional Project entry point opens the current V4 monitor.
+rem This file is hard-linked into that directory; explicit V3 launches stay V3.
+if exist "%~dp0..\project.layout.json" goto :launch_v4
 cd /d "%~dp0"
 set "PYTHON_EXE=%~dp0.venv\Scripts\python.exe"
 if not exist "%PYTHON_EXE%" (
@@ -33,3 +36,12 @@ exit /b %LAUNCH_EXIT_CODE%
 echo Could not prepare or start the local detector. Read the error above and check Python 3.12, dependencies, and model files.
 pause
 exit /b 1
+
+:launch_v4
+if not exist "%~dp0..\workspaces\study-v4\start_detector.bat" (
+  echo The V4 launcher is missing from workspaces\study-v4. Restore that workspace and retry.
+  exit /b 1
+)
+echo Starting CNN V4.0 at http://127.0.0.1:8766/live/index.html
+call "%~dp0..\workspaces\study-v4\start_detector.bat"
+exit /b %ERRORLEVEL%

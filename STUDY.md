@@ -21,3 +21,9 @@ Canonical outputs, relative to the enclosing project folder:
 Use `python scripts/project_layout.py check` to verify the directory registry.
 Use scripts/with_study.ps1 to run Python with the registered raw-data path.
 Large output paths are supplied by documented directory junctions for compatibility with frozen scripts and records.
+
+Launcher routing: the legacy `Functional Project/start_detector.bat` entry point
+opens the V4 monitor on port 8766. Run `workspaces/study-v3/start_detector.bat`
+explicitly for the historical V3 monitor on port 8765. The hard-linked batch
+file distinguishes these locations before loading any study environment or model;
+a missing V4 workspace is an error rather than a fallback to V3.
