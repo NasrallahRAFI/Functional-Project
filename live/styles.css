@@ -61,3 +61,18 @@ body{background:radial-gradient(ellipse at 84% 10%,#dce7ee 0%,transparent 34%),v
 .intro h1{font-size:clamp(30px,3.5vw,42px);line-height:1.08;letter-spacing:-.035em}
 .intro h1 em{font-weight:650;letter-spacing:-.03em}
 @media(max-width:760px){.intro{padding:26px 0 18px}.intro h1{font-size:clamp(28px,8vw,34px)}}
+body{min-height:100svh}
+.shell{width:min(1800px,calc(100% - 48px));height:100svh;display:flex;flex-direction:column}
+.topbar,.intro{flex:none}
+.monitor{flex:1;min-height:0;display:grid;grid-template-rows:48px minmax(0,1fr) 80px;margin-bottom:24px}
+.monitor-head{height:auto;min-height:47px}
+.monitor-body{min-height:0}
+.controls{min-height:80px}
+.signal-column{min-height:0}
+#waveform{flex:1;height:auto;min-height:132px}
+@media(max-width:760px){
+  .shell{width:calc(100% - 32px);height:auto;min-height:100svh}
+  .monitor{min-height:calc(100svh - 170px);grid-template-rows:auto minmax(0,1fr) auto;margin-bottom:16px}
+  .monitor-body{grid-template-rows:minmax(240px,1fr) minmax(170px,.72fr)}
+  #waveform{min-height:150px}
+}
