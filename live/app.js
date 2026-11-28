@@ -1,6 +1,8 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('waveform');
 const ctx = canvas.getContext('2d');
+const spectrogram = $('spectrogram');
+const spectrogramCtx = spectrogram.getContext('2d');
 const CHUNK_SECONDS = 0.5;
 const REQUEST_TIMEOUT_MS = 4000;
 const CAPTURE_VERSION = 'pool-v3';
@@ -25,10 +27,10 @@ function updateModelUI(m) {
 }
 const state = {
   active: false, epoch: 0, stream: null, context: null, source: null,
-  processor: null, samples: new Float32Array(0), sampleRate: 0,
+  processor: null, analyser: null, frequencyBins: null, samples: new Float32Array(0), sampleRate: 0,
   requestBusy: false, controller: null, sessionId: null, ownerToken: null, nextSequence: 0,
   expectedSourceFrame: null, gapPending: false, lastAudioBlockAt: 0, captureWatchdog: null,
-  points: new Float32Array(240), pointAt: 0,
+  levels: new Float32Array(240), levelAt: 0,
   revision: 0, captureBlocks: 0, captureDrops: 0, resets: 0, completedRequests: 0, lastDrawAt: 0,
   recentResets: [],
   recording: null, savingRecording: false,
@@ -71,16 +73,47 @@ function drawWave() {
     canvas.width = Math.round(box.width * dpr); canvas.height = Math.round(box.height * dpr);
   }
   const w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h); ctx.strokeStyle = '#c1cdd4'; ctx.lineWidth = Math.max(1, dpr);
-  ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
-  ctx.strokeStyle = state.active ? '#355ed0' : '#87959e'; ctx.lineWidth = 1.7 * dpr;
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = '#c1cdd4'; ctx.lineWidth = Math.max(1, dpr);
+  ctx.beginPath(); ctx.moveTo(0, h * 0.25); ctx.lineTo(w, h * 0.25);
+  ctx.moveTo(0, h * 0.5); ctx.lineTo(w, h * 0.5);
+  ctx.moveTo(0, h * 0.75); ctx.lineTo(w, h * 0.75); ctx.stroke();
   ctx.beginPath();
-  for (let i = 0; i < state.points.length; i++) {
-    const index = (state.pointAt + i) % state.points.length;
-    const x = i / (state.points.length - 1) * w, y = h / 2 - state.points[index] * h * 0.42;
+  for (let i = 0; i < state.levels.length; i++) {
+    const index = (state.levelAt + 1 + i) % state.levels.length;
+    const x = i / (state.levels.length - 1) * w;
+    const y = h - state.levels[index] * h * 0.92;
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
-  ctx.stroke();
+  ctx.strokeStyle = state.active ? '#355ed0' : '#87959e'; ctx.lineWidth = 2 * dpr; ctx.stroke();
+  drawSpectrogram();
+}
+function drawSpectrogram() {
+  const box = spectrogram.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (!box.width || !box.height) return;
+  const width = Math.round(box.width * dpr), height = Math.round(box.height * dpr);
+  if (spectrogram.width !== width || spectrogram.height !== height) {
+    spectrogram.width = width; spectrogram.height = height;
+    spectrogramCtx.fillStyle = '#edf2f5'; spectrogramCtx.fillRect(0, 0, width, height);
+  }
+  spectrogramCtx.drawImage(spectrogram, -1, 0);
+  spectrogramCtx.fillStyle = '#edf2f5'; spectrogramCtx.fillRect(width - 1, 0, 1, height);
+  if (!state.active || !state.analyser || !state.frequencyBins) return;
+  state.analyser.getFloatFrequencyData(state.frequencyBins);
+  const minHz = 100, maxHz = Math.min(8000, state.sampleRate / 2);
+  for (let row = 0; row < height; row++) {
+    const ratio = 1 - row / Math.max(height - 1, 1);
+    const hz = minHz * Math.pow(maxHz / minHz, ratio);
+    const bin = Math.min(state.frequencyBins.length - 1,
+      Math.max(1, Math.round(hz * state.analyser.fftSize / state.sampleRate)));
+    const db = state.frequencyBins[bin];
+    const strength = Math.max(0, Math.min(1, (db + 88) / 58));
+    const red = Math.round(237 - strength * 183);
+    const green = Math.round(243 - strength * 126);
+    const blue = Math.round(248 - strength * 20);
+    spectrogramCtx.fillStyle = `rgb(${red} ${green} ${blue})`;
+    spectrogramCtx.fillRect(width - 1, row, 1, 1);
+  }
 }
 function setMessage(text, error = false) {
   $('message').textContent = text;
@@ -147,6 +180,7 @@ function stop({ preserveMessage = false } = {}) {
     state.processor.port.onmessage = null;
   }
   state.processor?.disconnect(); state.processor = null;
+  state.analyser?.disconnect(); state.analyser = null; state.frequencyBins = null;
   state.source?.disconnect(); state.source = null;
   state.stream?.getTracks().forEach((track) => track.stop()); state.stream = null;
   if (state.context) state.context.close(); state.context = null; state.samples = new Float32Array(0);
@@ -158,7 +192,7 @@ function stop({ preserveMessage = false } = {}) {
   updateAmbientControls();
   $('ambientNoDroneConfirm').checked = false;
   if (hadAmbientLog) $('ambientLogStatus').textContent = `Ambient score log closed locally with the monitor session · ${state.ambientLogWindows.toLocaleString()} window records.`;
-  if (!preserveMessage) setMessage('Audio is processed locally. Saving a clip requires Record 10 seconds.');
+  if (!preserveMessage) setMessage('Audio stays on this device.');
   drawWave();
 }
 function resetCapture(reason) {
@@ -251,9 +285,10 @@ async function saveRecording(recording) {
 }
 function appendAudio(block, sourceFrame) {
   collectRecording(block);
-  for (let i = 0; i < block.length; i++) {
-    state.pointAt = (state.pointAt + 1) % state.points.length; state.points[state.pointAt] = block[i];
-  }
+  const peak = block.reduce((highest, x) => Math.max(highest, Math.abs(x)), 0);
+  const levelDb = 20 * Math.log10(Math.max(peak, 1e-7));
+  state.levelAt = (state.levelAt + 1) % state.levels.length;
+  state.levels[state.levelAt] = Math.max(0, Math.min(1, (levelDb + 72) / 66));
   let merged;
   if (state.samples.length + block.length > Math.ceil(state.sampleRate * 1.1)) {
     resetCapture('Audio fell behind inference. Discarding stale samples and warming up again.');
@@ -264,8 +299,7 @@ function appendAudio(block, sourceFrame) {
   }
   if (state.samplesSourceFrame === null) state.samplesSourceFrame = sourceFrame;
   state.samples = merged;
-  const sum = block.reduce((total, x) => total + x * x, 0);
-  $('levelReadout').textContent = `${(20 * Math.log10(Math.max(Math.sqrt(sum / Math.max(block.length, 1)), 1e-7))).toFixed(0)} dB`;
+  $('levelReadout').textContent = `${levelDb.toFixed(0)} dBFS`;
   if (performance.now() - state.lastDrawAt >= 80) {
     state.lastDrawAt = performance.now(); drawWave();
   }
@@ -390,6 +424,10 @@ async function start() {
       numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1],
       channelCount: 1, channelCountMode: 'explicit',
     });
+    state.analyser = state.context.createAnalyser();
+    state.analyser.fftSize = 2048;
+    state.analyser.smoothingTimeConstant = 0.45;
+    state.frequencyBins = new Float32Array(state.analyser.frequencyBinCount);
     const processor = state.processor;
     processor.port.onmessage = (event) => {
       const block = event.data;
@@ -423,7 +461,8 @@ async function start() {
       showError('Microphone processing stopped', 'The browser audio worklet failed. Press Start monitoring to create a fresh capture session.');
       setMessage('Browser microphone processing stopped and was reset.', true);
     }, { once: true });
-    state.source.connect(state.processor); state.processor.connect(state.context.destination); state.active = true;
+    state.source.connect(state.analyser); state.analyser.connect(state.processor);
+    state.processor.connect(state.context.destination); state.active = true;
     updateRecordButton();
     updateAmbientControls();
     state.lastAudioBlockAt = performance.now();
@@ -433,7 +472,7 @@ async function start() {
     $('resultOverline').textContent = 'CAPTURING AUDIO'; $('resultText').textContent = 'Listening';
     $('resultNote').textContent = 'Preparing the first 0.496-second window. Quiet input is shown as standby.';
     $('startButton').querySelector('span:last-child').textContent = 'Monitoring'; $('stopButton').disabled = false;
-    setMessage('Listening continuously. Audio is saved only when you press Record 10 seconds.');
+    setMessage('Audio stays on this device.');
   } catch (error) {
     if (epoch === state.epoch) { stop({ preserveMessage: true }); showError('Microphone unavailable', error.message || 'Check microphone permissions and try again.'); setMessage(error.message || 'Microphone access is required.', true); }
   }

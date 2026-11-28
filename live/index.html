@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101a18">
   <title>Drone sound monitor · Nasrallah Rafi</title>
-  <link rel="stylesheet" href="/live/styles.css?v=nasrallah-live-1">
+  <link rel="stylesheet" href="/live/styles.css?v=nasrallah-live-2">
 </head>
 <body>
   <main class="shell">
@@ -30,9 +30,11 @@
       </div>
       <div class="monitor-body">
         <div class="signal-column">
-          <div class="signal-heading"><span>ROOM SIGNAL</span><span id="levelReadout">— dB</span></div>
-          <canvas id="waveform" aria-label="Live microphone waveform"></canvas>
-          <div class="time-axis"><span>LIVE INPUT</span><span id="sampleRate">— Hz</span></div>
+          <div class="signal-heading"><span>TOTAL INPUT · PEAK</span><span id="levelReadout">— dBFS</span></div>
+          <canvas id="waveform" aria-label="Total microphone input level over time"></canvas>
+          <div class="time-axis"><span>10 SEC HISTORY</span><span id="sampleRate">— Hz</span></div>
+          <div class="spectrum-heading"><span>LIVE SPECTROGRAM</span><span>100–8,000 Hz</span></div>
+          <canvas id="spectrogram" aria-label="Live spectrogram showing input frequencies over time"></canvas>
         </div>
         <div class="result" id="result" data-state="idle" aria-live="polite" aria-atomic="true">
           <span class="result-overline" id="resultOverline">READY</span>
@@ -70,6 +72,6 @@
     </section>
 
   </main>
-  <script src="/live/app.js?v=nasrallah-live-1" defer></script>
+  <script src="/live/app.js?v=nasrallah-live-2" defer></script>
 </body>
 </html>
