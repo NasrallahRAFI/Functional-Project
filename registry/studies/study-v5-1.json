@@ -6,7 +6,7 @@
   "branch": "study-v5-1",
   "corpus": "corpus-007",
   "split": "split-007",
-  "plan_status": "O0-A4 1 GiB cap and MUSAN group-support selection approved; P1/P2/P3/R-DET passed; P4 failed B0 structural QP infeasible; P5-P7 NOT_RUN",
+  "plan_status": "O0-A4 1 GiB cap and MUSAN group-support selection approved; P1/P2/P3/R-DET passed; P4 failed B0 structural QP infeasible. Metadata-only upper bound shows no 1 GiB MUSAN subset can pass the current B0 clip cap and P3 fractions. P5-P7 NOT_RUN.",
   "preparation_report": "workspaces/study-v5-1/reports/v5.1/DATA_PREPARATION_CNN_V5_1_REPORT.md",
   "models_trained": false,
   "runtime_selection": "V4 remains active; no V5.1 runtime selection",
