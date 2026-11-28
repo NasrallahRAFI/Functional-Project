@@ -4,6 +4,7 @@ const ctx = canvas.getContext('2d');
 const spectrogram = $('spectrogram');
 const spectrogramCtx = spectrogram.getContext('2d');
 const CHUNK_SECONDS = 0.5;
+const SPECTROGRAM_HISTORY_MS = 3000;
 const REQUEST_TIMEOUT_MS = 4000;
 const CAPTURE_VERSION = 'pool-v3';
 const V4_CHECKPOINT = 'f4372da59644395c174514944aa6387901ed483f64c137fd1ae4e31c83092049';
@@ -30,6 +31,7 @@ const state = {
   processor: null, analyser: null, frequencyBins: null, samples: new Float32Array(0), sampleRate: 0,
   requestBusy: false, controller: null, sessionId: null, ownerToken: null, nextSequence: 0,
   expectedSourceFrame: null, gapPending: false, lastAudioBlockAt: 0, captureWatchdog: null,
+  spectrogramLastDrawAt: 0, spectrogramScroll: 0,
   levels: new Float32Array(240), levelAt: 0,
   revision: 0, captureBlocks: 0, captureDrops: 0, resets: 0, completedRequests: 0, lastDrawAt: 0,
   recentResets: [],
@@ -95,10 +97,22 @@ function drawSpectrogram() {
   if (spectrogram.width !== width || spectrogram.height !== height) {
     spectrogram.width = width; spectrogram.height = height;
     spectrogramCtx.fillStyle = '#edf2f5'; spectrogramCtx.fillRect(0, 0, width, height);
+    state.spectrogramLastDrawAt = 0; state.spectrogramScroll = 0;
   }
-  spectrogramCtx.drawImage(spectrogram, -1, 0);
-  spectrogramCtx.fillStyle = '#edf2f5'; spectrogramCtx.fillRect(width - 1, 0, 1, height);
   if (!state.active || !state.analyser || !state.frequencyBins) return;
+  const now = performance.now();
+  const elapsed = state.spectrogramLastDrawAt ? now - state.spectrogramLastDrawAt : 80;
+  state.spectrogramLastDrawAt = now;
+  const advanceExact = state.spectrogramScroll + width * elapsed / SPECTROGRAM_HISTORY_MS;
+  const advance = Math.floor(advanceExact);
+  state.spectrogramScroll = advanceExact - advance;
+  if (!advance) return;
+  if (advance >= width) {
+    spectrogramCtx.fillStyle = '#edf2f5'; spectrogramCtx.fillRect(0, 0, width, height);
+  } else {
+    spectrogramCtx.drawImage(spectrogram, -advance, 0);
+    spectrogramCtx.fillStyle = '#edf2f5'; spectrogramCtx.fillRect(width - advance, 0, advance, height);
+  }
   state.analyser.getFloatFrequencyData(state.frequencyBins);
   const minHz = 100, maxHz = Math.min(8000, state.sampleRate / 2);
   for (let row = 0; row < height; row++) {
@@ -112,7 +126,7 @@ function drawSpectrogram() {
     const green = Math.round(243 - strength * 126);
     const blue = Math.round(248 - strength * 20);
     spectrogramCtx.fillStyle = `rgb(${red} ${green} ${blue})`;
-    spectrogramCtx.fillRect(width - 1, row, 1, 1);
+    spectrogramCtx.fillRect(width - advance, row, advance, 1);
   }
 }
 function setMessage(text, error = false) {
@@ -181,6 +195,9 @@ function stop({ preserveMessage = false } = {}) {
   }
   state.processor?.disconnect(); state.processor = null;
   state.analyser?.disconnect(); state.analyser = null; state.frequencyBins = null;
+  state.spectrogramLastDrawAt = 0; state.spectrogramScroll = 0;
+  spectrogramCtx.fillStyle = '#edf2f5';
+  spectrogramCtx.fillRect(0, 0, spectrogram.width, spectrogram.height);
   state.source?.disconnect(); state.source = null;
   state.stream?.getTracks().forEach((track) => track.stop()); state.stream = null;
   if (state.context) state.context.close(); state.context = null; state.samples = new Float32Array(0);
