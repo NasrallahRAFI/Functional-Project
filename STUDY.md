@@ -5,7 +5,10 @@ failed. Under O0-A3, corpus-006/split-006 is frozen after P1-P3 and R-DET
 passed; P4 failed B0 because the structural reference QP was primal
 infeasible. O0-A4 corpus-007/split-007 is the latest attempt: P1/P2/P3/R-DET
 passed, but P4 again failed B0 with the unchanged structural reference QP.
-P5-P7 remain NOT_RUN. Preparation is incomplete.
+Metadata-only integer upper bounds show no MUSAN subset under the 1 GiB cap
+can satisfy B0 while the P2 candidate basis, P3 split fractions, and fixed
+20x reference clip cap remain unchanged. P5-P7 remain NOT_RUN. Preparation
+is incomplete.
 Preparation phases A0 and P0–P7 are authorized. Model training, new-model
 threshold selection, local recording, downloads, and held-out evaluation are
 not authorized. V4 runtime selection remains active and unchanged.
