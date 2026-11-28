@@ -12,8 +12,8 @@ const SELECTED_V3 = {
 function isSelectedModel(m) {
   const common = m?.status === 'ready' && m.application_id === 'local-drone-detector'
     && m.protocol_version === 2 && m.variant === 'depth_4' && m.seed === 42
-    && m.score_kind === 'raw_logit' && m.policy_id === 'threshold-majority-v1'
-    && m.smoothing_windows === 3 && m.window_samples === 7936 && m.cadence_seconds === 0.496;
+    && m.score_kind === 'raw_logit' && m.policy_id === 'threshold-single-v1'
+    && m.windows_per_decision === 1 && m.window_samples === 7936 && m.cadence_seconds === 0.496;
   const v2 = m?.model_id === 'CNN_V2.0' && m.model_version === '2.0'
     && m.checkpoint_sha256 === '0e97e3194e42f8fa3a2541e37dcff9fe33cdc1246d5a260ab65c6d157af6f4fb'
     && m.threshold === 2.823960542678833 && m.validation_eligible === true
@@ -64,7 +64,7 @@ function updateModelUI(m) {
     : 'CNN V2.0 is the selected validation baseline. A CNN V3.0 candidate is available in the project release records.';
   $('modelEvidenceStatus').classList.toggle('experimental-note', experimental);
   $('thresholdValue').textContent = Number(m.threshold).toFixed(4);
-  $('cadenceValue').textContent = `${m.cadence_seconds} sec · 3-window majority`;
+  $('cadenceValue').textContent = `${m.cadence_seconds} sec · per window`;
 }
 const state = {
   active: false, epoch: 0, stream: null, context: null, source: null,
@@ -114,16 +114,16 @@ function render(data, requestMs) {
     $('result').dataset.state = 'idle'; $('resultOverline').textContent = data.reason === 'quiet' ? 'LOW INPUT LEVEL' : 'LISTENING';
     $('resultText').textContent = 'Standing by'; $('resultNote').textContent = 'Quiet input is not counted as a negative prediction.';
     $('scoreValue').textContent = '—';
-  } else if (data.status === 'warming_up' || data.status === 'buffering') {
+  } else if (data.status === 'buffering') {
     $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'WARMING UP';
-    $('resultText').textContent = 'Checking recent windows';
-    $('resultNote').textContent = data.status === 'buffering' ? 'Building a fresh contiguous audio window.' : `Decision votes ${data.votes_received}/3`;
+    $('resultText').textContent = 'Building a fresh audio window';
+    $('resultNote').textContent = 'A complete contiguous audio window is needed for a score.';
     $('scoreValue').textContent = Number.isFinite(data.raw_score) ? Number(data.raw_score).toFixed(3) : '—';
   } else if (data.status === 'scored') {
     $('result').dataset.state = data.drone ? 'drone' : 'clear';
     $('resultOverline').textContent = data.drone ? 'PATTERN ABOVE THRESHOLD' : 'NO DRONE PATTERN';
     $('resultText').textContent = data.drone ? 'Drone detected' : 'No drone detected';
-    $('resultNote').textContent = `Raw CNN score ${Number(data.score).toFixed(3)} · threshold ${Number(data.threshold).toFixed(3)} · three-window majority`;
+    $('resultNote').textContent = `Raw CNN score ${Number(data.score).toFixed(3)} · threshold ${Number(data.threshold).toFixed(3)} · current window`;
     $('scoreValue').textContent = Number(data.score).toFixed(3);
   }
 }
@@ -287,8 +287,7 @@ async function sendAudio() {
       status: result.status, reason: result.reason || null,
       window_rms_dbfs: result.window_rms_dbfs ?? null,
       raw_logit: result.raw_score ?? null, threshold: result.threshold ?? null,
-      raw_vote: result.raw_vote ?? null, votes: result.votes ?? [],
-      votes_required: result.votes_required ?? 3, drone: result.drone ?? null,
+      threshold_decision: result.threshold_decision ?? null, drone: result.drone ?? null,
       generation: result.generation ?? data.generation ?? null,
       recovered: Boolean(result.recovered || data.recovered),
       recovery_reasons: result.recovery_reasons || data.recovery_reasons || [],
@@ -389,7 +388,7 @@ async function start() {
       }
       if (block.droppedFrames > 0 || (state.expectedSourceFrame !== null && block.sourceFrame !== state.expectedSourceFrame)) {
         state.captureDrops += block.droppedFrames || Math.max(0, block.sourceFrame - state.expectedSourceFrame);
-        resetCapture('The mic stream skipped audio. Rebuilding the three-vote window needs about 1.5 sec of uninterrupted input. If this keeps repeating, check the mic and keep this tab active.');
+        resetCapture('The mic stream skipped audio. Rebuilding the current audio window needs about 0.5 sec of uninterrupted input. If this keeps repeating, check the mic and keep this tab active.');
       }
       state.expectedSourceFrame = block.sourceFrame + samples.length;
       try { appendAudio(samples); } finally { recycle(); }
@@ -404,10 +403,10 @@ async function start() {
     updateRecordButton();
     state.lastAudioBlockAt = performance.now();
     state.captureWatchdog = setTimeout(() => checkCaptureHealth(epoch), 2500);
-    $('micDot').classList.add('on'); $('micLabel').textContent = 'MICROPHONE LIVE'; $('latency').textContent = 'BUILDING FIRST DECISION';
+    $('micDot').classList.add('on'); $('micLabel').textContent = 'MICROPHONE LIVE'; $('latency').textContent = 'BUILDING FIRST WINDOW';
     $('sampleRate').textContent = `${state.sampleRate.toLocaleString()} Hz`; $('result').dataset.state = 'idle';
     $('resultOverline').textContent = 'CAPTURING AUDIO'; $('resultText').textContent = 'Listening';
-    $('resultNote').textContent = 'Three votes need at least 1.488 seconds of clear audio; quiet input takes longer.';
+    $('resultNote').textContent = 'Each complete 0.496-second audio window is scored independently. Quiet input remains on standby.';
     $('startButton').querySelector('span:last-child').textContent = 'Monitoring'; $('stopButton').disabled = false;
     setMessage('Listening continuously. Audio is saved only when you press Record 10 seconds.');
   } catch (error) {

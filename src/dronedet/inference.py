@@ -53,7 +53,8 @@ class LoadedDetector:
     experimental_activation: bool = False
     validation_guard_failures: tuple[str, ...] = ()
     test_access: bool = False
-    policy_id: str = "threshold-majority-v1"
+    policy_id: str = "threshold-single-v1"
+    windows_per_decision: int = 1
     run_id: str | None = None
     validation_metrics: dict | None = None
     final_test_passed: bool = False
@@ -92,7 +93,7 @@ class LoadedDetector:
             "validation_metrics": self.validation_metrics,
             "final_test_passed": self.final_test_passed,
             "policy_id": self.policy_id,
-            "smoothing_windows": self.config.smoothing_windows,
+            "windows_per_decision": self.windows_per_decision,
             "window_samples": self.config.win_samples,
             "cadence_seconds": round(
                 self.config.hop
@@ -187,8 +188,8 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
     config.validate()
     if config.n_mels != 64 or config.n_win != 28 or config.win_samples != 7936:
         raise ValueError(f"{model_id} frontend dimensions differ from the selected input contract")
-    if (manifest.get("policy_id") != "threshold-majority-v1"
-            or int(manifest.get("smoothing_windows", 0)) != config.smoothing_windows
+    if (manifest.get("policy_id") != "threshold-single-v1"
+            or int(manifest.get("windows_per_decision", 0)) != 1
             or float(manifest.get("interval_seconds", -1)) != config.decision_interval_s):
         raise ValueError(f"live decision settings differ from the {model_id} runtime frontend")
     stats_path = package / metadata["normalization_file"]
@@ -229,6 +230,8 @@ def load_detector(project_root: str | Path, manifest_path: str | Path | None = N
         experimental_activation=bool(manifest.get("experimental_activation", False)),
         validation_guard_failures=tuple(manifest.get("validation_guard_failures", [])),
         test_access=bool(manifest.get("test_access", False)),
+        policy_id=str(manifest["policy_id"]),
+        windows_per_decision=int(manifest["windows_per_decision"]),
         run_id=metadata.get("run_id"),
         validation_metrics=metadata.get("validation_metrics"),
         final_test_passed=bool(metadata.get("final_test_passed", False)),

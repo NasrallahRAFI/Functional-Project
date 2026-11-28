@@ -17,7 +17,7 @@ const readyHealth = () => ({ status: 'ready', application_id: 'local-drone-detec
   validation_metrics: selection.validation_metrics || null,
   final_test_passed: selection.final_test_passed || false,
   checkpoint_sha256: selection.model_sha256, score_kind: selection.score_kind,
-  policy_id: selection.policy_id, smoothing_windows: selection.smoothing_windows,
+  policy_id: selection.policy_id, windows_per_decision: selection.windows_per_decision,
   window_samples: 7936, cadence_seconds: 0.496 });
 
 function deferred() {
@@ -202,7 +202,7 @@ test('a score arriving after Stop cannot overwrite the stopped monitor state', a
 
 test('the browser rejects a wrong artifact, threshold, or decision contract before microphone access', async () => {
   for (const change of [{checkpoint_sha256: '0'.repeat(64)}, {threshold: 0},
-      {protocol_version: 1}, {score_kind: 'probability'}, {smoothing_windows: 1}]) {
+      {protocol_version: 1}, {score_kind: 'probability'}, {windows_per_decision: 3}]) {
     const elements = new Map();
     const document = {getElementById(id) {
       if (!elements.has(id)) elements.set(id, {textContent: '', dataset: {},

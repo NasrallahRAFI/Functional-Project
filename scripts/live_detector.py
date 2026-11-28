@@ -24,7 +24,6 @@ sys.path.insert(0, str(ROOT))
 from demo.run_demo import (
     LiveWindowBuilder,
     SessionSequenceGuard,
-    VoteSmoother,
 )
 from dronedet.config import decision_hash
 from dronedet.features import clip_flags, mel_power, transform
@@ -47,11 +46,13 @@ class LiveState:
             model,
             threshold,
         )
-        self.decision_identity = decision_hash(config, threshold=threshold)
+        self.decision_identity = decision_hash(
+            config, threshold=threshold, policy_id="threshold-single-v1",
+            smoothing_windows=1,
+        )
         self.lock = threading.Lock()
         self.source_rate = None
         self.builder = None
-        self.smoother = VoteSmoother(config.smoothing_windows)
         self.session_id = None
         self.expected_sequence = None
         self.generation = 0
@@ -93,7 +94,6 @@ class LiveState:
             if source_rate is not None
             else None
         )
-        self.smoother.reset()
 
     def process(
         self, samples: np.ndarray, source_rate: int, session_id: str, sequence: int,
@@ -155,12 +155,10 @@ class LiveState:
                     3,
                 )
                 if flags["silent"] or flags["near_silent"]:
-                    self.smoother.values.clear()
                     result = {
                         "status": "standby",
                         "reason": "quiet",
                         "window_rms_dbfs": window_rms_dbfs,
-                        "votes": [],
                     }
                     window_trace.append({**result, "window_rms_dbfs": window_rms_dbfs})
                     continue
@@ -171,33 +169,14 @@ class LiveState:
                     score = float(
                         self.model(torch.from_numpy(features).unsqueeze(0)).item()
                     )
-                decision = self.smoother.push(score, self.threshold)
-                if decision is None:
-                    result = {
-                        "status": "warming_up",
-                        "raw_score": score,
-                        "threshold": self.threshold,
-                        "votes_received": len(self.smoother.values),
-                        "votes_required": self.smoother.count,
-                        "votes": self.smoother.values.copy(),
-                        "raw_vote": bool(score >= self.threshold),
-                        "window_rms_dbfs": window_rms_dbfs,
-                        "generation": self.generation,
-                        "recovered": discontinuity,
-                        "recovery_reasons": reasons,
-                        "decision_identity": self.decision_identity,
-                    }
-                    window_trace.append(result.copy())
-                    continue
+                decision = bool(score >= self.threshold)
                 result = {
                     "status": "scored",
                     "score": score,
                     "raw_score": score,
                     "threshold": self.threshold,
                     "drone": decision,
-                    "votes": self.smoother.values.copy(),
-                    "raw_vote": bool(score >= self.threshold),
-                    "votes_required": self.smoother.count,
+                    "threshold_decision": decision,
                     "window_rms_dbfs": window_rms_dbfs,
                     "clipped": flags["clipped"],
                     "generation": self.generation,

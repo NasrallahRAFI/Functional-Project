@@ -58,13 +58,15 @@ def create_record(output: Path) -> dict:
                 "tabular_content_hash": tabular_content_hash(config),
                 "transform_hash": transform_hash(config),
                 "normalization_lineage_hash": normalization_lineage_hash(config, stats),
-                "decision_hash": decision_hash(config),
+                "decision_hash": decision_hash(
+                    config, policy_id="threshold-single-v1", smoothing_windows=1
+                ),
                 "config_hash_alias": config_hash(config, stats)},
         "numeric_inputs_unchanged": True,
         "weights_or_manifests_changed": False,
-        "decision_settings": {"policy_id": "threshold-majority-v1",
+        "decision_settings": {"policy_id": "threshold-single-v1",
                                "interval_s": config.decision_interval_s,
-                               "smoothing_windows": config.smoothing_windows},
+                               "smoothing_windows": 1},
         "statistics_fit_policy": "train_stats_eligible_per_band_floor_mask_v1",
         "note": "V2 identities describe domains; they do not restamp frozen artifacts.",
     }

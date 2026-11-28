@@ -110,7 +110,6 @@ class LiveDetectorReleaseTests(unittest.TestCase):
                 token = live.STATE.claim(session)
                 source = np.random.default_rng(42).normal(0, 0.03, rate * 4).astype('<f4')
                 offline = resample(source, rate, 16000, quality=live.CONFIG.resample_quality)
-                votes = []
                 scored = 0
                 for seq, offset in enumerate(range(0, len(source), rate // 2)):
                     status, body = self.request('/api/audio', method='POST',
@@ -120,7 +119,7 @@ class LiveDetectorReleaseTests(unittest.TestCase):
                             'X-Chunk-Sequence': str(seq)})
                     self.assertEqual(status, 200)
                     result = json.loads(body)
-                    if result['status'] not in {'warming_up', 'scored'}:
+                    if result['status'] != 'scored':
                         continue
                     event = result['window_trace'][-1]
                     start = live.STATE.builder.emitted_starts[-1]
@@ -128,14 +127,10 @@ class LiveDetectorReleaseTests(unittest.TestCase):
                     self.assertAlmostEqual(result['raw_score'], expected, delta=1e-4)
                     self.assertEqual(result['threshold'], self.detector.threshold)
                     self.assertAlmostEqual(event['raw_score'], expected, delta=1e-4)
-                    self.assertEqual(event['raw_vote'], expected >= self.detector.threshold)
-                    self.assertEqual(event['votes'], live.STATE.smoother.values)
+                    self.assertEqual(event['threshold_decision'], expected >= self.detector.threshold)
                     self.assertIsNotNone(event['window_rms_dbfs'])
-                    votes = (votes + [expected >= self.detector.threshold])[-3:]
-                    if len(votes) == 3:
-                        self.assertEqual(result['status'], 'scored')
-                        self.assertEqual(result['drone'], sum(votes) >= 2)
-                        scored += 1
+                    self.assertEqual(result['drone'], expected >= self.detector.threshold)
+                    scored += 1
                 self.assertGreaterEqual(scored, 3)
 
     def test_health_static_scope_and_session_ownership(self):

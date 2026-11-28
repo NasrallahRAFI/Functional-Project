@@ -274,7 +274,9 @@ def config_from_mapping(raw: dict[str, Any], *, preset: str | None = None) -> Fr
     if unknown_decision:
         raise ValueError(f"unknown decision keys: {sorted(unknown_decision)}")
     policy_id = decision.get("policy_id", "threshold-majority-v1")
-    if not isinstance(policy_id, str) or policy_id != "threshold-majority-v1":
+    if not isinstance(policy_id, str) or policy_id not in {
+        "threshold-majority-v1", "threshold-single-v1"
+    }:
         raise ValueError(f"unsupported decision policy_id: {policy_id!r}")
     # Read the historical frontend placement for a lossless legacy identity check.
     if "decision_interval_s" in normalized or "smoothing_windows" in normalized:
@@ -407,13 +409,16 @@ def tabular_content_hash(config: FrontEndConfig) -> str:
 
 
 def decision_hash(config: FrontEndConfig, *, threshold: float | None = None,
-                  policy_id: str = "threshold-majority-v1") -> str:
+                  policy_id: str = "threshold-majority-v1",
+                  smoothing_windows: int | None = None) -> str:
     if not isinstance(policy_id, str) or not policy_id:
         raise ValueError("decision policy_id must be a nonempty string")
     payload = {"identity_schema": 2, "domain": "decision",
                "policy_id": policy_id,
                "interval_s": float(config.decision_interval_s),
-               "smoothing_windows": int(config.smoothing_windows)}
+               "smoothing_windows": int(
+                   config.smoothing_windows if smoothing_windows is None else smoothing_windows
+               )}
     if threshold is not None:
         if not isinstance(threshold, (int, float, np.integer, np.floating)) or not math.isfinite(float(threshold)):
             raise ValueError("decision threshold must be finite numeric")

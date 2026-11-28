@@ -126,7 +126,7 @@ def main() -> int:
             "suite_manifest_sha256": record["suite_manifest_sha256"],
             "test_access": False,
             "final_test_passed": False,
-            "operational_contract": "ONE_CHANNEL_seed42 uses the frozen V2 frontend and normalization, a single weighted-F1 raw-logit threshold, 0.496-second cadence, and the existing three-window majority policy.",
+            "operational_contract": "ONE_CHANNEL_seed42 uses the frozen V2 frontend and normalization, a single weighted-F1 raw-logit threshold, and direct per-window decisions at a 0.496-second cadence.",
             "evaluation_disclosure": "The fixed validation suite was used for selection. No test data has been accessed by this training/export step.",
         })
         write_json(staging / "model_metadata.json", metadata)

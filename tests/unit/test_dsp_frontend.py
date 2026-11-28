@@ -274,7 +274,7 @@ class DspFrontEndTests(unittest.TestCase):
             set(reasons), {"session_changed", "sample_rate_changed", "sequence_gap"}
         )
 
-    def test_browser_live_state_buffers_three_votes_and_resets_on_sequence_gap(self):
+    def test_browser_live_state_scores_each_window_and_resets_on_sequence_gap(self):
         config = load_config(PROJECT / "config.yaml")
 
         class FixedModel:
@@ -295,16 +295,14 @@ class DspFrontEndTests(unittest.TestCase):
             state.process(chunk, 16000, "session-one", sequence)
             for sequence, chunk in enumerate(chunks)
         ]
-        self.assertEqual(
-            [item["status"] for item in outputs], ["warming_up", "warming_up", "scored"]
-        )
-        self.assertTrue(outputs[-1]["drone"])
+        self.assertEqual([item["status"] for item in outputs], ["scored"] * 3)
+        self.assertTrue(all(item["drone"] for item in outputs))
         self.assertAlmostEqual(outputs[-1]["score"], 2.9, places=6)
         restarted = state.process(chunks[0], 16000, "session-two", 0)
-        self.assertEqual(restarted["status"], "warming_up")
+        self.assertEqual(restarted["status"], "scored")
         self.assertTrue(restarted["recovered"])
         after_gap = state.process(chunks[1], 16000, "session-two", 2)
-        self.assertEqual(after_gap["status"], "warming_up")
+        self.assertEqual(after_gap["status"], "scored")
         self.assertEqual(after_gap["recovery_reasons"], ["sequence_gap"])
 
     def test_live_hardware_protocol_command_parses_without_opening_audio(self):

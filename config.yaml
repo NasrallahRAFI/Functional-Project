@@ -34,9 +34,9 @@ frontend:
   clipped_fraction: 0.01
   manifest_seed: 42
 decision:
-  policy_id: threshold-majority-v1
+  policy_id: threshold-single-v1
   interval_s: 0.5
-  smoothing_windows: 3
+  smoothing_windows: 1
 cnn_frontend:
   preset: project
   overrides: {}
