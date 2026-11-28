@@ -4,25 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101a18">
-  <title>V4 acoustic monitor · Fieldnote</title>
-  <link rel="stylesheet" href="/live/styles.css?v=cnn-v4-provisional-3">
+  <title>Drone sound monitor · Nasrallah Rafi</title>
+  <link rel="stylesheet" href="/live/styles.css?v=nasrallah-live-1">
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <a class="wordmark" href="/" aria-label="Fieldnote home">
+      <a class="wordmark" href="https://nasrallahrafi.me/" target="_blank" rel="noreferrer" aria-label="Nasrallah Rafi — personal website">
         <span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 17h5l3-8 5 16 4-11 2 3h3"/></svg></span>
-        <span>FIELDNOTE <small>ACOUSTIC LAB</small></span>
+        <span>NASRALLAH RAFI <small>nasrallahrafi.me</small></span>
       </a>
-      <div class="system-state"><span class="state-light" id="systemLight"></span><span id="systemText">CHECKING MODEL</span><span class="separator">/</span><span>LOCAL SESSION</span></div>
+      <a class="site-link" href="https://nasrallahrafi.me/" target="_blank" rel="noreferrer">Visit website <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M5 4h7v7"/></svg></a>
     </header>
 
     <section class="intro" aria-labelledby="pageTitle">
       <div class="intro-copy">
-        <h1 id="pageTitle">Listen for<br><em>what’s overhead.</em></h1>
-      <p class="lede" id="activeModelLede">Checking the local model selection…</p>
+        <h1 id="pageTitle">Drone sound <em>monitor</em></h1>
       </div>
-      <div class="model-stamp"><span class="stamp-rule"></span><span id="modelStampStatus">CHECKING MODEL</span><strong id="activeModelName">CNN detector</strong><small id="activeModelDetails">Waiting for local model metadata.</small></div>
     </section>
 
     <section class="monitor" aria-label="Live drone detection">
@@ -37,12 +35,12 @@
           <div class="time-axis"><span>LIVE INPUT</span><span id="sampleRate">— Hz</span></div>
         </div>
         <div class="result" id="result" data-state="idle" aria-live="polite" aria-atomic="true">
-          <span class="result-overline" id="resultOverline">READY WHEN YOU ARE</span>
+          <span class="result-overline" id="resultOverline">READY</span>
           <strong id="resultText">Standing by</strong>
-          <span class="result-note" id="resultNote">Start monitoring to analyze nearby sound.</span>
+          <span class="result-note" id="resultNote">Start listening when you’re ready.</span>
         </div>
       </div>
-      <div class="monitor-foot">
+      <div class="monitor-foot" hidden>
         <div class="score"><span>RAW CNN LOGIT</span><strong id="scoreValue">—</strong></div>
         <div class="threshold"><span>PROVISIONAL THRESHOLD</span><strong id="thresholdValue">−3.00 · provisional</strong></div>
         <div class="decision"><span>DECISION CADENCE</span><strong id="cadenceValue">0.496 sec · 2 of 3 windows</strong></div>
@@ -50,17 +48,17 @@
       <div class="controls">
         <button class="start-button" id="startButton" type="button"><span class="button-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 3v8m-4-4v4a4 4 0 0 0 8 0V7M6 17h8"/></svg></span><span>Start monitoring</span></button>
         <button class="stop-button" id="stopButton" type="button" disabled>Stop</button>
-        <p id="message" class="message" role="status">Audio is processed locally. Saving a clip requires Record 10 seconds.</p>
+        <p id="message" class="message" role="status">Audio stays on this device.</p>
       </div>
-      <div class="recording-controls">
+      <div class="recording-controls" hidden>
         <button class="stop-button" id="recordButton" type="button" aria-pressed="false" disabled>Record 10 seconds</button>
         <p id="recordingStatus" role="status">Start monitoring, then record a clip while your drone sound plays. Clips are saved only on this computer.</p>
       </div>
-      <div class="recording-controls">
+      <div class="recording-controls" hidden>
         <button class="stop-button" id="traceButton" type="button" disabled>Download session trace</button>
         <p>Save per-window scores, quiet gates, vote history, capture settings and drop counters. The trace contains no audio.</p>
       </div>
-      <div class="recording-controls ambient-log-controls">
+      <div class="recording-controls ambient-log-controls" hidden>
         <label for="environmentLabel">Environment label <span>(optional)</span>
           <input id="environmentLabel" type="text" maxlength="120" autocomplete="off" placeholder="e.g. outdoor, engine running">
         </label>
@@ -71,15 +69,7 @@
       </div>
     </section>
 
-    <footer class="footnote">
-      <div><p><strong>About this readout</strong><br>Drone/no-drone labels use a provisional −3.00 raw-logit threshold and a two-of-three window majority. The threshold comes from one 9.4-minute ambient-only recording; false-alarm performance is not established, and validation negatives often crossed it. Labels are provisional. Quiet input is standby.</p></div>
-      <div><p><strong>Local by design</strong><br>Audio is captured through this computer’s microphone and processed by its local Python service. Sound from a phone or speakers must be audible to that microphone; headphone audio is not captured.</p></div>
-      <div class="model-evidence" aria-label="Active model and validation status">
-        <span class="evidence-note" id="modelEvidenceActive">Checking selected model…</span>
-        <span class="candidate-note" id="modelEvidenceStatus" role="status">The local detector reports its active model and validation status here.</span>
-      </div>
-    </footer>
   </main>
-  <script src="/live/app.js?v=cnn-v4-provisional-3" defer></script>
+  <script src="/live/app.js?v=nasrallah-live-1" defer></script>
 </body>
 </html>

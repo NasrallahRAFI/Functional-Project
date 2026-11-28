@@ -20,14 +20,6 @@ function isSelectedModel(m) {
 }
 function updateModelUI(m) {
   state.selectedModel = m;
-  $('systemText').textContent = 'CNN V4.0 · PROVISIONAL';
-  $('activeModelLede').textContent = 'Live drone/no-drone labels use provisional logit −3.00 and a three-window majority, based on one short ambient recording.';
-  $('modelStampStatus').textContent = 'PROVISIONAL · AMBIENT-ONLY';
-  $('modelStampStatus').classList.add('experimental-status');
-  $('activeModelName').textContent = 'CNN V4.0 · A0';
-  $('activeModelDetails').textContent = 'Seed 42 · 23,585 parameters';
-  $('modelEvidenceActive').textContent = 'LIVE MODEL · V4.0 A0 · seed 42';
-  $('modelEvidenceStatus').textContent = 'Provisional client-side decision at logit −3.00. Ambient sample: 9.4 minutes; false-alarm rate is not established. Validation negatives crossed this threshold frequently. Raw logits are not probabilities; test remains locked.';
   $('thresholdValue').textContent = '−3.00 · provisional';
   $('cadenceValue').textContent = `${m.cadence_seconds} sec · 2 of 3 windows`;
 }
@@ -79,9 +71,9 @@ function drawWave() {
     canvas.width = Math.round(box.width * dpr); canvas.height = Math.round(box.height * dpr);
   }
   const w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h); ctx.strokeStyle = '#31433a'; ctx.lineWidth = Math.max(1, dpr);
+  ctx.clearRect(0, 0, w, h); ctx.strokeStyle = '#c1cdd4'; ctx.lineWidth = Math.max(1, dpr);
   ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
-  ctx.strokeStyle = state.active ? '#b9e476' : '#64756b'; ctx.lineWidth = 1.7 * dpr;
+  ctx.strokeStyle = state.active ? '#355ed0' : '#87959e'; ctx.lineWidth = 1.7 * dpr;
   ctx.beginPath();
   for (let i = 0; i < state.points.length; i++) {
     const index = (state.pointAt + i) % state.points.length;
@@ -96,38 +88,38 @@ function setMessage(text, error = false) {
 }
 function showError(title, note) {
   $('result').dataset.state = 'error'; $('resultOverline').textContent = 'INPUT NEEDS ATTENTION';
-  $('resultText').textContent = title; $('resultNote').textContent = note;
+  $('resultText').textContent = title; $('resultNote').textContent = 'Check your microphone and try again.';
 }
 function render(data, requestMs) {
-  $('latency').textContent = `LAST READ · ${Math.round(requestMs)} ms`;
+  $('latency').textContent = 'LISTENING';
   const provisionalDecision = consumeProvisionalDecision(data);
   if (data.recovered) {
-    $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'AUDIO RESET';
-    $('resultText').textContent = 'Rebuilding recent windows';
-    $('resultNote').textContent = 'A capture gap was detected. The provisional vote was reset; fresh audio is needed.';
+    $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'LISTENING';
+    $('resultText').textContent = 'Ready';
+    $('resultNote').textContent = 'Listening for a clear signal.';
   }
   if (data.status === 'standby') {
-    $('result').dataset.state = 'idle'; $('resultOverline').textContent = data.reason === 'quiet' ? 'LOW INPUT LEVEL' : 'LISTENING';
-    $('resultText').textContent = 'Standing by'; $('resultNote').textContent = 'No label during quiet input; it is not counted as a no-drone vote.';
+    $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'LISTENING';
+    $('resultText').textContent = 'Standing by'; $('resultNote').textContent = 'No clear sound detected yet.';
     $('scoreValue').textContent = '—';
   } else if (data.status === 'score_only') {
     const score = Number(data.raw_score);
     $('scoreValue').textContent = score.toFixed(3);
     if (!provisionalDecision?.ready) {
-      $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'PROVISIONAL · WARMING UP';
-      $('resultText').textContent = 'Checking recent windows';
-      $('resultNote').textContent = `${provisionalDecision?.votes || 0}/3 windows · logit threshold −3.00 · labels are provisional`;
+      $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'LISTENING';
+      $('resultText').textContent = 'Checking sound';
+      $('resultNote').textContent = 'Listening for a clear signal.';
     } else {
       $('result').dataset.state = provisionalDecision.drone ? 'drone' : 'clear';
-      $('resultOverline').textContent = provisionalDecision.drone ? 'PROVISIONAL DRONE PATTERN' : 'PROVISIONAL NO-DRONE PATTERN';
-      $('resultText').textContent = provisionalDecision.drone ? 'Drone detected · provisional' : 'No drone detected · provisional';
-      $('resultNote').textContent = `Raw logit ${score.toFixed(3)} · threshold −3.00 · 2 of 3 windows · not validated for field use`;
+      $('resultOverline').textContent = provisionalDecision.drone ? 'POSSIBLE DRONE SOUND' : 'NO CLEAR DRONE SOUND';
+      $('resultText').textContent = provisionalDecision.drone ? 'Possible drone activity' : 'No pattern detected';
+      $('resultNote').textContent = 'Experimental preview.';
     }
   } else if (data.status === 'warming_up' || data.status === 'buffering') {
-    $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'WARMING UP';
+    $('result').dataset.state = 'idle'; $('resultOverline').textContent = 'LISTENING';
     resetProvisionalVotes();
     $('resultText').textContent = 'Checking recent windows';
-    $('resultNote').textContent = data.status === 'buffering' ? 'Building a fresh contiguous audio window.' : 'Rebuilding fresh audio before the provisional vote.';
+    $('resultNote').textContent = 'Listening for a clear signal.';
     $('scoreValue').textContent = Number.isFinite(data.raw_score) ? Number(data.raw_score).toFixed(3) : '—';
   } else if (data.status === 'scored') {
     $('result').dataset.state = data.drone ? 'drone' : 'clear';
@@ -450,7 +442,7 @@ fetch('/api/health', { cache: 'no-store' }).then((r) => r.ok ? r.json() : Promis
   if (isSelectedModel(m)) {
     updateModelUI(m);
   } else throw new Error('CNN selection mismatch');
-}).catch(() => { $('systemText').textContent = 'MODEL SERVICE UNAVAILABLE'; setMessage('Relaunch with start_detector.bat to load the local model.', true); });
+}).catch(() => { setMessage('The monitor is unavailable. Try again later.', true); });
 window.addEventListener('resize', drawWave);
 window.addEventListener('pagehide', () => stop({ preserveMessage: true }));
 $('startButton').addEventListener('click', start);
