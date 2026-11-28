@@ -316,7 +316,6 @@ function appendAudio(block, sourceFrame) {
   }
   if (state.samplesSourceFrame === null) state.samplesSourceFrame = sourceFrame;
   state.samples = merged;
-  $('levelReadout').textContent = `${levelDb.toFixed(0)} dBFS`;
   if (performance.now() - state.lastDrawAt >= 80) {
     state.lastDrawAt = performance.now(); drawWave();
   }
