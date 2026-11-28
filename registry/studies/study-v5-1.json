@@ -5,8 +5,8 @@
   "workspace": "workspaces/study-v5-1",
   "branch": "study-v5-1",
   "corpus": "corpus-007",
-  "split": "split-007",
-  "plan_status": "O0-A4 1 GiB cap and MUSAN group-support selection approved; P1/P2/P3/R-DET passed; P4 failed B0 structural QP infeasible. Metadata-only upper bound shows no 1 GiB MUSAN subset can pass the current B0 clip cap and P3 fractions. P5-P7 NOT_RUN.",
+  "split": "split-008",
+  "plan_status": "O0-A5 1 GiB cap retained; B0 reference clip cap amended to 105x for one new attempt. P1/P2/P3/R-DET unchanged artifacts re-bound; P4 PASS. P5-P7 NOT_RUN.",
   "preparation_report": "workspaces/study-v5-1/reports/v5.1/DATA_PREPARATION_CNN_V5_1_REPORT.md",
   "models_trained": false,
   "runtime_selection": "V4 remains active; no V5.1 runtime selection",
@@ -18,10 +18,10 @@
     "P2": "PASS",
     "P3": "PASS",
     "R-DET": "PASS",
-    "P4": "FAIL",
+    "P4": "PASS",
     "P5": "NOT_RUN",
     "P6": "NOT_RUN",
     "P7": "NOT_RUN"
   },
-  "attempt_id": "v51-budget-1g-a4"
+  "attempt_id": "v51-budget-1g-a5"
 }
