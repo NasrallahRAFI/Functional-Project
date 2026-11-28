@@ -1,0 +1,178 @@
+frontend:
+  preset: project
+  sr: 16000
+  channel: 0
+  n_fft: 1024
+  win_length: 1024
+  hop: 256
+  window: hann
+  center: false
+  n_mels: 64
+  fmin: 50.0
+  fmax: 7500.0
+  mel_scale: htk
+  mel_norm: area
+  power: 2.0
+  amin: 1.0e-12
+  top_db: null
+  resample_quality: HQ
+  L: 0.5
+  mode: global_stats
+  measured_passband_hz: 7540.278697934931
+  passband_status: measured
+  gain_range_db:
+  - -12.0
+  - 12.0
+  manifest_seed: 42
+  decision_interval_s: 0.496
+  smoothing_windows: 3
+decision:
+  policy_id: threshold-majority-v1
+  interval_s: 0.496
+  smoothing_windows: 3
+inputs:
+  ae:
+    source_revision: al-emadi-r001
+    status: registered-input-present
+    path_key: ae_root
+  dd:
+    source_revision: thesis-r001
+    status: registered-input-present
+    path_key: dd_root
+  itu:
+    source_revision: itu-aris-r001
+    status: registered-input-present
+    path_key: itu_root
+  mic:
+    source_revision: micarray30s-r001
+    status: absent-ood-default
+    path_key: mic_root
+  musan:
+    source_revision: musan-r001
+    status: registered-input-present
+    path_key: musan_root
+  wang:
+    source_revision: wang-r001
+    status: absent-ood-default
+    path_key: wang_root
+sampling:
+  positive_prior: 0.35
+  positive_shares_default:
+    ae: 0.35
+    itu: 0.35
+    dd: 0.3
+  positive_shares_MIC_pool:
+    ae: 0.35
+    itu: 0.25
+    dd: 0.2
+    mic: 0.2
+  negative_strata_default_no_cochl:
+    N1: 0.4
+    N2: 0.15
+    N3: 0.22
+    N4: 0.08
+    N5: 0.15
+  negative_strata_with_cochl:
+    N1: 0.3
+    N2: 0.15
+    N3: 0.1
+    N4: 0.08
+    N5: 0.15
+    N6: 0.1
+    N7: 0.12
+  source_cap_per_class: 0.35
+  group_cap_per_class: 0.015
+  clip_cap_reference_class_median_multiple: 105
+  positive_only_aggregate_cap: 0.25
+  negative_only_aggregate_cap: 0.35
+  descriptor_positive_fraction_bounds:
+  - 0.21
+  - 0.56
+  effective_size:
+    blocking_policy: min(n_ref,0.8*n_ref)
+    reference_retention: 0.8
+    absolute_3000: reported_acquisition_target_not_blocking
+    stratum_150: reported_gap_not_class_failure
+    freeze_reference_before_descriptor_balance: true
+    metadata_only_authoring_sizing:
+      positive_reference: 1667.8456636853937
+      negative_reference: 3537.746644487286
+      positive_floor: 1334.276530948315
+      negative_floor: 2830.197315429828
+      not_a_frozen_split: true
+augmentation:
+  order:
+  - A5_crop
+  - A2_mix
+  - A1_gain
+  - A3_response
+  - A4_floor
+  - log
+  - normalize
+  gain_db:
+  - -36.0
+  - 6.0
+  positive_mix_probability: 0.6
+  negative_mix_probability: 0.4
+  positive_snr_db:
+  - -12.0
+  - 20.0
+  negative_snr_db:
+  - -5.0
+  - 20.0
+  donor_gain_db:
+  - -30.0
+  - 0.0
+  response_probability: 0.5
+  hp_corner_hz:
+  - 0.0
+  - 300.0
+  conditional_lp_probability: 0.3
+  lp_corner_hz:
+  - 4000.0
+  - 7500.0
+  tilt_span_db:
+  - -6.0
+  - 6.0
+  ripple_db:
+  - -2.0
+  - 2.0
+  ripple_knot_indices:
+  - 0.0
+  - 31.5
+  - 63.0
+  floor_probability: 0.5
+  floor_rms_dbfs:
+  - -90.0
+  - -55.0
+  template_seconds: 64
+  A_chk_pairs: 200
+  A_chk_max_mean_error_db: 3.0
+  B6_draws: 100000
+  B6_domain: A1-only full-window RMS
+  B6_min_mass_per_class_bin: 0.05
+  B6_bin_edges_dbfs:
+  - -70
+  - -60
+  - -50
+  - -40
+  - -30
+  - -20
+  - -10
+replay:
+  cadence_samples: 7936
+  cadence_seconds: 0.496
+  vote_count: 3
+  episode_merge_gap_seconds_lt: 5.0
+  bootstrap_replicates: 2000
+  rate_upper: max(one-sided exact Poisson95, bootstrap95th percentile)
+  exposure: union of scored source-time intervals, excluding quiet/gap/recovered
+  class_duration_cap_hours: 4.0
+  binding_min_hours: 0.5
+  future_empirical_selection_target_per_hour: 0.5
+  future_test_target_per_hour: 1.0
+  test_or_new_model_execution_authorized: false
+approval:
+  o0: true
+  plan_sha256: 6a27c99f960e4e0520709216cf204e5890eca6e30ebbb438d7934f300af9f5a1
+  contract_sha256: 6911c92b34696f351e4033b21af9ff74f0e6c49627b4987ebae87431d8fe0de4

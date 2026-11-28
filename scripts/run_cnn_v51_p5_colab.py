@@ -127,6 +127,13 @@ def main() -> int:
             or non_musan_bytes != int(budget_binding["non_musan_bytes"])):
         raise SystemExit("P1 inventory byte totals differ from the frozen O0-A4 byte budget")
     config = load_v51_config(study_root / "config" / "v51.yaml")
+    expected_clip_multiple = 105
+    actual_clip_multiple = int(config.sampling["clip_cap_reference_class_median_multiple"])
+    if actual_clip_multiple != expected_clip_multiple:
+        raise SystemExit(
+            "O0-A5 requires the 105x reference-median clip cap; "
+            f"configured value is {actual_clip_multiple}"
+        )
 
     roots = dict(args.source_root)
     required_sources = {str(row["source"]) for row in train + val}

@@ -1,14 +1,8 @@
 # Study V5.1
 
-Status: O0-A2 corpus-005/split-005 remains historical: P0-P4 passed and P5
-failed. Under O0-A3, corpus-006/split-006 is frozen after P1-P3 and R-DET
-passed; P4 failed B0 because the structural reference QP was primal
-infeasible. O0-A4 corpus-007/split-007 is the latest attempt: P1/P2/P3/R-DET
-passed, but P4 again failed B0 with the unchanged structural reference QP.
-Metadata-only integer upper bounds show no MUSAN subset under the 1 GiB cap
-can satisfy B0 while the P2 candidate basis, P3 split fractions, and fixed
-20x reference clip cap remain unchanged. P5-P7 remain NOT_RUN. Preparation
-is incomplete.
+Status: O0-A2 corpus-005/split-005 and O0-A3/O0-A4 capped failures remain immutable history. O0-A5 retains the exact 1 GiB byte ceiling and full AE/DD/ITU inputs, and raises the B0 reference-median clip cap from 20x to 105x for one new attempt.
+
+The O0-A5 target corpus-007/split-008 reuses byte-identical P1/P2/P3 artifacts from O0-A4 and binds them to the amended contract. P4 passed R-LED, B0, B1, B2, B3/B4, and B5. P5-P7 are NOT_RUN; preparation remains incomplete. The 105x cap is confirmed feasible for this membership but is a documented relaxation of the clip-level concentration limit.
 Preparation phases A0 and P0–P7 are authorized. Model training, new-model
 threshold selection, local recording, downloads, and held-out evaluation are
 not authorized. V4 runtime selection remains active and unchanged.
@@ -19,13 +13,12 @@ Its companion contract is
 [`DATA_PREPARATION_CNN_V5_1_CONTRACT.json`](docs/v5.1/DATA_PREPARATION_CNN_V5_1_CONTRACT.json).
 The O0 request was recorded on 27 November 2026. SHA-256:
 
-- Plan: `20d2e6d1bd89be9cca7c2465db71bc53e0ed723ebdf96d3bcf061ba6fdd02d46`
-- Contract: `76d912a8563a54786cb401c7a51104e1cc61be30d7eb0130a707aba81b731839`
+- Plan: `6a27c99f960e4e0520709216cf204e5890eca6e30ebbb438d7934f300af9f5a1`
+- Contract: `6911c92b34696f351e4033b21af9ff74f0e6c49627b4987ebae87431d8fe0de4`
 
-O0-A4 MUSAN group-coverage amendment SHA-256: `99eba1993b32ccddb6649ac6e73b4878b58131014807c4371aea8550189dba39`.
+O0-A4 MUSAN group-coverage amendment SHA-256: `99eba1993b32ccddb6649ac6e73b4878b58131014807c4371aea8550189dba39`. O0-A5 authorizes one 105x B0 clip-cap attempt while retaining the 1 GiB cap.
 
-Current frozen identity: corpus-007/split-007 under O0-A4; do not run P5
-because P4 failed. Its selection retains all AE/DD/ITU files and 70 complete
+Historical frozen identity: corpus-007/split-007 under O0-A4 remains P4-failed and ineligible for P5. The current frozen identity is corpus-007/split-008 under O0-A5 with P4 PASS; P5 is now eligible. Its selection retains all AE/DD/ITU files and 70 complete
 MUSAN groups under the exact 1 GiB byte cap. O0-A3 corpus-006/split-006 and
 all earlier attempts remain immutable history. O0-A4 cache identities
 derived-build-v51-005 and cnn-v51-005 remain planned/unbuilt. MIC and Wang

@@ -1,0 +1,1843 @@
+{
+  "schema_version": 1,
+  "plan_id": "DATA_PREPARATION_CNN_V5_1_FINAL",
+  "prepared_date": "2026-11-27",
+  "status": "FINAL_DOCUMENT_PENDING_O0_EXECUTION_APPROVAL",
+  "execution_authorized": false,
+  "seed": 51,
+  "defaults": {
+    "O0": "no_execution",
+    "O1": "A_no_recording",
+    "O2": "quarantine",
+    "O3": "cochl_tier_D",
+    "O5": "MIC_OOD"
+  },
+  "source_codes": [
+    "ae",
+    "dd",
+    "itu",
+    "mic",
+    "musan",
+    "wang",
+    "cochl",
+    "loc"
+  ],
+  "ids": {
+    "source_file_id": "sha256(UTF8(source_revision + NUL + NFC relative POSIX path))",
+    "new_clip_id": "{code}__{source_file_id}__s{start_sample_16k:012d}__n{n_samples:08d}",
+    "legacy_sources": [
+      "ae",
+      "dd"
+    ],
+    "legacy_rule": "Preserve exact V4 clip_id, group_key and duplicate representative; separate true sample offset column",
+    "new_derived_relpath": "{source}/{sha256_UTF8_clip_id}.wav",
+    "coordinate_domain": "whole-standardized-physical-file"
+  },
+  "identities": {
+    "transform_hash": "bb7a21a1e5fb317c43e1e214bc04af6e46e04d75053383d1c62ef6849c9466c7",
+    "cache_content_hash": "026ff2ecaa8a240383af8666f61bbfcd9ea7ef3d4e9a51c73e803d82259a43b0",
+    "V4_normalized_input_hash_reference_only": "028d682f79e0099f265bf9194e11ba3250d16fc8ef5377944e7d7671ab60fdd2",
+    "new_statistics": "fit train stats_eligible only; separate actual normalized identity and manifest/statistics lineage"
+  },
+  "serialization": {
+    "csv_encoding": "utf-8",
+    "csv_newline": "LF",
+    "csv_bool": [
+      "false",
+      "true"
+    ],
+    "csv_null": "",
+    "csv_float_format": ".17g",
+    "json": "UTF-8, sort_keys=true, separators=(comma,colon), ensure_ascii=false, allow_nan=false",
+    "member_row_order": "clip_id ascending",
+    "inventory_row_order": "source,source_file_id ascending"
+  },
+  "enums": {
+    "source_code": [
+      "ae",
+      "dd",
+      "itu",
+      "mic",
+      "musan",
+      "wang",
+      "cochl",
+      "loc"
+    ],
+    "label_basis": [
+      "folder",
+      "filename",
+      "manifest_record",
+      "dataset_definition",
+      "scene_class",
+      "folder_name_only",
+      "interval_annotation",
+      "unannotated_stretch",
+      "owner_confirmed"
+    ],
+    "negative_stratum": [
+      "N1",
+      "N2",
+      "N3",
+      "N4",
+      "N5",
+      "N6",
+      "N7"
+    ],
+    "split": [
+      "train",
+      "val",
+      "test",
+      "ood"
+    ],
+    "candidate_role": [
+      "base",
+      "reservoir_candidate",
+      "base_and_reservoir",
+      "reservoir"
+    ],
+    "distance_bin": [
+      "near",
+      "mid",
+      "far",
+      "unknown"
+    ],
+    "exposure_history": [
+      "prior_training_or_test",
+      "prior_diagnostic",
+      "unestablished",
+      "new_owner_session"
+    ],
+    "gate_status": [
+      "PASS",
+      "FAIL",
+      "NOT_RUN",
+      "NOT_IMPLEMENTED"
+    ]
+  },
+  "artifact_schemas": {
+    "inventory_v51.csv": [
+      {
+        "name": "source_file_id",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "source",
+        "type": "source_code",
+        "nullable": false
+      },
+      {
+        "name": "source_revision",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "relative_path",
+        "type": "relative_path",
+        "nullable": false
+      },
+      {
+        "name": "file_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "bytes",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "native_sr",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "channels",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "encoding",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "native_frames",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "recording_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "original_group_key",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "group_key",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "source_class",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "label",
+        "type": "binary",
+        "nullable": false
+      },
+      {
+        "name": "label_basis",
+        "type": "label_basis",
+        "nullable": false
+      },
+      {
+        "name": "label_weak",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "substratum",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "negative_stratum",
+        "type": "negative_stratum",
+        "nullable": true
+      },
+      {
+        "name": "source_metadata_sha256",
+        "type": "sha256",
+        "nullable": true
+      },
+      {
+        "name": "prior_exposure",
+        "type": "exposure_history",
+        "nullable": false
+      }
+    ],
+    "mechanical_ledger.csv": [
+      {
+        "name": "clip_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "legacy_clip_id",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_file_id",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "source",
+        "type": "source_code",
+        "nullable": false
+      },
+      {
+        "name": "source_revision",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "file_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "recording_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "group_key",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "substratum",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "negative_stratum",
+        "type": "negative_stratum",
+        "nullable": true
+      },
+      {
+        "name": "label",
+        "type": "binary",
+        "nullable": false
+      },
+      {
+        "name": "label_basis",
+        "type": "label_basis",
+        "nullable": false
+      },
+      {
+        "name": "label_weak",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "start_sample_16k",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "n_samples",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_rate",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "exact_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "near_silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "partial_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "clipped_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "dc_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "crop_all_zero",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "stats_eligible",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "candidate_role",
+        "type": "candidate_role",
+        "nullable": false
+      },
+      {
+        "name": "kept",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "exclusion_reason",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "duplicate_representative",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "pinned",
+        "type": "bool",
+        "nullable": false
+      }
+    ],
+    "train.csv": [
+      {
+        "name": "clip_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "legacy_clip_id",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_file_id",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "source",
+        "type": "source_code",
+        "nullable": false
+      },
+      {
+        "name": "source_revision",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "file_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "recording_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "group_key",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "substratum",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "negative_stratum",
+        "type": "negative_stratum",
+        "nullable": true
+      },
+      {
+        "name": "label",
+        "type": "binary",
+        "nullable": false
+      },
+      {
+        "name": "label_basis",
+        "type": "label_basis",
+        "nullable": false
+      },
+      {
+        "name": "label_weak",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "start_sample_16k",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "n_samples",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_rate",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "exact_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "near_silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "partial_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "clipped_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "dc_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "crop_all_zero",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "stats_eligible",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "candidate_role",
+        "type": "candidate_role",
+        "nullable": false
+      },
+      {
+        "name": "kept",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "exclusion_reason",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "duplicate_representative",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "pinned",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "split",
+        "type": "split",
+        "nullable": false
+      },
+      {
+        "name": "derived_relpath",
+        "type": "relative_path",
+        "nullable": true
+      }
+    ],
+    "val.csv": [
+      {
+        "name": "clip_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "legacy_clip_id",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_file_id",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "source",
+        "type": "source_code",
+        "nullable": false
+      },
+      {
+        "name": "source_revision",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "file_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "recording_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "group_key",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "substratum",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "negative_stratum",
+        "type": "negative_stratum",
+        "nullable": true
+      },
+      {
+        "name": "label",
+        "type": "binary",
+        "nullable": false
+      },
+      {
+        "name": "label_basis",
+        "type": "label_basis",
+        "nullable": false
+      },
+      {
+        "name": "label_weak",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "start_sample_16k",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "n_samples",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_rate",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "exact_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "near_silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "partial_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "clipped_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "dc_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "crop_all_zero",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "stats_eligible",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "candidate_role",
+        "type": "candidate_role",
+        "nullable": false
+      },
+      {
+        "name": "kept",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "exclusion_reason",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "duplicate_representative",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "pinned",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "split",
+        "type": "split",
+        "nullable": false
+      },
+      {
+        "name": "derived_relpath",
+        "type": "relative_path",
+        "nullable": true
+      }
+    ],
+    "test.csv": [
+      {
+        "name": "clip_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "legacy_clip_id",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_file_id",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "source",
+        "type": "source_code",
+        "nullable": false
+      },
+      {
+        "name": "source_revision",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "file_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "recording_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "group_key",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "substratum",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "negative_stratum",
+        "type": "negative_stratum",
+        "nullable": true
+      },
+      {
+        "name": "label",
+        "type": "binary",
+        "nullable": false
+      },
+      {
+        "name": "label_basis",
+        "type": "label_basis",
+        "nullable": false
+      },
+      {
+        "name": "label_weak",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "start_sample_16k",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "n_samples",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_rate",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "exact_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "near_silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "partial_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "clipped_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "dc_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "crop_all_zero",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "stats_eligible",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "candidate_role",
+        "type": "candidate_role",
+        "nullable": false
+      },
+      {
+        "name": "kept",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "exclusion_reason",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "duplicate_representative",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "pinned",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "split",
+        "type": "split",
+        "nullable": false
+      },
+      {
+        "name": "derived_relpath",
+        "type": "relative_path",
+        "nullable": true
+      }
+    ],
+    "ood.csv": [
+      {
+        "name": "clip_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "legacy_clip_id",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_file_id",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "source",
+        "type": "source_code",
+        "nullable": false
+      },
+      {
+        "name": "source_revision",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "file_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "recording_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "group_key",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "substratum",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "negative_stratum",
+        "type": "negative_stratum",
+        "nullable": true
+      },
+      {
+        "name": "label",
+        "type": "binary",
+        "nullable": false
+      },
+      {
+        "name": "label_basis",
+        "type": "label_basis",
+        "nullable": false
+      },
+      {
+        "name": "label_weak",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "start_sample_16k",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "n_samples",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_rate",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "exact_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "near_silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "partial_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "clipped_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "dc_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "crop_all_zero",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "stats_eligible",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "candidate_role",
+        "type": "candidate_role",
+        "nullable": false
+      },
+      {
+        "name": "kept",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "exclusion_reason",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "duplicate_representative",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "pinned",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "split",
+        "type": "split",
+        "nullable": false
+      },
+      {
+        "name": "derived_relpath",
+        "type": "relative_path",
+        "nullable": true
+      }
+    ],
+    "reservoir_train.csv": [
+      {
+        "name": "clip_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "legacy_clip_id",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_file_id",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "source",
+        "type": "source_code",
+        "nullable": false
+      },
+      {
+        "name": "source_revision",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "file_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "recording_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "group_key",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "substratum",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "negative_stratum",
+        "type": "negative_stratum",
+        "nullable": true
+      },
+      {
+        "name": "label",
+        "type": "binary",
+        "nullable": false
+      },
+      {
+        "name": "label_basis",
+        "type": "label_basis",
+        "nullable": false
+      },
+      {
+        "name": "label_weak",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "start_sample_16k",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "n_samples",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_rate",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "sample_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "exact_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "near_silent",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "partial_zero",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "clipped_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "dc_flag",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "crop_all_zero",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "stats_eligible",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "candidate_role",
+        "type": "candidate_role",
+        "nullable": false
+      },
+      {
+        "name": "kept",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "exclusion_reason",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "duplicate_representative",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "pinned",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "split",
+        "type": "split",
+        "nullable": false
+      },
+      {
+        "name": "derived_relpath",
+        "type": "relative_path",
+        "nullable": true
+      }
+    ],
+    "quarantine_manifest.csv": [
+      {
+        "name": "source_file_id",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "source",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "relative_path",
+        "type": "relative_path",
+        "nullable": false
+      },
+      {
+        "name": "file_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "bytes",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "nullable": false
+      }
+    ],
+    "label_register.csv": [
+      {
+        "name": "source_file_id",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "source",
+        "type": "source_code",
+        "nullable": false
+      },
+      {
+        "name": "source_class",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "label",
+        "type": "binary",
+        "nullable": false
+      },
+      {
+        "name": "label_basis",
+        "type": "label_basis",
+        "nullable": false
+      },
+      {
+        "name": "label_weak",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "source_metadata_sha256",
+        "type": "sha256",
+        "nullable": true
+      }
+    ],
+    "descriptors_v51.csv": [
+      {
+        "name": "clip_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "manifest_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "split",
+        "type": "split",
+        "nullable": false
+      },
+      {
+        "name": "v51_rms_dbfs_nonzero",
+        "type": "float64",
+        "nullable": false
+      },
+      {
+        "name": "v51_rolloff99_hz",
+        "type": "float64",
+        "nullable": false
+      },
+      {
+        "name": "v51_noise_floor_db",
+        "type": "float64",
+        "nullable": false
+      },
+      {
+        "name": "v51_tilt_db_per_band",
+        "type": "float64",
+        "nullable": false
+      },
+      {
+        "name": "band_100_4000_dbfs",
+        "type": "float64",
+        "nullable": false
+      },
+      {
+        "name": "all_zero_descriptor",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "rms_missing",
+        "type": "bool",
+        "nullable": false
+      },
+      {
+        "name": "weak_positive",
+        "type": "bool",
+        "nullable": true
+      },
+      {
+        "name": "weak_positive_reason",
+        "type": "string",
+        "nullable": true
+      },
+      {
+        "name": "dist_value",
+        "type": "float64",
+        "nullable": true
+      },
+      {
+        "name": "dist_bin",
+        "type": "distance_bin",
+        "nullable": false
+      },
+      {
+        "name": "rms_decile",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "rolloff_decile",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "w_train",
+        "type": "float64",
+        "nullable": true
+      }
+    ],
+    "train_window_band_power.csv": [
+      {
+        "name": "clip_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "manifest_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "sample_sha256",
+        "type": "sha256",
+        "nullable": false
+      },
+      {
+        "name": "crop_start_frame",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "crop_start_sample_fixed_waveform",
+        "type": "int64",
+        "nullable": false
+      },
+      {
+        "name": "band_100_4000_power",
+        "type": "float64",
+        "nullable": false
+      },
+      {
+        "name": "rms_window_full_dbfs",
+        "type": "float64",
+        "nullable": false
+      }
+    ]
+  },
+  "label_weak_defaults": {
+    "ae": false,
+    "dd": false,
+    "itu_drone": false,
+    "itu_background": true,
+    "mic": true,
+    "wang": true,
+    "musan": false,
+    "cochl": false,
+    "loc": false
+  },
+  "mechanical": {
+    "retained_numeric_descriptors": false,
+    "transient_rms_and_centre_mel_allowed_for_flags": true,
+    "near_silent_dbfs": -80.0,
+    "partial_zero_fraction_gt": 0.5,
+    "clipped_abs_gte": 0.999,
+    "clipped_fraction_gt": 0.01,
+    "dc_abs_gt": 0.01,
+    "crop_flags": "unchanged V4 fix_length and power_quality_flags",
+    "test_decode_after_S9": false
+  },
+  "sampling": {
+    "positive_prior": 0.35,
+    "positive_shares_default": {
+      "ae": 0.35,
+      "itu": 0.35,
+      "dd": 0.3
+    },
+    "positive_shares_MIC_pool": {
+      "ae": 0.35,
+      "itu": 0.25,
+      "dd": 0.2,
+      "mic": 0.2
+    },
+    "negative_strata_default_no_cochl": {
+      "N1": 0.4,
+      "N2": 0.15,
+      "N3": 0.22,
+      "N4": 0.08,
+      "N5": 0.15
+    },
+    "negative_strata_with_cochl": {
+      "N1": 0.3,
+      "N2": 0.15,
+      "N3": 0.1,
+      "N4": 0.08,
+      "N5": 0.15,
+      "N6": 0.1,
+      "N7": 0.12
+    },
+    "source_cap_per_class": 0.35,
+    "group_cap_per_class": 0.015,
+    "clip_cap_reference_class_median_multiple": 105,
+    "positive_only_aggregate_cap": 0.25,
+    "negative_only_aggregate_cap": 0.35,
+    "descriptor_positive_fraction_bounds": [
+      0.21,
+      0.56
+    ],
+    "effective_size": {
+      "blocking_policy": "min(n_ref,0.8*n_ref)",
+      "reference_retention": 0.8,
+      "absolute_3000": "reported_acquisition_target_not_blocking",
+      "stratum_150": "reported_gap_not_class_failure",
+      "freeze_reference_before_descriptor_balance": true,
+      "metadata_only_authoring_sizing": {
+        "positive_reference": 1667.8456636853937,
+        "negative_reference": 3537.746644487286,
+        "positive_floor": 1334.276530948315,
+        "negative_floor": 2830.197315429828,
+        "not_a_frozen_split": true
+      }
+    }
+  },
+  "solver": {
+    "name": "OSQP",
+    "version": "1.1.3",
+    "backend": "builtin direct",
+    "reference_objective": "minimize sum(q_i^2) per class under structural constraints",
+    "final_objective": "sum_pos((w_i/.35)^2)+sum_neg((w_i/.65)^2)",
+    "settings": {
+      "eps_abs": 1e-11,
+      "eps_rel": 1e-11,
+      "max_iter": 200000,
+      "adaptive_rho": false,
+      "rho": 0.1,
+      "warm_starting": false,
+      "polishing": true,
+      "scaled_termination": false,
+      "check_termination": 25,
+      "verbose": false
+    },
+    "max_original_constraint_violation": 1e-08,
+    "negative_roundoff_zero_range": [
+      -1e-10,
+      0.0
+    ],
+    "required_status": "solved",
+    "margin_drop_order": [
+      "M3",
+      "M2"
+    ],
+    "numerical_failure_allows_drop": false
+  },
+  "random": {
+    "hash": "SHA1",
+    "prefix": "51:",
+    "key_encoding": "canonical JSON arrays of NFC strings/integers/nested arrays only; reject bool/float/null",
+    "rank": "full hexdigest then canonical key",
+    "uniform": "(int(first13hex,16)+0.5)/2^52",
+    "bernoulli": "U<p",
+    "integer": "floor(n*U)",
+    "categorical": "first normalized cumulative probability > U",
+    "purpose_key_components": {
+      "split_musan": [
+        "source_revision",
+        "relative_path"
+      ],
+      "split_cochl": [
+        "source_revision",
+        "user_id"
+      ],
+      "split_loc": [
+        "source_revision",
+        "session_id"
+      ],
+      "cap": [
+        "source",
+        "scope",
+        "candidate_id"
+      ],
+      "reservoir": [
+        "source_revision",
+        "clip_id"
+      ],
+      "file_order": [
+        "source_revision",
+        "relative_path"
+      ],
+      "bed_class": [
+        "split",
+        "snr_bin",
+        "event_index"
+      ],
+      "bed_file": [
+        "split",
+        "environment",
+        "event_index"
+      ],
+      "bed_start": [
+        "split",
+        "source_file_id_or_pair_id",
+        "event_index"
+      ],
+      "event_group": [
+        "split",
+        "source",
+        "snr_bin",
+        "event_index"
+      ],
+      "event_start": [
+        "split",
+        "group_key",
+        "snr_bin",
+        "event_index"
+      ],
+      "bootstrap": [
+        "environment",
+        "split",
+        "replicate_index",
+        "replacement_draw_index"
+      ],
+      "parity": [
+        "test_rate",
+        "clip_id"
+      ],
+      "mix_check": [
+        "base_clip_id",
+        "donor_clip_id",
+        "pair_index"
+      ],
+      "mining": [
+        "round_id",
+        "stratum",
+        "clip_id"
+      ],
+      "sampler": [
+        "epoch",
+        "draw_index"
+      ],
+      "synthetic_noise": [
+        "pair_index",
+        "component"
+      ],
+      "aug_gain": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_mix_flag": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_donor_group": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_donor_clip": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_bed_gain": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_snr": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_response_flag": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_hp": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_lp_flag": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_lp": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_tilt": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_ripple": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_floor_flag": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "aug_floor_rms": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "crop_base": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ],
+      "crop_donor": [
+        "epoch",
+        "draw_index",
+        "clip_id",
+        "parameter",
+        "component_index"
+      ]
+    },
+    "split_exception": "SGKF shuffle=true random_state=51; exact recorded scikit-learn version and sorted clip_id input"
+  },
+  "augmentation": {
+    "order": [
+      "A5_crop",
+      "A2_mix",
+      "A1_gain",
+      "A3_response",
+      "A4_floor",
+      "log",
+      "normalize"
+    ],
+    "gain_db": [
+      -36.0,
+      6.0
+    ],
+    "positive_mix_probability": 0.6,
+    "negative_mix_probability": 0.4,
+    "positive_snr_db": [
+      -12.0,
+      20.0
+    ],
+    "negative_snr_db": [
+      -5.0,
+      20.0
+    ],
+    "donor_gain_db": [
+      -30.0,
+      0.0
+    ],
+    "response_probability": 0.5,
+    "hp_corner_hz": [
+      0.0,
+      300.0
+    ],
+    "conditional_lp_probability": 0.3,
+    "lp_corner_hz": [
+      4000.0,
+      7500.0
+    ],
+    "tilt_span_db": [
+      -6.0,
+      6.0
+    ],
+    "ripple_db": [
+      -2.0,
+      2.0
+    ],
+    "ripple_knot_indices": [
+      0.0,
+      31.5,
+      63.0
+    ],
+    "floor_probability": 0.5,
+    "floor_rms_dbfs": [
+      -90.0,
+      -55.0
+    ],
+    "template_seconds": 64,
+    "A_chk_pairs": 200,
+    "A_chk_max_mean_error_db": 3.0,
+    "B6_draws": 100000,
+    "B6_domain": "A1-only full-window RMS",
+    "B6_min_mass_per_class_bin": 0.05,
+    "B6_bin_edges_dbfs": [
+      -70,
+      -60,
+      -50,
+      -40,
+      -30,
+      -20,
+      -10
+    ]
+  },
+  "event": {
+    "sample_rate": 16000,
+    "bed_samples": 320000,
+    "event_samples": 64000,
+    "placement_start": 112000,
+    "outer_ramp_samples": 4000,
+    "dip_before_join": 80,
+    "dip_after_join": 80,
+    "nominal_snr_db": [
+      20,
+      15,
+      10,
+      5,
+      0,
+      -5,
+      -10
+    ],
+    "AE_rule": "extend consecutive parsed recording clips until >=64000, take first64000; never pad/repeat; mark contiguity false",
+    "ITU_requires_per_segment_start_s": true,
+    "current_default_P6_positive_event_groups": 0,
+    "target_events_per_bin": 120,
+    "target_positive_groups": 25,
+    "detection_window_seconds": [
+      7.0,
+      10.0
+    ],
+    "new_episode_required_for_primary_detection": true,
+    "common_peak_limit": 0.99
+  },
+  "replay": {
+    "cadence_samples": 7936,
+    "cadence_seconds": 0.496,
+    "vote_count": 3,
+    "episode_merge_gap_seconds_lt": 5.0,
+    "bootstrap_replicates": 2000,
+    "rate_upper": "max(one-sided exact Poisson95, bootstrap95th percentile)",
+    "exposure": "union of scored source-time intervals, excluding quiet/gap/recovered",
+    "class_duration_cap_hours": 4.0,
+    "binding_min_hours": 0.5,
+    "future_empirical_selection_target_per_hour": 0.5,
+    "future_test_target_per_hour": 1.0,
+    "test_or_new_model_execution_authorized": false
+  },
+  "amendments": [
+    {
+      "id": "O0-A1",
+      "date": "2026-11-27",
+      "authority": "owner-approved in Codex conversation",
+      "reason": "Original OSQP settings returned minimum weight -1.6288860751502927e-9 against the fixed -1e-10 nonnegativity bound.",
+      "change": "eps_abs and eps_rel tightened from 1e-9 to 1e-11; all margins, constraints, OSQP version/backend, nonnegativity rule, and no-fallback policy remain fixed."
+    },
+    {
+      "id": "O0-A2",
+      "date": "2026-11-27",
+      "authority": "owner-approved in Codex conversation",
+      "reason": "Under O0-A1, negative ESS 2853.19 exceeded exact 80% of the fixed reference (2830.20) but fell below its ceiling-rounded floor 2900.",
+      "change": "B2 minimum is exact min(n_ref, 0.8*n_ref); remove upward rounding to 100. Positive/negative shares, source/group/clip caps, descriptor margins, solver settings and 80% reference retention remain fixed."
+    },
+    {
+      "id": "O0-A3",
+      "date": "2026-11-27",
+      "authority": "owner-approved in Codex conversation",
+      "reason": "Owner required full AE/DD/ITU inputs and a combined raw-audio ceiling of 1 GiB, selecting a deterministic MUSAN subset.",
+      "change": "Cap combined inventoried audio at 1,073,741,824 bytes; retain AE/DD/ITU in full; select complete MUSAN groups under the O0-A3 byte-quota policy. Corpus-006/split-006 is historical."
+    },
+    {
+      "id": "O0-A4",
+      "date": "2026-11-27",
+      "authority": "owner-approved continuation after O0-A3 P4 failure",
+      "reason": "O0-A3 failed B0; the owner retained the 1 GiB requirement and requested a revised deterministic MUSAN selection order.",
+      "change": "For corpus-007, reserve 20 minimum-byte speech groups and 10 minimum-byte music groups, then fill the remaining MUSAN byte allowance deterministically. Keep all O0-A2 shares, caps, margins and gates unchanged; corpus-007/split-007 P4 failed B0."
+    },
+    {
+      "id": "O0-A5",
+      "date": "2026-11-28",
+      "authority": "owner-approved continuation: retain the 1 GiB cap and amend the B0 clip cap",
+      "reason": "A metadata upper bound proves no 1 GiB MUSAN subset can pass B0 under the 20x clip cap. For the frozen O0-A4 membership, the per-stratum clip-count lower bound requires at least 104.963x.",
+      "change": "For a new split attempt only, set clip_cap_reference_class_median_multiple to 105. All other source/stratum shares, group/source caps, descriptor margins, solver settings, B2 floors, and gates remain unchanged. This is a one-attempt feasibility test, not a guarantee of B0 PASS; no further cap increase is authorized by this amendment."
+    }
+  ]
+}
