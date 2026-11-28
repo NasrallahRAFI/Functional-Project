@@ -24,6 +24,17 @@ decisions O1/O2/O3/O5 retain their plan defaults until recorded.
 **Amended plan SHA-256:** `bca93f9e1f98e82328f49b005bd6278c8f8318f37e2ecbf188f10d29ea56d3ce`
 **Amended contract SHA-256:** `6911c92b34696f351e4033b21af9ff74f0e6c49627b4987ebae87431d8fe0de4`
 
+
+## O0-A6 — P5 A-chk crop eligibility and exact B6 expected mass
+
+**Date:** 2026-11-28
+**Decision:** The owner authorized one amendment with two changes, followed by one new P5 attempt on the same frozen split-008. No upstream artifacts are rebuilt.
+**Parent binding:** O0-A5 plan `6a27c99f960e4e0520709216cf204e5890eca6e30ebbb438d7934f300af9f5a1`; contract `6911c92b34696f351e4033b21af9ff74f0e6c49627b4987ebae87431d8fe0de4`; membership `81abc1824fec44b9744ec25caaadc3a064602897e3f7d754b2526e768eed92fa`.
+**A-chk change:** Assign each retained train clip one deterministic crop using the named `a_chk` crop key over its ascending bound crop lookup. Admit only unique-group candidate pairs whose selected base and donor crops both have positive 100–4000 Hz band power, then take the 200 lowest existing deterministic `mix_check` ranks. Preserve the 3 dB limit and all other check behavior. Fewer than 200 eligible pairs fails; no post-selection replacements.
+**B6 change:** Replace the 100,000-draw gate with exact expected bin mass. Integrate each crop RMS over the unchanged uniform A1 gain `[-36,+6)` dB, average over the clip's bound crop rows, weight by P4 train weights, and normalize within each class. The six fixed bins and 5% per-class floor remain unchanged. The prior attempt's 100,000-draw shares are retained as informational evidence only.
+**Unchanged:** split-008 membership and all upstream manifests, P4 weights, 3 dB A-chk limit, B6 5% floor, six bins, gain range, augmentation, and every other P5/P6/P7 rule. No sampling/range/threshold retry is authorized. The O0-A5 frozen split remains byte-identical; the P5 artifact must record this O0-A6 parent binding.
+**Prior Monte Carlo information only:** attempt `p5-windows-20261128T121057-2419f237`; class 0 shares `[0.12244109694862881, 0.18277327153341058, 0.20414059482425648, 0.15762070297412129, 0.11426805716492855, 0.04993433758207802]`, class 1 shares `[0.13119773210489014, 0.19991495393338057, 0.21545003543586108, 0.16274982282069456, 0.12439404677533664, 0.05267186392629341]`. These values do not participate in the O0-A6 B6 decision.
+
 The prior corpus-003/split-003 and attempts remain preserved under their original hashes. Rebuild and register a new corpus/split/cache identity before connecting the amended preparation to `study-v5-1`.
 
 

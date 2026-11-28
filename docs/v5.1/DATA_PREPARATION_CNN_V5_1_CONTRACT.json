@@ -2,8 +2,8 @@
   "schema_version": 1,
   "plan_id": "DATA_PREPARATION_CNN_V5_1_FINAL",
   "prepared_date": "2026-11-27",
-  "status": "FINAL_DOCUMENT_PENDING_O0_EXECUTION_APPROVAL",
-  "execution_authorized": false,
+  "status": "O0-A6_AUTHORIZED_P5_ONLY",
+  "execution_authorized": true,
   "seed": 51,
   "defaults": {
     "O0": "no_execution",
@@ -1747,7 +1747,6 @@
     "template_seconds": 64,
     "A_chk_pairs": 200,
     "A_chk_max_mean_error_db": 3.0,
-    "B6_draws": 100000,
     "B6_domain": "A1-only full-window RMS",
     "B6_min_mass_per_class_bin": 0.05,
     "B6_bin_edges_dbfs": [
@@ -1758,6 +1757,13 @@
       -30,
       -20,
       -10
+    ],
+    "A_chk_eligible_pair_rule": "Select one deterministic crop per retained train clip using integer(crop_base,[0,0,clip_id,\"a_chk\",0],crop_count); keep candidate pairs only when both bound crops have positive 100-4000 Hz band power; retain distinct-group and donor-stratum requirements; rank eligible pairs by existing mix_check key and use first 200.",
+    "B6_method": "exact_expected_mass_integral_over_uniform_A1_gain_and_bound_crop_windows",
+    "B6_historical_draws_informational_only": 100000,
+    "B6_gain_db": [
+      -36.0,
+      6.0
     ]
   },
   "event": {
@@ -1838,6 +1844,47 @@
       "authority": "owner-approved continuation: retain the 1 GiB cap and amend the B0 clip cap",
       "reason": "A metadata upper bound proves no 1 GiB MUSAN subset can pass B0 under the 20x clip cap. For the frozen O0-A4 membership, the per-stratum clip-count lower bound requires at least 104.963x.",
       "change": "For a new split attempt only, set clip_cap_reference_class_median_multiple to 105. All other source/stratum shares, group/source caps, descriptor margins, solver settings, B2 floors, and gates remain unchanged. This is a one-attempt feasibility test, not a guarantee of B0 PASS; no further cap increase is authorized by this amendment."
+    },
+    {
+      "id": "O0-A6",
+      "date": "2026-11-28",
+      "authority": "owner-authorized in Codex conversation",
+      "reason": "One fixed A-chk crop pair had zero band power, and the fixed 100000-draw B6 gate narrowly missed the class 0 final-bin floor.",
+      "change": "For P5 only, prefilter deterministic crop pairs to positive base/donor band power before selecting the first 200 under the existing mix_check rank; replace B6 Monte Carlo shares with exact expected mass under the same weights, crop-window distribution, six bins, 5% floor and uniform [-36,+6) dB A1 gain. Prior 100000-draw result is informational only. No upstream rebuild."
     }
-  ]
+  ],
+  "amendment": {
+    "id": "O0-A6",
+    "scope": [
+      "P5.A-chk_crop_eligibility",
+      "P5.B6_expected_mass_method"
+    ],
+    "parent_plan_sha256": "6a27c99f960e4e0520709216cf204e5890eca6e30ebbb438d7934f300af9f5a1",
+    "parent_contract_sha256": "6911c92b34696f351e4033b21af9ff74f0e6c49627b4987ebae87431d8fe0de4",
+    "parent_membership_sha256": "81abc1824fec44b9744ec25caaadc3a064602897e3f7d754b2526e768eed92fa",
+    "upstream_rebuild_authorized": false,
+    "historical_monte_carlo_reference": {
+      "attempt_id": "p5-windows-20261128T121057-2419f237",
+      "draws": 100000,
+      "informational_only": true,
+      "per_class_bin_share": {
+        "0": [
+          0.12244109694862881,
+          0.18277327153341058,
+          0.20414059482425648,
+          0.15762070297412129,
+          0.11426805716492855,
+          0.04993433758207802
+        ],
+        "1": [
+          0.13119773210489014,
+          0.19991495393338057,
+          0.21545003543586108,
+          0.16274982282069456,
+          0.12439404677533664,
+          0.05267186392629341
+        ]
+      }
+    }
+  }
 }

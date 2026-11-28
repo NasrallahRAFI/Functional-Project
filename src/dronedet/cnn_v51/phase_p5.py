@@ -40,6 +40,30 @@ def _hash_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def validate_p5_authorization(frozen: dict[str, Any]) -> dict[str, Any]:
+    """Validate current P5 authority against the immutable split parent binding."""
+    contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    current_contract_hash = _hash_file(CONTRACT_PATH)
+    if current_contract_hash == frozen.get("contract_sha256"):
+        return {"amendment_id": None, "contract_sha256": current_contract_hash}
+    amendment = contract.get("amendment")
+    if not isinstance(amendment, dict) or amendment.get("id") != "O0-A6":
+        raise ValueError("P5 contract differs from frozen split without an applicable amendment")
+    expected_scope = ["P5.A-chk_crop_eligibility", "P5.B6_expected_mass_method"]
+    if amendment.get("scope") != expected_scope or amendment.get("upstream_rebuild_authorized") is not False:
+        raise ValueError("O0-A6 scope or upstream-rebuild boundary is invalid")
+    if amendment.get("parent_plan_sha256") != frozen.get("plan_sha256"):
+        raise ValueError("O0-A6 parent plan differs from frozen split")
+    if amendment.get("parent_contract_sha256") != frozen.get("contract_sha256"):
+        raise ValueError("O0-A6 parent contract differs from frozen split")
+    if amendment.get("parent_membership_sha256") != frozen.get("membership_sha256"):
+        raise ValueError("O0-A6 parent membership differs from frozen split")
+    return {"amendment_id": "O0-A6", "parent_plan_sha256": amendment["parent_plan_sha256"],
+            "parent_contract_sha256": amendment["parent_contract_sha256"],
+            "parent_membership_sha256": amendment["parent_membership_sha256"],
+            "contract_sha256": current_contract_hash}
+
+
 def _band_power(audio: np.ndarray, sr: int) -> float:
     f, density = periodogram(np.asarray(audio, dtype=np.float64), fs=sr, window="boxcar",
                              detrend=False, return_onesided=True, scaling="density")
@@ -67,7 +91,8 @@ def _top_mix_pairs_for_bases(args):
 
 def _a_check_pairs(train_rows: Iterable[dict[str, Any]]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     rows = sorted((dict(row) for row in train_rows
-                   if row.get("split") == "train" and row.get("kept") is True),
+                   if row.get("split") == "train" and row.get("kept") is True
+                   and float(row.get("a_chk_band_100_4000_power", 1.0)) > 0.0),
                   key=lambda r: str(r["clip_id"]))
     donors = sorted((row for row in rows if int(row["label"]) == 0
                      and row.get("negative_stratum") in {"N1", "N5", "N6", "N7"}),
@@ -127,8 +152,6 @@ def build_p5_cache(
     lookup: list[dict[str, Any]] = []
     train_manifests = [dict(row) for row in manifests if row["split"] == "train"]
     val_manifests = [dict(row) for row in manifests if row["split"] == "val"]
-    a_pairs = _a_check_pairs(train_manifests)
-    a_ids = {str(row["clip_id"]) for pair in a_pairs for row in pair}
     a_waveforms: dict[str, np.ndarray] = {}
     manifest_hash = {"train": train_manifest_sha256, "val": val_manifest_sha256}
     for split in ("train", "val"):
@@ -161,8 +184,6 @@ def build_p5_cache(
                                         "sample_sha256": str(row["sample_sha256"]), "power": crop_power,
                                         "rms_window_full_dbfs": _rms_dbfs(fixed)})
             if split_name == "train":
-                if str(row["clip_id"]) in a_ids:
-                    a_waveforms[str(row["clip_id"])] = fixed.copy()
                 frames = crop_power.shape[1]
                 if frames < config.n_win:
                     raise ValueError("P5 feature cache has fewer than n_win frames")
@@ -181,13 +202,51 @@ def build_p5_cache(
             del waveform, fixed
         del audio
 
+    lookup_by_clip: dict[str, list[dict[str, Any]]] = {}
+    for item in lookup:
+        lookup_by_clip.setdefault(str(item["clip_id"]), []).append(item)
+    a_check_rows: list[dict[str, Any]] = []
+    for row in train_manifests:
+        items = sorted(lookup_by_clip.get(str(row["clip_id"]), []),
+                       key=lambda item: int(item["crop_start_frame"]))
+        if not items:
+            raise ValueError(f"A-chk crop lookup missing for {row['clip_id']}")
+        crop_index = integer("crop_base", _aug_key(0, 0, str(row["clip_id"]), "a_chk"), len(items))
+        crop = items[crop_index]
+        a_check_rows.append(dict(row) | {
+            "a_chk_crop_start_frame": int(crop["crop_start_frame"]),
+            "a_chk_band_100_4000_power": float(crop["band_100_4000_power"]),
+        })
+    a_pairs = _a_check_pairs(a_check_rows)
+    a_ids = {str(row["clip_id"]) for pair in a_pairs for row in pair}
+    selected_rows_by_file: dict[str, list[dict[str, Any]]] = {}
+    for row in a_check_rows:
+        if str(row["clip_id"]) in a_ids:
+            selected_rows_by_file.setdefault(str(row["source_file_id"]), []).append(row)
+    for source_id in sorted(selected_rows_by_file):
+        source = inventory[source_id]
+        path = Path(path_resolver(source))
+        if _hash_file(path) != str(source["file_sha256"]):
+            raise ValueError(f"A-chk source hash mismatch on deterministic reload: {source_id}")
+        audio = np.asarray(loader(path, config), dtype=np.float32)
+        if audio.ndim != 1 or not audio.size or not np.isfinite(audio).all():
+            raise ValueError(f"A-chk loader returned invalid waveform: {source_id}")
+        from dronedet.features import fix_length
+        for row in selected_rows_by_file[source_id]:
+            start, count = int(row["start_sample_16k"]), int(row["n_samples"])
+            sample = np.ascontiguousarray(audio[start:start + count], dtype=np.float32)
+            if len(sample) != count or standardized_sample_sha256(sample) != row["sample_sha256"]:
+                raise ValueError(f"A-chk frozen sample identity mismatch: {row['clip_id']}")
+            a_waveforms[str(row["clip_id"])], _ = fix_length(sample, config)
+        del audio
+
     for split in ("train", "val"):
         outputs[split].sort(key=lambda r: r["clip_id"])
         caches[split] = pack_power_cache(outputs[split], config.n_mels)
     train_items = {item["clip_id"]: item["power"] for item in outputs["train"]}
     norm = Normalizer.fit(train_manifests, config, train_items)
     lookup.sort(key=lambda row: (row["clip_id"], row["crop_start_frame"]))
-    a_check = a_check_mix_approximation(train_manifests, a_waveforms, config=config)
+    a_check = a_check_mix_approximation(a_check_rows, a_waveforms, config=config)
     noise_template = generate_noise_template(config)
     return {"caches": caches, "normalizer": norm, "band_lookup": lookup,
             "train_rows": train_manifests, "val_rows": val_manifests,
@@ -311,6 +370,7 @@ def a_check_mix_approximation(train_rows: Iterable[dict[str, Any]], waveforms: d
     selected = _a_check_pairs(rows)
     if len(selected) != pair_count:
         return {"state": "FAIL", "pair_count": len(selected), "required_pairs": pair_count,
+                "eligible_pair_count": _eligible_a_check_pair_count(rows),
                 "reason": "fewer than 200 eligible unique-group train crop pairs", "acceptance_max_mean_db": 3.0}
     selected_ids = {str(row["clip_id"]) for pair in selected for row in pair}
     if not selected_ids.issubset(waveforms):
@@ -318,6 +378,7 @@ def a_check_mix_approximation(train_rows: Iterable[dict[str, Any]], waveforms: d
     from dronedet.features import fix_length, mel_power, to_db
     errors: list[float] = []
     pair_means: list[float] = []
+    pair_records: list[dict[str, Any]] = []
     for pair_index, (base, donor) in enumerate(selected):
         b = np.asarray(waveforms[str(base["clip_id"])], dtype=np.float32)
         d = np.asarray(waveforms[str(donor["clip_id"])], dtype=np.float32)
@@ -325,19 +386,17 @@ def a_check_mix_approximation(train_rows: Iterable[dict[str, Any]], waveforms: d
         d, _ = fix_length(d, config)
         if not b.size or not d.size or b.size < config.win_samples or d.size < config.win_samples:
             raise ValueError("A-chk pair contains an ineligible frontend-length clip")
-        bframes = 1 + (b.size - config.n_fft) // config.hop
-        dframes = 1 + (d.size - config.n_fft) // config.hop
-        key_b = _aug_key(0, pair_index, str(base["clip_id"]), "start")
-        key_d = _aug_key(0, pair_index, str(donor["clip_id"]), "start")
-        bstart = integer("crop_base", key_b, bframes - config.n_win + 1) * config.hop
-        dstart = integer("crop_donor", key_d, dframes - config.n_win + 1) * config.hop
+        b_frame = int(base["a_chk_crop_start_frame"])
+        d_frame = int(donor["a_chk_crop_start_frame"])
+        bstart = b_frame * config.hop
+        dstart = d_frame * config.hop
         bclip = b[bstart:bstart + config.win_samples]
         dclip = d[dstart:dstart + config.win_samples]
         bp, dp = _band_power(bclip, config.sr), _band_power(dclip, config.sr)
         if bp <= 0 or dp <= 0:
             return {"state": "FAIL", "pair_count": pair_count, "checked_pairs": pair_index,
                     "failed_pair": [str(base["clip_id"]), str(donor["clip_id"])],
-                    "reason": "fixed selected A-chk crop has zero band power; pair list was not replaced",
+                    "reason": "O0-A6 eligible crop lookup disagrees with the waveform crop",
                     "acceptance_max_mean_db": 3.0}
         donor_gain = uniform_range("aug_bed_gain", _aug_key(0, pair_index, str(base["clip_id"]), "db"), -30., 0.)
         dgain_amp = 10 ** (donor_gain / 20.)
@@ -350,12 +409,38 @@ def a_check_mix_approximation(train_rows: Iterable[dict[str, Any]], waveforms: d
         db_power = to_db(power_mix, config).astype(np.float64)
         pair_error = np.abs(db_wave - db_power)
         pair_means.append(float(pair_error.mean()))
+        pair_records.append({"base_clip_id": str(base["clip_id"]),
+                             "donor_clip_id": str(donor["clip_id"]),
+                             "base_crop_start_frame": b_frame,
+                             "donor_crop_start_frame": d_frame,
+                             "base_band_power": bp, "donor_band_power": dp,
+                             "mean_absolute_db_error": float(pair_error.mean())})
         errors.extend(pair_error.reshape(-1).tolist())
     mean_error = float(np.mean(errors, dtype=np.float64))
     return {"state": "PASS" if mean_error <= 3.0 else "FAIL", "pair_count": pair_count,
+            "eligible_pair_count": _eligible_a_check_pair_count(rows),
+            "crop_selection": "per_clip_keyed_uniform_over_bound_train_crops_then_positive_band_power_filter",
             "mean_absolute_db_error": mean_error,
             "per_pair_error_quantiles_db": np.quantile(pair_means, [0., .25, .5, .75, .95, 1.], method="linear").tolist(),
-            "pair_mean_error_db": pair_means, "acceptance_max_mean_db": 3.0}
+            "pair_mean_error_db": pair_means, "selected_pairs": pair_records,
+            "acceptance_max_mean_db": 3.0}
+
+
+def _eligible_a_check_pair_count(rows: list[dict[str, Any]]) -> int:
+    eligible = [row for row in rows if float(row.get("a_chk_band_100_4000_power", 1.0)) > 0.0]
+    donors = [row for row in eligible if int(row["label"]) == 0
+              and row.get("negative_stratum") in {"N1", "N5", "N6", "N7"}]
+    row_groups: dict[str, int] = {}
+    donor_groups: dict[str, int] = {}
+    for row in eligible:
+        group = str(row["group_key"])
+        row_groups[group] = row_groups.get(group, 0) + 1
+    for row in donors:
+        group = str(row["group_key"])
+        donor_groups[group] = donor_groups.get(group, 0) + 1
+    return len(eligible) * len(donors) - sum(
+        row_groups.get(group, 0) * count for group, count in donor_groups.items()
+    )
 
 
 def write_p5_artifacts(output_directory: str | Path, result: dict[str, Any], *, config) -> dict[str, Any]:
@@ -386,7 +471,9 @@ def write_p5_artifacts(output_directory: str | Path, result: dict[str, Any], *, 
                         source_sha256=np.asarray(template["source_sha256"]),
                         array_sha256=np.asarray(template["array_sha256"]))
     hashes[template_path.name] = _hash_file(template_path)
+    contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
     summary = {"study_id": "study-v5-1", "contract_sha256": hashlib.sha256(CONTRACT_PATH.read_bytes()).hexdigest(),
+               "amendment": contract.get("amendment"),
                **result["bindings"],
                "train_rows": len(result["train_rows"]), "val_rows": len(result["val_rows"]),
                "train_crop_rows": len(result["band_lookup"]), "normalizer": result["normalizer"].fit_record,
@@ -496,11 +583,11 @@ def model_input(power: np.ndarray, normalizer: Normalizer, config, *, row: dict[
 
 
 def b6_level_gate(train_rows: Iterable[dict[str, Any]], crop_lookup: Iterable[dict[str, Any]],
-                  weights: dict[str, float], *, draws: int = 100_000) -> dict[str, Any]:
-    """Evaluate fixed epoch-zero weighted draws for A1-only full-window RMS coverage."""
+                  weights: dict[str, float]) -> dict[str, Any]:
+    """Integrate exact weighted A1-only RMS-bin mass over the uniform gain."""
     rows = sorted((dict(r) for r in train_rows), key=lambda r: str(r["clip_id"]))
-    if not rows or draws != 100_000:
-        raise ValueError("B6 requires train rows and exactly 100,000 draws")
+    if not rows:
+        raise ValueError("B6 requires train rows")
     if set(weights) != {str(r["clip_id"]) for r in rows}:
         raise ValueError("B6 weights must cover exactly the frozen train IDs")
     crop_by_clip: dict[str, list[dict[str, Any]]] = {}
@@ -512,28 +599,49 @@ def b6_level_gate(train_rows: Iterable[dict[str, Any]], crop_lookup: Iterable[di
         raise ValueError("B6 crop lookup must cover exactly the frozen train IDs")
     ids = [str(row["clip_id"]) for row in rows]
     probabilities = np.asarray([float(weights[clip_id]) for clip_id in ids], dtype=np.float64)
-    if not np.isfinite(probabilities).all() or np.any(probabilities <= 0):
-        raise ValueError("B6 weights must be finite and positive")
-    cumulative = np.cumsum(probabilities / probabilities.sum())
-    classes = {0: np.zeros(6, dtype=np.int64), 1: np.zeros(6, dtype=np.int64)}
-    out_of_range = {0: 0, 1: 0}
-    for draw in range(draws):
-        # Sampling follows the fitted train weights with a deterministic contract key.
-        selected = rows[min(int(np.searchsorted(cumulative, uniform("sampler", [0, draw]), side="right")), len(rows) - 1)]
-        clip_id = str(selected["clip_id"])
-        crops = crop_by_clip[clip_id]
-        crop_index = integer("crop_base", _aug_key(0, draw, clip_id, "start"), len(crops))
-        label, rms = int(selected["label"]), float(crops[crop_index]["rms_window_full_dbfs"])
-        gain = uniform_range("aug_gain", _aug_key(0, draw, str(selected["clip_id"]), "db"), -36., 6.)
-        level = rms + gain
-        edges = [-70, -60, -50, -40, -30, -20, -10]
-        bin_index = int(np.searchsorted(edges, level, side="right") - 1)
-        if 0 <= bin_index < 6:
-            classes[label][bin_index] += 1
-        else:
-            out_of_range[label] += 1
-    total_by_class = {label: int(classes[label].sum() + out_of_range[label]) for label in classes}
-    shares = {label: (classes[label] / max(total_by_class[label], 1)).tolist() for label in classes}
+    total_weight = float(probabilities.sum())
+    if (
+        not np.isfinite(probabilities).all()
+        or np.any(probabilities < 0)
+        or not np.isfinite(total_weight)
+        or total_weight <= 0
+    ):
+        raise ValueError("B6 weights must be finite, nonnegative, and have positive total weight")
+    edges = [-70., -60., -50., -40., -30., -20., -10.]
+    gain_low, gain_high = -36., 6.
+    shares: dict[int, list[float]] = {}
+    out_of_range: dict[int, float] = {}
+    class_weight: dict[int, float] = {}
+    for label in (0, 1):
+        class_rows = [row for row, weight in zip(rows, probabilities)
+                      if int(row["label"]) == label and float(weight) > 0.0]
+        denominator = sum(float(weights[str(row["clip_id"])]) for row in class_rows)
+        if denominator <= 0.0:
+            raise ValueError(f"B6 class {label} has no positive train weight")
+        class_weight[label] = denominator
+        expected = np.zeros(6, dtype=np.float64)
+        outside = 0.0
+        for row in class_rows:
+            clip_id = str(row["clip_id"])
+            crops = crop_by_clip[clip_id]
+            clip_mass = np.zeros(6, dtype=np.float64)
+            clip_outside = 0.0
+            for crop in crops:
+                rms = float(crop["rms_window_full_dbfs"])
+                bin_mass = np.asarray([
+                    max(0.0, min(gain_high, edge_hi - rms) - max(gain_low, edge_lo - rms))
+                    / (gain_high - gain_low)
+                    for edge_lo, edge_hi in zip(edges[:-1], edges[1:])
+                ], dtype=np.float64)
+                clip_mass += bin_mass / len(crops)
+                clip_outside += max(0.0, 1.0 - float(bin_mass.sum())) / len(crops)
+            weight_share = float(weights[clip_id]) / denominator
+            expected += weight_share * clip_mass
+            outside += weight_share * clip_outside
+        shares[label] = expected.tolist()
+        out_of_range[label] = outside
     passes = all(float(value) >= .05 for label in shares for value in shares[label])
-    return {"state": "PASS" if passes else "FAIL", "draws": draws, "bin_edges_dbfs": [-70, -60, -50, -40, -30, -20, -10],
-            "per_class_bin_share": shares, "out_of_range_count": out_of_range, "acceptance_min_share": .05}
+    return {"state": "PASS" if passes else "FAIL", "method": "exact_expected_mass_uniform_gain_integral",
+            "gain_db": [gain_low, gain_high], "bin_edges_dbfs": edges,
+            "per_class_bin_share": shares, "out_of_range_expected_mass": out_of_range,
+            "class_weight_total": class_weight, "acceptance_min_share": .05}

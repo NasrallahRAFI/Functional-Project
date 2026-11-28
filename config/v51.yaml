@@ -148,7 +148,6 @@ augmentation:
   template_seconds: 64
   A_chk_pairs: 200
   A_chk_max_mean_error_db: 3.0
-  B6_draws: 100000
   B6_domain: A1-only full-window RMS
   B6_min_mass_per_class_bin: 0.05
   B6_bin_edges_dbfs:
@@ -159,6 +158,12 @@ augmentation:
   - -30
   - -20
   - -10
+  A_chk_eligible_pair_rule: 'Select one deterministic crop per retained train clip using integer(crop_base,[0,0,clip_id,"a_chk",0],crop_count); keep candidate pairs only when both bound crops have positive 100-4000 Hz band power; retain distinct-group and donor-stratum requirements; rank eligible pairs by existing mix_check key and use first 200.'
+  B6_method: exact_expected_mass_integral_over_uniform_A1_gain_and_bound_crop_windows
+  B6_historical_draws_informational_only: 100000
+  B6_gain_db:
+  - -36.0
+  - 6.0
 replay:
   cadence_samples: 7936
   cadence_seconds: 0.496
@@ -174,5 +179,5 @@ replay:
   test_or_new_model_execution_authorized: false
 approval:
   o0: true
-  plan_sha256: 6a27c99f960e4e0520709216cf204e5890eca6e30ebbb438d7934f300af9f5a1
-  contract_sha256: 6911c92b34696f351e4033b21af9ff74f0e6c49627b4987ebae87431d8fe0de4
+  plan_sha256: a9b0f30d7ea3c93a780fe97cbd1dc0a8a2d510439d61e75a0b11b28d540ddfbf
+  contract_sha256: b4626fbff73437418e4a3185ffb1a6d2460cc23e6b1aa9bf5e868a77ac7568a4

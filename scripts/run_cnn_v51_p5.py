@@ -14,7 +14,9 @@ sys.path.insert(0, str(STUDY_ROOT / "src"))
 
 from dronedet.cnn_v51.artifacts import read_csv  # noqa: E402
 from dronedet.cnn_v51.config import load_v51_config  # noqa: E402
-from dronedet.cnn_v51.phase_p5 import build_p5_cache, b6_level_gate, write_p5_artifacts  # noqa: E402
+from dronedet.cnn_v51.phase_p5 import (  # noqa: E402
+    b6_level_gate, build_p5_cache, validate_p5_authorization, write_p5_artifacts,
+)
 
 
 def _sha256(path: Path) -> str:
@@ -45,6 +47,7 @@ def main() -> int:
         raise SystemExit(f"refusing to overwrite P5 attempt: {output}")
 
     frozen = json.loads((frozen_attempt / "FROZEN.json").read_text(encoding="utf-8"))
+    validate_p5_authorization(frozen)
     for filename in ("train.csv", "val.csv", "test.csv", "ood.csv"):
         if _sha256(frozen_attempt / filename) != frozen["artifact_sha256"][filename]:
             raise SystemExit(f"frozen membership artifact hash mismatch: {filename}")

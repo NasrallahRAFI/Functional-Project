@@ -52,7 +52,9 @@ def main() -> int:
     sys.path.insert(0, str(study_root / "src"))
     from dronedet.cnn_v51.artifacts import read_csv
     from dronedet.cnn_v51.config import load_v51_config
-    from dronedet.cnn_v51.phase_p5 import build_p5_cache, b6_level_gate, write_p5_artifacts
+    from dronedet.cnn_v51.phase_p5 import (
+        b6_level_gate, build_p5_cache, validate_p5_authorization, write_p5_artifacts,
+    )
 
     frozen_attempt = args.frozen_attempt.expanduser().resolve()
     p4_attempt = args.p4_attempt.expanduser().resolve()
@@ -79,13 +81,10 @@ def main() -> int:
     contract_path = study_root / "docs" / "v5.1" / "DATA_PREPARATION_CNN_V5_1_CONTRACT.json"
     if not contract_path.is_file():
         raise SystemExit(f"missing approved V5.1 contract: {contract_path}")
-    contract_sha256 = _sha256(contract_path)
-    expected_contract_sha256 = frozen.get("contract_sha256")
-    if contract_sha256 != expected_contract_sha256:
-        raise SystemExit(
-            "approved contract hash mismatch: "
-            f"frozen={expected_contract_sha256!r}, local={contract_sha256}"
-        )
+    try:
+        validate_p5_authorization(frozen)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     budget_binding = frozen.get("group_id_grid_rules", {}).get("O0-A4_byte_budget")
     if not isinstance(budget_binding, dict):
         raise SystemExit("frozen split is missing the O0-A4 byte-budget binding")

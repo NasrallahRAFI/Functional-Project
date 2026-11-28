@@ -76,10 +76,10 @@ def load_v51_config(path: str | Path) -> V51Config:
         raise ValueError("approval must bind O0 and the exact plan/contract hashes")
     if approval["o0"] is not True:
         raise ValueError("V5.1 execution requires recorded O0")
-    if approval["plan_sha256"] != "6a27c99f960e4e0520709216cf204e5890eca6e30ebbb438d7934f300af9f5a1":
-        raise ValueError("approval plan hash does not match the approved plan")
-    if approval["contract_sha256"] != "6911c92b34696f351e4033b21af9ff74f0e6c49627b4987ebae87431d8fe0de4":
-        raise ValueError("approval contract hash does not match the approved contract")
+    if approval["plan_sha256"] != "a9b0f30d7ea3c93a780fe97cbd1dc0a8a2d510439d61e75a0b11b28d540ddfbf":
+        raise ValueError("approval plan hash does not match the O0-A6 plan")
+    if approval["contract_sha256"] != "b4626fbff73437418e4a3185ffb1a6d2460cc23e6b1aa9bf5e868a77ac7568a4":
+        raise ValueError("approval contract hash does not match the O0-A6 contract")
     return V51Config(
         frontend=shared,
         decision=dict(raw["decision"]),
