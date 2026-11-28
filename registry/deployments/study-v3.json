@@ -4,7 +4,7 @@
   "study": "study-v3",
   "workspace": "workspaces/study-v3",
   "release": "v3-one-channel-experimental",
-  "selection_sha256": "c7c733d70cf820ceb62a7545d10fe1588712946fdc928ea922603f0112e1dfe4",
+  "selection_sha256": "2dc4c1e6f87b03b5b234b0604323fba509e41b6f60f498414354eb534fdc36ad",
   "package_view": "runtime/assets/CNN_V3.0_ONE_CHANNEL",
   "model_sha256": "f727446758512fc1fd7e2a1f6b81021503a878bf1bffb6560ff54bb634206a1c",
   "threshold": 1.7455270290374756,
